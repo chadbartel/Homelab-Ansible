@@ -4,12 +4,13 @@
 
 # Use strong, unique passwords for all services
 vault_admin_password: "change_this_secure_password"
-vault_admin_ssh_key_public: "change_this_ssh_key_public"
 vault_portainer_admin_password: "change_this_portainer_password"
 vault_npm_admin_password: "change_this_npm_password"
-vault_heimdall_admin_password: "change_this_heimdall_password"
 vault_pihole_admin_password: "change_this_pihole_password"
 vault_openvpn_admin_password: "change_this_openvpn_admin_password"
-vault_openvpn_activation_key: "change_this_openvpn_activation_key"
 vault_openvpn_user1_password: "openvpn_user1_password"
 vault_openvpn_user2_password: "openvpn_user2_password"
+vault_heimdall_admin_password: "change_this_heimdall_password"
+vault_openvpn_activation_key: "change_this_openvpn_activation_key"
+vault_admin_ssh_key_public: "change_this_ssh_key_public"
+vault_openvpn_hostname: "myddnshostname.example.com"
