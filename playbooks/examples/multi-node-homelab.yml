@@ -1,0 +1,91 @@
+---
+# Complete multi-node homelab deployment
+- name: Deploy base configuration to all nodes
+  hosts: homelab_servers
+  become: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  roles:
+    - role: common
+      vars:
+        common_admin_user: "{{ admin_user }}"
+        common_admin_email: "{{ admin_email }}"
+        common_admin_password: "{{ admin_password }}"
+        common_admin_ssh_key: "{{ admin_ssh_key_public }}"
+        common_timezone: "{{ timezone | default('UTC') }}"
+      tags: [common, base]
+    
+    - role: docker
+      vars:
+        docker_users:
+          - "{{ admin_user }}"
+      tags: [docker, containers]
+
+- name: Setup Docker Swarm on manager nodes
+  hosts: manager_nodes
+  become: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  roles:
+    - role: docker_swarm
+      vars:
+        docker_swarm_role: manager
+      tags: [swarm, manager]
+
+- name: Join worker nodes to Swarm
+  hosts: worker_nodes
+  become: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  roles:
+    - role: docker_swarm
+      vars:
+        docker_swarm_role: worker
+      tags: [swarm, worker]
+
+- name: Deploy services on manager nodes
+  hosts: manager_nodes[0]
+  become: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  roles:
+    - role: portainer
+      vars:
+        portainer_mode: swarm
+        # portainer_admin_password will be inherited from vars.yml
+      tags: [portainer, management]
+      
+    - role: pihole
+      vars:
+        # pihole_web_password will be inherited from vars.yml
+        pihole_custom_dns_entries:
+          - hostname: "home.mid.night"
+            ip: "{{ ansible_host }}"
+          - hostname: "pihole.mid.night"
+            ip: "{{ ansible_host }}"
+          - hostname: "portainer.mid.night"
+            ip: "{{ ansible_host }}"
+          - hostname: "proxy.mid.night"
+            ip: "{{ ansible_host }}"
+          - hostname: "vpn.mid.night"
+            ip: "{{ ansible_host }}"
+      tags: [pihole, dns]
+
+  post_tasks:
+    - name: Display deployment completion message
+      ansible.builtin.debug:
+        msg: |
+          🎉 Homelab deployment completed successfully!
+          
+          Services deployed:
+          - Portainer: https://{{ ansible_host }}:9443
+          - Pi-hole: http://{{ ansible_host }}:8081/admin
+          
+          Next steps:
+          1. Configure NPM proxy hosts manually
+          2. Deploy additional services as needed
+          3. Configure client devices to use Pi-hole DNS

@@ -1,0 +1,28 @@
+---
+# Docker configuration tasks
+- name: Ensure Docker service is running and enabled
+  ansible.builtin.systemd_service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Configure Docker daemon
+  ansible.builtin.copy:
+    content: "{{ docker_daemon_options | to_nice_json }}"
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+    backup: true
+  notify: restart docker
+  when: docker_daemon_options is defined and docker_daemon_options | length > 0
+
+- name: Add users to docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"
+
+- name: Create docker group if it doesn't exist
+  ansible.builtin.group:
+    name: docker
+    state: present

@@ -1,0 +1,41 @@
+---
+# Global variables for homelab deployment
+# Copy this file to vars.yml and customize the values for your environment
+
+# Admin user configuration
+admin_user: thatsmidnight
+admin_email: "thatsmidnight@thatsmidnight.com"
+admin_password: "{{ vault_admin_password }}"
+admin_ssh_key_public: "{{ vault_admin_ssh_key_public }}"
+
+# Service passwords (should be stored in vault)
+portainer_admin_password: "{{ vault_portainer_admin_password }}"
+npm_admin_password: "{{ vault_npm_admin_password }}"
+openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
+heimdall_admin_password: "{{ vault_heimdall_admin_password }}"
+pihole_web_password: "{{ vault_pihole_admin_password }}"
+
+# OpenVPN configuration
+openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
+openvpn_user1_password: "{{ vault_openvpn_user1_password }}"
+openvpn_user2_password: "{{ vault_openvpn_user2_password }}"
+
+# Pi-hole configuration
+pihole_config_path: "/opt/pihole/etc-pihole"
+block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
+
+# Docker Stacks Configuration for manager nodes
+portainer_stacks:
+  - name: npm-stack
+    compose_template: npm-compose.yml.j2
+  - name: pihole-stack
+    compose_template: pihole-compose.yml.j2
+  - name: heimdall-stack
+    compose_template: heimdall-compose.yml.j2
+  - name: vpn-stack
+    compose_template: openvpn-compose.yml.j2
+
+# Network configuration
+homelab_network: "192.168.1.0/24"
+manager_node_ip: "192.168.1.10"
+gateway_ip: "192.168.1.1"

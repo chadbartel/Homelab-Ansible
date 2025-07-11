@@ -1,0 +1,31 @@
+---
+# Default variables for common role
+# User configuration
+common_admin_user: "{{ admin_user | default('homelab') }}"
+common_admin_email: "{{ admin_email | default('admin@homelab.local') }}"
+common_admin_password: "{{ admin_password | default('') }}"
+common_admin_ssh_key: "{{ admin_ssh_key_public | default('') }}"
+
+# Package configuration
+common_essential_packages:
+  - curl
+  - wget
+  - git
+  - htop
+  - vim
+  - unzip
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - python3-pip
+  - python3-venv
+
+# System configuration
+common_timezone: "{{ timezone | default('UTC') }}"
+common_update_cache: true
+common_cache_valid_time: 3600
+
+# Security configuration
+common_disable_root_login: true
+common_ssh_port: 22
+common_ssh_password_auth: false

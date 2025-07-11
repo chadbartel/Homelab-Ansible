@@ -1,0 +1,27 @@
+---
+# System configuration tasks
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+  when: common_timezone != "UTC"
+
+- name: Configure SSH security settings
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: true
+  loop:
+    - regexp: '^#?PasswordAuthentication'
+      line: "PasswordAuthentication {{ 'no' if not common_ssh_password_auth else 'yes' }}"
+    - regexp: '^#?PermitRootLogin'
+      line: "PermitRootLogin {{ 'no' if common_disable_root_login else 'yes' }}"
+    - regexp: '^#?Port'
+      line: "Port {{ common_ssh_port }}"
+  notify: restart ssh
+
+- name: Ensure SSH service is running and enabled
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: started
+    enabled: true

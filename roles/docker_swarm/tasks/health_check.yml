@@ -1,0 +1,37 @@
+---
+# Docker Swarm health check tasks
+- name: Check Swarm cluster health (managers only)
+  ansible.builtin.shell: docker node ls --filter role=manager --format "{% raw %}{{.Status}}{% endraw %}"
+  register: swarm_health
+  changed_when: false
+  failed_when: "'Ready' not in swarm_health.stdout"
+  when: docker_swarm_role == 'manager'
+
+- name: Verify all expected services are running (managers only)
+  ansible.builtin.shell: docker service ls --format "{% raw %}{{.Name}} {{.Replicas}}{% endraw %}"
+  register: service_status
+  changed_when: false
+  when: docker_swarm_role == 'manager'
+
+- name: Display service health (managers only)
+  ansible.builtin.debug:
+    msg: "Service status: {{ service_status.stdout_lines }}"
+  when: 
+    - docker_swarm_role == 'manager'
+    - service_status is defined
+
+- name: Check worker node connectivity to swarm
+  ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+  register: worker_swarm_state
+  changed_when: false
+  when: docker_swarm_role == 'worker'
+
+- name: Verify worker node is active in swarm
+  ansible.builtin.assert:
+    that:
+      - worker_swarm_state.stdout == "active"
+    fail_msg: "Worker node {{ inventory_hostname }} is not active in swarm"
+    success_msg: "Worker node {{ inventory_hostname }} is healthy"
+  when: 
+    - docker_swarm_role == 'worker'
+    - worker_swarm_state is defined

@@ -1,0 +1,110 @@
+[tool.poetry]
+name = "Homelab-Ansible"
+version = "0.1.0"
+description = "Ansible automation for my homelab."
+authors = ["thatsmidnight <10793854+thatsmidnight@users.noreply.github.com>"]
+license = "CC0-1.0"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "~3.11"
+ansible-core = "^2.18.6"
+docker = "^7.1.0"
+ansible-lint = {extras = ["yamllint"], version = "^25.6.1"}
+passlib = "^1.7.4"
+
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+pylint = "^3.3.7"
+flake8 = "^7.2.0"
+moto = "^5.1.5"
+pytest = "^8.4.0"
+pytest-cov = "^6.2.1"
+coverage = "^7.9.1"
+nox = "^2025.5.1"
+isort = "^6.0.1"
+poethepoet = "^0.34.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "tests/*",
+    "dev_test_harness.py",
+    "noxfile.py",
+    "**/__init__.py"
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_also = [
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+omit = [
+    "**/__init__.py",
+    "**/context.py",
+    "**/tests/*",
+    "**/__future/*",
+    "**/noxfile.py",
+    "**/setup.py",
+    "**/dev_test_harness.py",
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+pythonpath = ["src"]
+addopts = "-ra -sql --junitxml=junit.xml"
+markers = [
+    "slow: marks tests as slow (select with '-m \"not slow\"')",
+    "serial"
+]
+testpaths = [
+    "tests/unit",
+    "tests/integration"
+]
+
+[tool.black]
+line-length = 79
+target-version = ["py311"]
+extend-exclude = '''
+/(
+    |  .*\/deps\/*  # Exclude dependencies
+)/
+'''
+
+[tool.isort]
+profile = "black"
+py_version = 311
+line_length = 79
+wrap_length = 0
+multi_line_output = 3
+use_parentheses = true
+combine_as_imports = true
+include_trailing_comma = true
+group_by_package = true
+length_sort = true
+atomic = true
+only_sections = true
+import_heading_future = "Future"
+import_heading_stdlib = "Standard Library"
+import_heading_firstparty = "My Modules"
+import_heading_thirdparty = "Third Party"
+import_heading_localfolder = "Local Modules"
+known_localfolder = ""
+virtual_env = ".venv"
+skip = [".venv"]

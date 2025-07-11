@@ -1,0 +1,28 @@
+---
+# User management tasks
+- name: Create the admin user
+  ansible.builtin.user:
+    name: "{{ common_admin_user }}"
+    comment: "Admin User"
+    groups: sudo
+    state: present
+    shell: /bin/bash
+    password: "{{ common_admin_password | password_hash('sha512') }}"
+  when: 
+    - ansible_user != common_admin_user
+    - common_admin_password | length > 0
+
+- name: Set up SSH key authentication for the admin user
+  ansible.posix.authorized_key:
+    user: "{{ common_admin_user }}"
+    state: present
+    key: "{{ common_admin_ssh_key }}"
+  when: common_admin_ssh_key | length > 0
+
+- name: Ensure admin user can sudo without password
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/{{ common_admin_user }}
+    line: "{{ common_admin_user }} ALL=(ALL) NOPASSWD:ALL"
+    create: true
+    mode: '0440'
+    validate: '/usr/sbin/visudo -cf %s'
