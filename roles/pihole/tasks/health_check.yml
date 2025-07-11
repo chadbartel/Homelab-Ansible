@@ -1,0 +1,94 @@
+---
+# Pi-hole health check tasks
+- name: Install DNS utilities for health checks
+  ansible.builtin.apt:
+    name: 
+      - dnsutils
+      - net-tools
+    state: present
+    update_cache: true
+  become: true
+
+- name: Check Pi-hole container status
+  community.docker.docker_container_info:
+    name: "{{ pihole_container_name }}"
+  register: pihole_container_info
+
+- name: Verify Pi-hole container is running
+  ansible.builtin.assert:
+    that:
+      - pihole_container_info.container.State.Running
+    fail_msg: "Pi-hole container is not running"
+    success_msg: "Pi-hole container is running"
+
+- name: Test Pi-hole web interface
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ pihole_web_port }}/admin"
+    method: GET
+    status_code: [200]
+  register: pihole_web_check
+  retries: 5
+  delay: 10
+
+- name: Test DNS resolution with dig (primary method)
+  ansible.builtin.shell: dig @{{ ansible_host }} google.com +short +time=5 +tries=2
+  register: dns_test_dig
+  changed_when: false
+  failed_when: false
+  timeout: 15
+
+- name: Test DNS resolution with nslookup (fallback)
+  ansible.builtin.shell: nslookup google.com {{ ansible_host }}
+  register: dns_test_nslookup
+  changed_when: false
+  failed_when: false
+  timeout: 15
+  when: dns_test_dig.rc != 0
+
+- name: Test DNS resolution with host (second fallback)
+  ansible.builtin.shell: host google.com {{ ansible_host }}
+  register: dns_test_host
+  changed_when: false
+  failed_when: false
+  timeout: 15
+  when: 
+    - dns_test_dig.rc != 0
+    - dns_test_nslookup.rc != 0
+
+- name: Evaluate DNS test results
+  ansible.builtin.set_fact:
+    dns_test_success: >-
+      {{
+        dns_test_dig.rc == 0 or
+        (dns_test_nslookup.rc == 0 if dns_test_nslookup is defined else false) or
+        (dns_test_host.rc == 0 if dns_test_host is defined else false)
+      }}
+    dns_test_method: >-
+      {{
+        'dig' if dns_test_dig.rc == 0
+        else ('nslookup' if (dns_test_nslookup is defined and dns_test_nslookup.rc == 0)
+        else ('host' if (dns_test_host is defined and dns_test_host.rc == 0)
+        else 'none'))
+      }}
+
+- name: Assert DNS resolution is working
+  ansible.builtin.assert:
+    that:
+      - dns_test_success | bool
+    fail_msg: |
+      DNS resolution failed with all methods:
+      - dig result: {{ dns_test_dig.rc }} ({{ dns_test_dig.stderr | default('N/A') }})
+      - nslookup result: {{ dns_test_nslookup.rc | default('not tested') }}
+      - host result: {{ dns_test_host.rc | default('not tested') }}
+    success_msg: "DNS resolution working via {{ dns_test_method }}"
+
+- name: Display health check results
+  ansible.builtin.debug:
+    msg: |
+      ✅ Pi-hole health check results:
+      Container Status: {{ 'Running' if pihole_container_info.container.State.Running else 'Stopped' }}
+      Web Interface: {{ 'Accessible' if pihole_web_check.status == 200 else 'Failed' }}
+      DNS Resolution: {{ 'Working via ' + dns_test_method if dns_test_success else 'Failed' }}
+      DNS Test Details:
+        - dig: {{ 'Success' if dns_test_dig.rc == 0 else 'Failed (' + (dns_test_dig.stderr | default('unknown error')) + ')' }}
+        - Response: {{ dns_test_dig.stdout | default('No response') if dns_test_dig.rc == 0 else 'N/A' }}

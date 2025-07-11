@@ -1,0 +1,63 @@
+all:
+  children:
+    servers:
+      hosts:
+        pi4_01:
+          ansible_host: 192.168.1.10
+          ansible_user: thatsmidnight
+          ansible_python_interpreter: "/usr/bin/python3"
+        lenovo_server:
+          ansible_host: 192.168.1.12
+          ansible_user: thatsmidnight
+          ansible_python_interpreter: "/usr/bin/python3"
+        pi3_01:
+          ansible_host: 192.168.1.11
+          ansible_user: thatsmidnight
+          ansible_python_interpreter: "/usr/bin/python3"
+      vars:
+        # We will define the root admin user here
+        admin_user: thatsmidnight
+        admin_ssh_key_public: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCuPsLKnMJQrnRs/QxWjDwJofNGzHhK4FLJOHozWMrGolN7pkSTbNO5iDcOrYrPbmkGGOByf+8+Zr4/uDKHMfQVx5hJjbiYidBF/LMDvDIk8OiCG/F4Ugxw0uTqyoSoOkg5izKBNx78fr6CLKVKjEr2ttmF6jNgf3yycwA/nM5zW2MJ4JJaxE61/sIcXdJ5dbF7imblk0hsr+Xp84OCp3CI2JlIf7L00eS+33Jcd6duVsPT6knAyzWx+ZsroV8gXnX2vK7BIVEWGMPZ3/7v5I4Hy6GcfDDgL+f9PL2xF8JLQMAt3pY+vYGctbFpyVGAZB/YeAzZfVN3ILO39TxVVX4aGxhzrKbZWeqoEBr20X1sx1KCxdyN3zAJQtmSBgO0KCZp/lu7UPOXbXWhKTn+lW8Q7W/kmOUilRtDQsxf00ubfWdwmbf0pum8LB1ZWtbs0t5ijJebIkFH4jFXImhcyqtOZJQssUhV9oFIyVk2B7XZUynaa59eOdFJNn4wyf3V4U8= thatsmidnight@thatsmidnight.com"
+        
+        # Docker Stacks Configuration
+        portainer_stacks:
+          - name: npm-stack
+            compose_template: npm-compose.yml.j2
+          - name: pihole-stack
+            compose_template: pihole-compose.yml.j2
+          - name: heimdall-stack
+            compose_template: heimdall-compose.yml.j2
+          - name: vpn-stack
+            compose_template: openvpn-compose.yml.j2
+
+    arm_hosts:
+      hosts:
+        pi4_01:
+        pi3_01:
+
+    x86_hosts:
+      hosts:
+        lenovo_server:
+
+    manager_nodes:
+      hosts:
+        pi4_01:
+
+    worker_nodes:
+      hosts:
+        lenovo_server:
+          node_labels:
+            hostname: "lenovo_server"
+            type: "x86_worker"
+        pi3_01:
+          node_labels:
+            hostname: "pi3_01"
+            type: "arm_worker"
+
+    homelab_servers:
+      children:
+        arm_hosts:
+        x86_hosts:
+      vars:
+        # We will define the root admin user here
+        admin_user: thatsmidnight

@@ -1,0 +1,83 @@
+---
+# Destroy playbook - Complete cleanup of homelab infrastructure
+# This playbook will remove all deployed infrastructure
+
+- name: Destroy homelab infrastructure on worker nodes first
+  hosts: worker_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Check current Docker Swarm status on workers
+      ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+      register: current_swarm_state
+      changed_when: false
+
+    - name: Leave existing swarm if worker is a member
+      community.docker.docker_swarm:
+        state: absent
+        force: true
+      when: current_swarm_state.stdout == "active"
+      register: swarm_leave_result
+
+    - name: Clean up any manual Portainer agent deployments
+      community.docker.docker_container:
+        name: portainer_agent
+        state: absent
+        force_kill: true
+      failed_when: false
+
+    - name: Remove any manual docker-compose agent projects
+      community.docker.docker_compose_v2:
+        project_name: portainer_agent
+        state: absent
+      failed_when: false
+
+    - name: Clean up Docker system on workers
+      ansible.builtin.shell:
+        cmd: |
+          echo "=== Cleaning up Docker system on worker ==="
+          docker system prune -af --volumes || true
+      ignore_errors: true
+
+- name: Destroy homelab infrastructure on manager and all servers
+  hosts: homelab_servers
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Run destroy tasks
+      ansible.builtin.include_tasks: tasks/destroy.yml
+      tags: ["destroy", "cleanup"]
+
+- name: Additional cleanup for manager nodes
+  hosts: manager_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Nuclear cleanup - remove all worker nodes from manager
+      ansible.builtin.shell: |
+        echo "Performing nuclear cleanup of all worker nodes from manager..."
+        docker node ls --filter "role=worker" --format "{% raw %}{{.ID}}{% endraw %}" | \
+        while read node_id; do
+          if [ "$node_id" != "ID" ] && [ -n "$node_id" ]; then
+            echo "Force removing worker node: $node_id"
+            docker node rm --force "$node_id" || true
+          fi
+        done
+        echo "All worker nodes removed from manager."
+        docker node ls
+      register: nuclear_cleanup
+      ignore_errors: true
+
+    - name: Reset Docker Swarm on manager
+      ansible.builtin.shell:
+        cmd: |
+          echo "=== Resetting Docker Swarm on manager ==="
+          docker swarm leave --force || true
+          docker system prune -af --volumes || true
+      ignore_errors: true

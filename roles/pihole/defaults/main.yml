@@ -1,0 +1,52 @@
+---
+# Default variables for pihole role
+# Container configuration
+pihole_image: mpgirro/pihole-unbound:latest
+pihole_container_name: pihole
+pihole_hostname: pihole
+
+# Network configuration
+pihole_dns_port: 53
+pihole_web_port: 8081
+pihole_web_password: "changeme"  # Default fallback only
+
+# DNS configuration
+pihole_upstream_dns: "127.0.0.1#5335"  # Internal Unbound resolver
+pihole_listening_mode: "all"
+pihole_enable_dnssec: true
+pihole_enable_rev_servers: true
+pihole_rev_server_cidr: "192.168.1.0/24"
+pihole_rev_server_target: "192.168.1.1"
+
+# Custom DNS entries
+pihole_custom_dns_entries:
+  - hostname: "home.mid.night"
+    ip: "{{ manager_node_ip | default(ansible_default_ipv4.address) }}"
+  - hostname: "pihole.mid.night"
+    ip: "{{ manager_node_ip | default(ansible_default_ipv4.address) }}"
+  - hostname: "portainer.mid.night"
+    ip: "{{ manager_node_ip | default(ansible_default_ipv4.address) }}"
+  - hostname: "proxy.mid.night"
+    ip: "{{ manager_node_ip | default(ansible_default_ipv4.address) }}"
+  - hostname: "vpn.mid.night"
+    ip: "{{ manager_node_ip | default(ansible_default_ipv4.address) }}"
+
+# DHCP configuration (optional)
+pihole_dhcp_enabled: false
+pihole_dhcp_router: "{{ gateway_ip | default('192.168.1.1') }}"
+
+# Volume configuration
+pihole_data_path: "/opt/pihole"
+pihole_volumes:
+  - "pihole_etc:/etc/pihole"
+  - "pihole_dnsmasq:/etc/dnsmasq.d"
+
+# Timezone
+pihole_timezone: "{{ timezone | default('UTC') }}"
+
+# Block lists
+pihole_block_lists:
+  - "https://v.firebog.net/hosts/lists.php?type=tick"
+
+# API configuration
+pihole_api_enabled: true

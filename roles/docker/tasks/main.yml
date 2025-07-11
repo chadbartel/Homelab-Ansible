@@ -1,0 +1,18 @@
+---
+# Docker role main tasks
+- name: Include validation tasks
+  ansible.builtin.include_tasks: validate.yml
+  tags: [docker, validate]
+
+- name: Include installation tasks
+  ansible.builtin.include_tasks: install.yml
+  tags: [docker, install]
+
+- name: Include configuration tasks
+  ansible.builtin.include_tasks: configure.yml
+  tags: [docker, configure]
+
+- name: Include health check tasks
+  ansible.builtin.include_tasks: health_check.yml
+  when: docker_health_checks_enabled
+  tags: [docker, health]

@@ -1,0 +1,17 @@
+---
+# Validation tasks for common role
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - common_admin_user is defined and common_admin_user | length > 0
+      - common_admin_email is defined and common_admin_email | regex_search('@')
+    fail_msg: "Required common role variables are missing or invalid"
+    success_msg: "All required common role variables are properly defined"
+
+- name: Validate SSH key if provided
+  ansible.builtin.assert:
+    that:
+      - common_admin_ssh_key | length > 50
+    fail_msg: "SSH key appears to be invalid (too short)"
+    success_msg: "SSH key validation passed"
+  when: common_admin_ssh_key | length > 0

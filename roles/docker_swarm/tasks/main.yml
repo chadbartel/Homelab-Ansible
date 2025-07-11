@@ -1,0 +1,20 @@
+---
+# Docker Swarm role main tasks
+- name: Include validation tasks
+  ansible.builtin.include_tasks: validate.yml
+  tags: [docker_swarm, validate]
+
+- name: Include manager tasks
+  ansible.builtin.include_tasks: manager.yml
+  when: docker_swarm_role == 'manager'
+  tags: [docker_swarm, manager]
+
+- name: Include worker tasks
+  ansible.builtin.include_tasks: worker.yml
+  when: docker_swarm_role == 'worker'
+  tags: [docker_swarm, worker]
+
+- name: Include health check tasks
+  ansible.builtin.include_tasks: health_check.yml
+  when: docker_swarm_health_checks_enabled
+  tags: [docker_swarm, health]

@@ -1,0 +1,57 @@
+---
+# Portainer configuration tasks
+- name: Wait for Portainer to be ready
+  ansible.builtin.wait_for:
+    port: "{{ portainer_https_port }}"
+    host: "{{ ansible_host }}"
+    delay: 10
+    timeout: "{{ portainer_health_check_timeout }}"
+
+- name: Verify Portainer health
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:{{ portainer_https_port }}/api/status"
+    method: GET
+    validate_certs: false
+    status_code: [200]
+  register: portainer_health
+  retries: "{{ portainer_health_check_retries }}"
+  delay: 10
+  until: portainer_health.status == 200
+
+- name: Check if Portainer admin user already exists
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:{{ portainer_https_port }}/api/users/admin/check"
+    method: GET
+    validate_certs: false
+    status_code: [200, 204, 404]
+  register: admin_check
+  ignore_errors: true
+
+- name: Initialize Portainer admin user via API (only if not already initialized)
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:{{ portainer_https_port }}/api/users/admin/init"
+    method: POST
+    body_format: json
+    body:
+      username: "{{ portainer_admin_user }}"
+      password: "{{ portainer_admin_password }}"
+    validate_certs: false
+    status_code: [200]
+  when: admin_check.status == 404 or admin_check is failed
+  register: portainer_init
+  retries: 5
+  delay: 10
+
+- name: Display initialization result
+  ansible.builtin.debug:
+    msg: |
+      {% if admin_check.status == 200 %}
+      ✅ Portainer admin user already exists - skipping initialization
+      {% else %}
+      ✅ Portainer admin user initialized successfully
+      {% endif %}
+
+- name: Clean up admin password file
+  ansible.builtin.file:
+    path: "{{ portainer_admin_password_file }}"
+    state: absent
