@@ -1,20 +1,20 @@
 #!/bin/bash
-# Role-based validation script for Homelab Ansible Collection
+# Validation script for flat structure homelab deployment
 
 set -e
 
-echo "🔍 Validating Role-Based Homelab Ansible Project"
-echo "=============================================="
+echo "🔍 Validating Flat Structure Homelab Ansible Project"
+echo "================================================="
 
 # Check core files
 required_files=(
+    "main.yml"
     "ansible.cfg"
-    "playbooks/site.yml"
     "vars.yml"
     "vault.yml"
     "inventory.yml"
     "requirements.yml"
-    "galaxy.yml"
+    "handlers.yml"
 )
 
 for file in "${required_files[@]}"; do
@@ -26,25 +26,37 @@ for file in "${required_files[@]}"; do
     fi
 done
 
-# Check role structure
-required_roles=("common" "docker" "docker_swarm" "portainer" "pihole")
-for role in "${required_roles[@]}"; do
-    if [[ -d "roles/$role" ]] && [[ -f "roles/$role/tasks/main.yml" ]]; then
-        echo "✅ Role $role properly structured"
+# Check directory structure
+required_dirs=("tasks" "templates" "bash_scripts")
+for dir in "${required_dirs[@]}"; do
+    if [[ -d "$dir" ]]; then
+        echo "✅ $dir/ directory exists"
     else
-        echo "❌ Role $role missing or improperly structured"
+        echo "❌ $dir/ directory is missing"
         exit 1
     fi
 done
 
-# Check for legacy files that shouldn't exist
-legacy_items=("tasks/" "templates/" "main.yml" ".ansible/")
-for item in "${legacy_items[@]}"; do
-    if [[ -e "$item" ]]; then
-        echo "⚠️  Legacy item $item still exists (should be removed)"
+# Check task files
+task_files=("initial_setup.yml" "docker.yml" "portainer.yml" "deploy_stacks.yml" "post_setup.yml")
+for task in "${task_files[@]}"; do
+    if [[ -f "tasks/$task" ]]; then
+        echo "✅ tasks/$task exists"
     else
-        echo "✅ Legacy item $item properly removed"
+        echo "❌ tasks/$task is missing"
+        exit 1
     fi
 done
 
-echo "✅ All validations passed!"
+# Check template files
+template_files=("pihole-compose.yml.j2" "npm-compose.yml.j2" "heimdall-compose.yml.j2" "openvpn-compose.yml.j2")
+for template in "${template_files[@]}"; do
+    if [[ -f "templates/$template" ]]; then
+        echo "✅ templates/$template exists"
+    else
+        echo "❌ templates/$template is missing"
+        exit 1
+    fi
+done
+
+echo "✅ All validations passed! Flat structure is ready."

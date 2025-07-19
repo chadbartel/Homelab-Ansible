@@ -1,0 +1,58 @@
+---
+# Initial system setup tasks
+- name: Update apt package cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install essential packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - git
+      - htop
+      - vim
+      - unzip
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      - python3-pip
+      - python3-venv
+    state: present
+
+- name: Create admin user
+  ansible.builtin.user:
+    name: "{{ admin_user }}"
+    comment: "Admin User"
+    groups: sudo
+    state: present
+    shell: /bin/bash
+    password: "{{ admin_password | password_hash('sha512') }}"
+  when: 
+    - ansible_user != admin_user
+    - admin_password | length > 0
+
+- name: Set up SSH key authentication
+  ansible.posix.authorized_key:
+    user: "{{ admin_user }}"
+    state: present
+    key: "{{ admin_ssh_key_public }}"
+  when: admin_ssh_key_public | length > 0
+
+- name: Configure SSH security
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: true
+  loop:
+    - regexp: '^#?PasswordAuthentication'
+      line: "PasswordAuthentication no"
+    - regexp: '^#?PermitRootLogin'
+      line: "PermitRootLogin no"
+  notify: restart ssh
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ timezone }}"

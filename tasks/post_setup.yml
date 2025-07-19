@@ -1,0 +1,23 @@
+---
+# Post-setup configuration tasks
+- name: Display deployment summary
+  ansible.builtin.debug:
+    msg: |
+      🎉 Homelab deployment completed successfully!
+      
+      Services available:
+      - Portainer: https://{{ ansible_host }}:9443
+      - Pi-hole: http://{{ ansible_host }}:8081/admin
+      - NPM: http://{{ ansible_host }}:8181
+      - Heimdall: http://{{ ansible_host }}:8082
+      - OpenVPN: https://{{ ansible_host }}:943
+      
+      Next steps:
+      1. Configure services through their web interfaces
+      2. Set up reverse proxy entries in NPM
+      3. Configure client devices to use Pi-hole DNS
+
+- name: Create proxy network for services
+  community.docker.docker_network:
+    name: proxy-network
+    state: present

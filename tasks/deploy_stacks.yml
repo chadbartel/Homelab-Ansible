@@ -1,0 +1,17 @@
+---
+# Deploy Docker Compose stacks via Portainer
+- name: Deploy Docker Compose stacks
+  community.docker.docker_compose_v2:
+    project_name: "{{ item.name }}"
+    definition: "{{ lookup('template', item.compose_template) | from_yaml }}"
+    remove_orphans: true
+    state: present
+  loop: "{{ portainer_stacks }}"
+  register: stack_deployment_result
+
+- name: Display stack deployment results
+  ansible.builtin.debug:
+    msg: |
+      Stack: {{ item.item.name }}
+      Status: {{ 'Deployed' if item.changed else 'Already up to date' }}
+  loop: "{{ stack_deployment_result.results }}"

@@ -1,0 +1,78 @@
+---
+# Main playbook for homelab deployment
+- name: Apply common configuration and install Docker on all servers
+  hosts: homelab_servers
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Run initial setup tasks
+      ansible.builtin.include_tasks: tasks/initial_setup.yml
+      tags: ["initial", "setup"]
+
+    - name: Install and configure Docker
+      ansible.builtin.include_tasks: tasks/docker.yml
+      tags: ["docker", "setup"]
+
+- name: Setup Docker Swarm cluster
+  hosts: manager_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Initialize Docker Swarm on manager node
+      community.docker.docker_swarm:
+        state: present
+      register: swarm_info
+
+    - name: Display Swarm join-token for worker nodes
+      ansible.builtin.debug:
+        msg: "To add a worker to this swarm, run the following command: {{ swarm_info.swarm_facts.JoinTokens.Worker }}"
+      when: swarm_info.changed
+
+- name: Join worker nodes to Swarm
+  hosts: worker_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Check current Docker Swarm status
+      ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+      register: current_swarm_state
+      changed_when: false
+
+    - name: Get worker join token from manager
+      ansible.builtin.command: docker swarm join-token -q worker
+      register: worker_join_token
+      delegate_to: "{{ groups['manager_nodes'][0] }}"
+      when: current_swarm_state.stdout != "active"
+
+    - name: Join worker to Docker Swarm
+      community.docker.docker_swarm:
+        state: join
+        join_token: "{{ worker_join_token.stdout }}"
+        remote_addrs: 
+          - "{{ hostvars[groups['manager_nodes'][0]]['ansible_default_ipv4']['address'] }}"
+      when: current_swarm_state.stdout != "active"
+
+- name: Deploy Portainer and stacks to the manager node
+  hosts: manager_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Deploy Portainer
+      ansible.builtin.include_tasks: tasks/portainer.yml
+      tags: ["portainer", "deploy"]
+
+    - name: Deploy Docker Compose stacks
+      ansible.builtin.include_tasks: tasks/deploy_stacks.yml
+      tags: ["stacks", "deploy"]
+
+    - name: Run post-setup configuration
+      ansible.builtin.include_tasks: tasks/post_setup.yml
+      tags: ["post-setup", "configure"]
