@@ -51,13 +51,13 @@ setup:
 
 # Add back the original deploy target
 deploy: setup-ssh
-    @echo "Deploying homelab using flat structure..."
-    ./bash_scripts/ansible-wrapper.sh ansible-playbook main.yml --ask-vault-pass
+	@echo "Deploying homelab using flat structure..."
+	./bash_scripts/ansible-wrapper.sh ansible-playbook main.yml --ask-vault-pass
 
 # Keep the role-based deployments as alternatives
 deploy-roles: setup-ssh
-    @echo "Deploying homelab using role-based playbooks..."
-    ./bash_scripts/ansible-wrapper.sh ansible-playbook playbooks/site.yml --ask-vault-pass
+	@echo "Deploying homelab using role-based playbooks..."
+	./bash_scripts/ansible-wrapper.sh ansible-playbook playbooks/site.yml --ask-vault-pass
 
 # Destroy all homelab infrastructure
 destroy: setup-ssh
