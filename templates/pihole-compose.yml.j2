@@ -7,13 +7,13 @@ services:
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "{{ pihole_web_port }}:{{ pihole_dns_port | default(80) }}"
+      - "{{ pihole_web_port }}:{{ pihole_dns_port | default(80) }}/tcp"
     environment:
       TZ: '{{ timezone }}'
       FTLCONF_webserver_api_password: '{{ pihole_web_password }}'
       # Sets the upstream DNS to the internal Unbound resolver
       FTLCONF_dns_upstreams: '127.0.0.1#5335'
-      FTLCONF_dns_listeningMode: 'all'
+      FTLCONF_dns_listeningMode: 'single'
       FTLCONF_dns_revServers: 'true,192.168.1.0/24,192.168.1.1'
       FTLCONF_dns_dnssec: 'true'
       FTLCONF_dns_hosts: |
