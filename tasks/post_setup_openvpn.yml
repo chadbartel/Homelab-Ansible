@@ -23,7 +23,7 @@
 
 - name: Activate OpenVPN with activation key
   ansible.builtin.shell: |
-    docker exec openvpn sacli --key "subscription.activation_key" --value "{{ openvpn_activation_key }}" ConfigPut
+    docker exec openvpn sacli --value "{{ openvpn_activation_key }}" LoadSubscription
   register: activation_result
   retries: 3
   delay: 10
