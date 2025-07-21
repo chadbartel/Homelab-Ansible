@@ -3,8 +3,8 @@
 # Copy this file to vars.yml and customize the values for your environment
 
 # Admin user configuration
-admin_user: thatsmidnight
-admin_email: "thatsmidnight@thatsmidnight.com"
+admin_user: chadbartel
+admin_email: "me@chadbartel.com"
 admin_password: "{{ vault_admin_password }}"
 admin_ssh_key_public: "{{ vault_admin_ssh_key_public }}"
 

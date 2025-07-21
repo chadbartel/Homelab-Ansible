@@ -1,13 +1,13 @@
 ---
 services:
   pihole:
-    hostname: pihole
-    container_name: pihole
+    hostname: {{ pihole_container_name }}
+    container_name: {{ pihole_container_name }}
     image: mpgirro/pihole-unbound:latest
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "8081:80"
+      - "{{ pihole_web_port }}:{{ pihole_dns_port | default(80) }}"
     environment:
       TZ: '{{ timezone }}'
       FTLCONF_webserver_api_password: '{{ pihole_web_password }}'

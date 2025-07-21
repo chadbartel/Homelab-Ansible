@@ -1,10 +1,9 @@
 ---
 # Global variables for homelab deployment
-# Copy this file to vars.yml and customize the values for your environment
 
 # Admin user configuration
 admin_user: thatsmidnight
-admin_email: "thatsmidnight@thatsmidnight.com"
+admin_email: "me@chadbartel.com"
 admin_password: "{{ vault_admin_password }}"
 admin_ssh_key_public: "{{ vault_admin_ssh_key_public }}"
 
@@ -13,6 +12,9 @@ portainer_admin_password: "{{ vault_portainer_admin_password }}"
 npm_admin_password: "{{ vault_npm_admin_password }}"
 openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
 heimdall_admin_password: "{{ vault_heimdall_admin_password }}"
+
+# Portainer configuration
+portainer_agent_secret: ""  # Default empty
 
 # OpenVPN configuration
 openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
@@ -24,6 +26,10 @@ openvpn_hostname: "{{ vault_openvpn_hostname }}"
 pihole_config_path: "/opt/pihole/etc-pihole"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
 block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
+pihole_data_path: "/opt/pihole"
+pihole_container_name: "pihole"
+pihole_web_port: 8081  # Port for Pi-hole web interface
+pihole_dns_port: 80  # Port for Pi-hole DNS service
 
 # Docker Stacks Configuration for manager nodes
 portainer_stacks:
@@ -43,3 +49,12 @@ gateway_ip: "192.168.1.1"
 
 # Miscellaneous
 timezone: "America/Los_Angeles"
+
+# Python virtual environment configuration
+python_version: "3.11"  # Python version to use
+python_venv_name: "homelab-ansible"  # Name of the virtual environment
+python_venv_path: "/opt/{{ python_venv_name }}"  # Path to create the venv
+python_packages:
+  - docker  # Python Docker SDK
+  - requests  # Often needed by Ansible modules
+  - urllib3  # HTTP library

@@ -1,12 +1,11 @@
 ---
-# Docker installation and configuration tasks
+# Docker installation and configuration tasks - SIMPLIFIED VERSION
 - name: Install Docker prerequisite packages
   ansible.builtin.apt:
     name:
       - ca-certificates
       - curl
       - gnupg
-      - python3-pip
     state: present
     update_cache: true
 
@@ -47,19 +46,52 @@
       - docker-compose-plugin
     state: present
 
-- name: Install Python Docker SDK
+- name: Install Python Docker SDK in virtual environment
   ansible.builtin.pip:
     name: docker
     state: present
+    virtualenv: "{{ python_venv_path }}"
+    virtualenv_command: "python{{ python_version }} -m venv"
 
-- name: Ensure Docker service is running and enabled
-  ansible.builtin.systemd:
-    name: docker
-    state: started
-    enabled: true
-
-- name: Add users to docker group
+- name: Add admin user to docker group
   ansible.builtin.user:
     name: "{{ admin_user }}"
     groups: docker
     append: true
+
+- name: Apply nuclear Docker fix for lenovo_server
+  ansible.builtin.script: bash_scripts/fix-docker-socket.sh
+  when: inventory_hostname == 'lenovo_server'
+  register: docker_nuclear_fix
+
+- name: Standard Docker startup for other hosts
+  block:
+    - name: Start and enable Docker service
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    - name: Wait for Docker socket
+      ansible.builtin.wait_for:
+        path: /var/run/docker.sock
+        timeout: 30
+  when: inventory_hostname != 'lenovo_server'
+
+- name: Reset SSH connection to pick up docker group membership
+  ansible.builtin.meta: reset_connection
+
+- name: Verify Docker is working
+  ansible.builtin.command: docker info
+  register: docker_verify
+  changed_when: false
+  retries: 3
+  delay: 5
+
+- name: Display Docker status
+  ansible.builtin.debug:
+    msg: |
+      ✅ Docker successfully configured on {{ inventory_hostname }}
+      Version: {{ ansible_local.docker.version | default('Unknown') }}
+      Status: Working

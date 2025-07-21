@@ -1,83 +1,319 @@
 ---
 # Destroy playbook - Complete cleanup of homelab infrastructure
-# This playbook will remove all deployed infrastructure
+# This playbook will remove ALL deployed infrastructure and return hosts to clean state
 
-- name: Destroy homelab infrastructure on worker nodes first
-  hosts: worker_nodes
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
+- name: Display destruction warning
+  hosts: localhost
+  gather_facts: false
   tasks:
-    - name: Check current Docker Swarm status on workers
-      ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
-      register: current_swarm_state
-      changed_when: false
+    - name: Final warning before destruction
+      ansible.builtin.pause:
+        prompt: |
+          🔥🔥🔥 FINAL WARNING 🔥🔥🔥
+          
+          This will COMPLETELY DESTROY all homelab infrastructure:
+          ✗ All Docker containers, images, volumes, networks
+          ✗ All deployed services (Portainer, Pi-hole, NPM, Heimdall, OpenVPN)
+          ✗ Docker Swarm cluster configuration
+          ✗ Python virtual environments
+          ✗ Service configuration directories
+          ✗ Everything will be permanently deleted
+          
+          Type 'DESTROY_EVERYTHING' to continue (or Ctrl+C to abort)
+      register: confirmation
 
-    - name: Leave existing swarm if worker is a member
-      community.docker.docker_swarm:
-        state: absent
-        force: true
-      when: current_swarm_state.stdout == "active"
-      register: swarm_leave_result
+    - name: Verify destruction confirmation
+      ansible.builtin.fail:
+        msg: "Destruction cancelled - confirmation not received"
+      when: confirmation.user_input != "DESTROY_EVERYTHING"
 
-    - name: Clean up any manual Portainer agent deployments
-      community.docker.docker_container:
-        name: portainer_agent
-        state: absent
-        force_kill: true
-      failed_when: false
-
-    - name: Remove any manual docker-compose agent projects
-      community.docker.docker_compose_v2:
-        project_name: portainer_agent
-        state: absent
-      failed_when: false
-
-    - name: Clean up Docker system on workers
-      ansible.builtin.shell:
-        cmd: |
-          echo "=== Cleaning up Docker system on worker ==="
-          docker system prune -af --volumes || true
-      ignore_errors: true
-
-- name: Destroy homelab infrastructure on manager and all servers
-  hosts: homelab_servers
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Run destroy tasks
-      ansible.builtin.include_tasks: tasks/destroy.yml
-      tags: ["destroy", "cleanup"]
-
-- name: Additional cleanup for manager nodes
+- name: Stop and remove all Docker Compose stacks from manager
   hosts: manager_nodes
   become: true
   vars_files:
     - vars.yml
     - vault.yml
   tasks:
-    - name: Nuclear cleanup - remove all worker nodes from manager
+    - name: Remove all deployed Docker Compose stacks
+      community.docker.docker_compose_v2:
+        project_name: "{{ item.name }}"
+        state: absent
+        remove_orphans: true
+      loop: "{{ portainer_stacks }}"
+      failed_when: false
+      register: stack_removal_results
+
+    - name: Display stack removal results
+      ansible.builtin.debug:
+        msg: |
+          Stack removal results:
+          {% for result in stack_removal_results.results %}
+          - {{ result.item.name }}: {{ 'Removed' if result.changed else 'Not found or already removed' }}
+          {% endfor %}
+
+    - name: Stop all running containers before Swarm cleanup
+      ansible.builtin.shell: |
+        echo "Stopping all running containers..."
+        docker ps -q | xargs -r docker stop
+        echo "All containers stopped."
+      failed_when: false
+
+    - name: Remove all containers (including stopped ones)
+      ansible.builtin.shell: |
+        echo "Removing all containers..."
+        docker ps -aq | xargs -r docker rm -f
+        echo "All containers removed."
+      failed_when: false
+
+- name: Clean up worker nodes and remove from Swarm
+  hosts: worker_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Stop all running containers on workers
+      ansible.builtin.shell: |
+        echo "=== Stopping all containers on worker ==="
+        docker ps -q | xargs -r docker stop || true
+        echo "All containers stopped on worker."
+      failed_when: false
+
+    - name: Remove all containers on workers
+      ansible.builtin.shell: |
+        echo "=== Removing all containers on worker ==="
+        docker ps -aq | xargs -r docker rm -f || true
+        echo "All containers removed on worker."
+      failed_when: false
+
+    - name: Check current Docker Swarm status on workers
+      ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+      register: current_swarm_state
+      changed_when: false
+      failed_when: false
+
+    - name: Leave Docker Swarm if worker is a member
+      community.docker.docker_swarm:
+        state: absent
+        force: true
+      when: current_swarm_state.stdout == "active"
+      failed_when: false
+
+    - name: Clean up any Portainer agent deployments
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: absent
+        force_kill: true
+      loop:
+        - portainer_agent
+        - portainer-agent
+        - agent
+      failed_when: false
+
+    - name: Remove any Portainer agent projects
+      community.docker.docker_compose_v2:
+        project_name: "{{ item }}"
+        state: absent
+      loop:
+        - portainer_agent
+        - portainer-agent
+        - agent
+      failed_when: false
+
+    - name: Nuclear Docker cleanup on workers
+      ansible.builtin.shell:
+        cmd: |
+          echo "=== Nuclear Docker cleanup on worker ==="
+          # Stop all containers
+          docker stop $(docker ps -q) 2>/dev/null || true
+          # Remove all containers
+          docker rm -f $(docker ps -aq) 2>/dev/null || true
+          # Remove all images
+          docker rmi -f $(docker images -q) 2>/dev/null || true
+          # Remove all volumes
+          docker volume rm $(docker volume ls -q) 2>/dev/null || true
+          # Remove all networks (except defaults)
+          docker network ls --format "{% raw %}{{.Name}}{% endraw %}" | grep -v -E '^(bridge|host|none)$' | xargs -r docker network rm 2>/dev/null || true
+          # System prune everything
+          docker system prune -af --volumes || true
+          echo "Worker Docker cleanup complete."
+      failed_when: false
+
+- name: Complete cleanup on manager nodes
+  hosts: manager_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Force remove all worker nodes from Swarm manager
       ansible.builtin.shell: |
         echo "Performing nuclear cleanup of all worker nodes from manager..."
-        docker node ls --filter "role=worker" --format "{% raw %}{{.ID}}{% endraw %}" | \
+        docker node ls --filter "role=worker" --format "{% raw %}{{.ID}}{% endraw %}" 2>/dev/null | \
         while read node_id; do
           if [ "$node_id" != "ID" ] && [ -n "$node_id" ]; then
             echo "Force removing worker node: $node_id"
-            docker node rm --force "$node_id" || true
+            docker node rm --force "$node_id" 2>/dev/null || true
           fi
         done
         echo "All worker nodes removed from manager."
-        docker node ls
-      register: nuclear_cleanup
-      ignore_errors: true
+        docker node ls 2>/dev/null || echo "Swarm not active"
+      failed_when: false
 
-    - name: Reset Docker Swarm on manager
+    - name: Leave Docker Swarm on manager (force)
       ansible.builtin.shell:
         cmd: |
-          echo "=== Resetting Docker Swarm on manager ==="
+          echo "=== Leaving Docker Swarm on manager ==="
           docker swarm leave --force || true
+          echo "Manager left swarm."
+      failed_when: false
+
+    - name: Nuclear Docker cleanup on manager
+      ansible.builtin.shell:
+        cmd: |
+          echo "=== Nuclear Docker cleanup on manager ==="
+          # Stop all containers
+          docker stop $(docker ps -q) 2>/dev/null || true
+          # Remove all containers
+          docker rm -f $(docker ps -aq) 2>/dev/null || true
+          # Remove all services (if any remain)
+          docker service ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | xargs -r docker service rm 2>/dev/null || true
+          # Remove all images
+          docker rmi -f $(docker images -q) 2>/dev/null || true
+          # Remove all volumes
+          docker volume rm $(docker volume ls -q) 2>/dev/null || true
+          # Remove all networks (except defaults)
+          docker network ls --format "{% raw %}{{.Name}}{% endraw %}" | grep -v -E '^(bridge|host|none)$' | xargs -r docker network rm 2>/dev/null || true
+          # System prune everything
           docker system prune -af --volumes || true
-      ignore_errors: true
+          echo "Manager Docker cleanup complete."
+      failed_when: false
+
+- name: Clean up filesystem and configuration on all servers
+  hosts: homelab_servers
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Remove Python virtual environment
+      ansible.builtin.file:
+        path: "{{ python_venv_path }}"
+        state: absent
+      failed_when: false
+
+    - name: Remove Pi-hole data directory
+      ansible.builtin.file:
+        path: "{{ pihole_data_path }}"
+        state: absent
+      failed_when: false
+
+    - name: Remove symbolic links created during setup
+      ansible.builtin.file:
+        path: "/usr/local/bin/ansible-python"
+        state: absent
+      failed_when: false
+
+    - name: Remove any Docker data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/docker/swarm
+        - /opt/portainer
+        - /opt/npm
+        - /opt/heimdall
+        - /opt/openvpn
+        - /opt/homelab-ansible
+      failed_when: false
+
+    - name: Clean up SSH agent info files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - ~/.ssh-agent-info
+        - /root/.ssh-agent-info
+        - "/home/{{ admin_user }}/.ssh-agent-info"
+      failed_when: false
+
+    - name: Remove any leftover Docker socket files
+      ansible.builtin.shell: |
+        find /tmp -name "docker*" -type s -delete 2>/dev/null || true
+        find /var/run -name "docker*" -type s -delete 2>/dev/null || true
+      failed_when: false
+
+    - name: Final system cleanup
+      ansible.builtin.shell: |
+        echo "=== Final system cleanup ==="
+        # Clear Docker iptables rules
+        iptables -t nat -F DOCKER 2>/dev/null || true
+        iptables -t filter -F DOCKER 2>/dev/null || true
+        iptables -t filter -F DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+        iptables -t filter -F DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+        iptables -t filter -F DOCKER-USER 2>/dev/null || true
+        
+        # Remove any Docker bridge interfaces
+        ip link show | grep docker | awk '{print $2}' | sed 's/:$//' | xargs -r ip link delete 2>/dev/null || true
+        
+        # Clear any remaining processes
+        pkill -f "docker" 2>/dev/null || true
+        
+        echo "Final system cleanup complete."
+      failed_when: false
+
+- name: Verification and final status
+  hosts: homelab_servers
+  become: true
+  tasks:
+    - name: Verify Docker cleanup
+      ansible.builtin.shell: |
+        echo "=== Verification Report ==="
+        echo "Containers: $(docker ps -aq 2>/dev/null | wc -l)"
+        echo "Images: $(docker images -q 2>/dev/null | wc -l)"
+        echo "Volumes: $(docker volume ls -q 2>/dev/null | wc -l)"
+        echo "Networks: $(docker network ls --format '{% raw %}{{.Name}}{% endraw %}' 2>/dev/null | grep -v -E '^(bridge|host|none)$' | wc -l)"
+        echo "Swarm Status: $(docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}' 2>/dev/null || echo 'inactive')"
+      register: cleanup_verification
+      failed_when: false
+
+    - name: Display cleanup verification
+      ansible.builtin.debug:
+        msg: |
+          🧹 Cleanup Verification for {{ inventory_hostname }}:
+          {{ cleanup_verification.stdout }}
+
+    - name: Final success message
+      ansible.builtin.debug:
+        msg: |
+          🎉 DESTRUCTION COMPLETE! 🎉
+          
+          Host {{ inventory_hostname }} has been completely cleaned:
+          ✅ All Docker containers removed
+          ✅ All Docker images removed  
+          ✅ All Docker volumes removed
+          ✅ All Docker networks removed
+          ✅ Docker Swarm configuration cleared
+          ✅ Python virtual environments removed
+          ✅ Service data directories removed
+          ✅ Configuration files cleaned up
+          
+          The host is now ready for fresh deployment!
+
+- name: Final summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display final destruction summary
+      ansible.builtin.debug:
+        msg: |
+          🔥 HOMELAB DESTRUCTION COMPLETED SUCCESSFULLY! 🔥
+          
+          All infrastructure has been completely removed from:
+          {% for host in groups['homelab_servers'] %}
+          ✅ {{ host }} ({{ hostvars[host]['ansible_host'] }})
+          {% endfor %}
+          
+          Your homelab environment is now completely clean and ready for redeployment.
+          
+          To redeploy: make deploy

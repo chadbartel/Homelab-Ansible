@@ -5,6 +5,23 @@
     update_cache: true
     cache_valid_time: 3600
 
+- name: Add deadsnakes repository
+  ansible.builtin.apt_repository:
+    repo: "ppa:deadsnakes/ppa"
+    state: present
+    filename: deadsnakes
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_architecture == "x86_64"
+
+- name: Update apt package cache, again
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_architecture == "x86_64"
+
 - name: Install essential packages
   ansible.builtin.apt:
     name:
@@ -19,7 +36,54 @@
       - lsb-release
       - python3-pip
       - python3-venv
+      - "python{{ python_version }}"
+      - "python{{ python_version }}-venv"
+      - "python{{ python_version }}-dev"
     state: present
+
+- name: Create Python virtual environment directory
+  ansible.builtin.file:
+    path: "{{ python_venv_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: "python{{ python_version }} -m venv {{ python_venv_path }}"
+    creates: "{{ python_venv_path }}/bin/activate"
+  register: venv_created
+
+- name: Upgrade pip in virtual environment
+  ansible.builtin.pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ python_venv_path }}"
+    virtualenv_command: "python{{ python_version }} -m venv"
+
+- name: Install Python packages in virtual environment
+  ansible.builtin.pip:
+    name: "{{ python_packages }}"
+    state: present
+    virtualenv: "{{ python_venv_path }}"
+    virtualenv_command: "python{{ python_version }} -m venv"
+
+- name: Create symbolic link for system-wide access to venv python
+  ansible.builtin.file:
+    src: "{{ python_venv_path }}/bin/python"
+    dest: "/usr/local/bin/ansible-python"
+    state: link
+    force: true
+
+- name: Display virtual environment info
+  ansible.builtin.debug:
+    msg: |
+      ✅ Python virtual environment created:
+      Path: {{ python_venv_path }}
+      Python: {{ python_venv_path }}/bin/python
+      Pip: {{ python_venv_path }}/bin/pip
+      Packages installed: {{ python_packages | join(', ') }}
 
 - name: Create admin user
   ansible.builtin.user:
@@ -56,3 +120,11 @@
 - name: Set timezone
   community.general.timezone:
     name: "{{ timezone }}"
+
+- name: Create Pi-hole data directory
+  ansible.builtin.file:
+    path: "{{ pihole_data_path }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root

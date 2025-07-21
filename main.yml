@@ -15,6 +15,34 @@
       ansible.builtin.include_tasks: tasks/docker.yml
       tags: ["docker", "setup"]
 
+    - name: Verify Docker service is running
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+      register: docker_service_status
+
+    - name: Wait for Docker socket to be available
+      ansible.builtin.wait_for:
+        path: /var/run/docker.sock
+        timeout: 30
+
+    - name: Test Docker daemon connectivity
+      ansible.builtin.command:
+        cmd: docker info
+      register: docker_info_test
+      changed_when: false
+      retries: 3
+      delay: 5
+
+    - name: Display Docker status
+      ansible.builtin.debug:
+        msg: |
+          Docker status on {{ inventory_hostname }}:
+          Service: {{ 'Running' if docker_service_status.status.ActiveState == 'active' else 'Failed' }}
+          Socket: Available
+          Daemon: Connected
+
 - name: Setup Docker Swarm cluster
   hosts: manager_nodes
   become: true
@@ -39,10 +67,31 @@
     - vars.yml
     - vault.yml
   tasks:
+    - name: Ensure Docker service is running on worker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Wait for Docker daemon to be ready on worker
+      ansible.builtin.wait_for:
+        path: /var/run/docker.sock
+        timeout: 30
+
+    - name: Test Docker connectivity on worker
+      ansible.builtin.command:
+        cmd: docker version
+      register: worker_docker_test
+      changed_when: false
+      retries: 3
+      delay: 5
+
     - name: Check current Docker Swarm status
       ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
       register: current_swarm_state
       changed_when: false
+      retries: 3
+      delay: 5
 
     - name: Get worker join token from manager
       ansible.builtin.command: docker swarm join-token -q worker
