@@ -7,10 +7,6 @@
     delay: 30
     timeout: 300
 
-- name: Wait additional time for OpenVPN services to initialize
-  ansible.builtin.pause:
-    seconds: 60
-
 - name: Set OpenVPN admin password
   ansible.builtin.shell: |
     docker exec openvpn sacli --user "openvpn" --new_pass "{{ openvpn_admin_password }}" SetLocalPassword
