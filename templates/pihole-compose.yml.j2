@@ -24,6 +24,7 @@ services:
         {{ manager_node_ip }} proxy.mid.night
         {{ manager_node_ip }} vpn.mid.night
       FTLCONF_dhcp_router: '{{ gateway_ip }}'
+      FTLCONF_dns_domainNeeded: 'true'
     volumes:
       - pihole_etc:/etc/pihole
       - pihole_dnsmasq:/etc/dnsmasq.d
