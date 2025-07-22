@@ -5,6 +5,7 @@ services:
     container_name: {{ pihole_container_name }}
     image: mpgirro/pihole-unbound:2025.07.1
     ports:
+      - "445:443/tcp"
       - "53:53/tcp"
       - "53:53/udp"
       - "{{ pihole_web_port }}:{{ pihole_dns_port | default(80) }}/tcp"
@@ -31,6 +32,12 @@ services:
     restart: unless-stopped
     networks:
       - proxy-network
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == {{ pihole_target_host | default('pi4_01') }}
 
 volumes:
   pihole_etc:

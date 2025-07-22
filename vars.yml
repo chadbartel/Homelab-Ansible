@@ -30,6 +30,7 @@ pihole_data_path: "/opt/pihole"
 pihole_container_name: "pihole"
 pihole_web_port: 8081  # Port for Pi-hole web interface
 pihole_dns_port: 80  # Port for Pi-hole DNS service
+pihole_target_host: "pi4_01"  # The specific host for Pi-hole
 
 # Docker Stacks Configuration for manager nodes
 portainer_stacks:
