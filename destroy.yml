@@ -78,10 +78,10 @@
           docker rm -vf $(docker ps -aq) 2>/dev/null || true
           
           echo "Removing all services..."
-          docker service ls --format "{{.Name}}" 2>/dev/null | xargs -r docker service rm 2>/dev/null || true
+          docker service ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | xargs -r docker service rm 2>/dev/null || true
           
           echo "Removing all stacks..."
-          docker stack ls --format "{{.Name}}" 2>/dev/null | xargs -r docker stack rm 2>/dev/null || true
+          docker stack ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | xargs -r docker stack rm 2>/dev/null || true
         fi
         
         echo "✅ Phase 2 complete - All containers obliterated"
@@ -99,7 +99,7 @@
           docker builder prune -af 2>/dev/null || true
           
           echo "Removing all buildx instances..."
-          docker buildx ls --format "{{.Name}}" 2>/dev/null | grep -v default | xargs -r docker buildx rm 2>/dev/null || true
+          docker buildx ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | grep -v default | xargs -r docker buildx rm 2>/dev/null || true
         fi
         
         echo "✅ Phase 3 complete - All images obliterated"
@@ -126,7 +126,7 @@
         
         if command -v docker >/dev/null 2>&1; then
           echo "Removing all custom networks..."
-          docker network ls --format "{{.Name}}" 2>/dev/null | \
+          docker network ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | \
             grep -v -E '^(bridge|host|none)$' | \
             xargs -r docker network rm 2>/dev/null || true
           
@@ -161,7 +161,7 @@
           docker system prune -af --volumes 2>/dev/null || true
           
           echo "Manual cleanup of Docker root..."
-          docker info --format "{{.DockerRootDir}}" 2>/dev/null | xargs -r rm -rf 2>/dev/null || true
+          docker info --format "{% raw %}{{.DockerRootDir}}{% endraw %}" 2>/dev/null | xargs -r rm -rf 2>/dev/null || true
         fi
         
         # Stop Docker again after cleanup
@@ -330,8 +330,8 @@
           echo "  Containers: $(docker ps -aq 2>/dev/null | wc -l || echo '0')"
           echo "  Images: $(docker images -q 2>/dev/null | wc -l || echo '0')"
           echo "  Volumes: $(docker volume ls -q 2>/dev/null | wc -l || echo '0')"
-          echo "  Networks: $(docker network ls --format '{{.Name}}' 2>/dev/null | grep -v -E '^(bridge|host|none)$' | wc -l || echo '0')"
-          echo "  Swarm: $(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || echo 'OBLITERATED')"
+          echo "  Networks: $(docker network ls --format '{% raw %}{{.Name}}{% endraw %}' 2>/dev/null | grep -v -E '^(bridge|host|none)$' | wc -l || echo '0')"
+          echo "  Swarm: $(docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}' 2>/dev/null || echo 'OBLITERATED')"
         else
           echo "  ✅ Docker: COMPLETELY OBLITERATED"
         fi
