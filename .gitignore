@@ -191,7 +191,8 @@ pyrightconfig.json
 pyvenv.cfg
 pip-selfcheck.json
 
-# End of https://www.toptal.com/developers/gitignore/api/ansible,python,virtualenv
-
-# Ignore the vault password file
+### Ansible ###
 .vault_pass.ansible/
+roles/
+
+# End of https://www.toptal.com/developers/gitignore/api/ansible,python,virtualenv
