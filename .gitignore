@@ -6,6 +6,8 @@
 *.retry
 .vscode/
 vault.yml
+.vault_pass.ansible/
+roles/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
@@ -190,9 +192,5 @@ pyrightconfig.json
 [Ss]cripts
 pyvenv.cfg
 pip-selfcheck.json
-
-### Ansible ###
-.vault_pass.ansible/
-roles/
 
 # End of https://www.toptal.com/developers/gitignore/api/ansible,python,virtualenv
