@@ -10,6 +10,8 @@ services:
       - "8181:81"
     environment:
       DB_SQLITE_FILE: "/data/database.sqlite"
+      INITIAL_ADMIN_EMAIL: "{{ admin_email }}"
+      INITIAL_ADMIN_PASSWORD: "{{ npm_admin_password }}"
     volumes:
       - npm_data:/data
       - npm_letsencrypt:/etc/letsencrypt
