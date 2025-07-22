@@ -1,0 +1,87 @@
+---
+# Portainer deployment tasks
+- name: Create Portainer data volume
+  community.docker.docker_volume:
+    name: portainer_data
+    state: present
+
+- name: Create agent_network network for services
+  community.docker.docker_network:
+    name: agent_network
+    state: present
+    driver: overlay
+    attachable: true
+
+- name: Deploy Portainer Agent as Docker Swarm service
+  community.docker.docker_swarm_service:
+    name: portainer_agent
+    image: portainer/agent:lts
+    mode: global
+    mounts:
+      - source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        type: bind
+      - source: /var/lib/docker/volumes
+        target: /var/lib/docker/volumes
+        type: bind
+    env:
+      - "AGENT_CLUSTER_ADDR=tasks.portainer_agent"
+      - "AGENT_SECRET={{ portainer_agent_secret | default('') }}"
+    placement:
+      constraints:
+        - node.platform.os == linux
+    networks:
+      - agent_network
+    restart_config:
+      condition: any
+    state: present
+
+- name: Deploy Portainer as Docker Swarm service
+  community.docker.docker_swarm_service:
+    name: portainer_portainer
+    image: portainer/portainer-ce:lts
+    publish:
+      - published_port: 8000
+        target_port: 8000
+        protocol: tcp
+      - published_port: 9443
+        target_port: 9443
+        protocol: tcp
+    mounts:
+      - source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        type: bind
+      - source: portainer_data
+        target: /data
+        type: volume
+    placement:
+      constraints:
+        - node.role == manager
+    restart_config:
+      condition: any
+    state: present
+  register: portainer_deployment
+  retries: 3
+  delay: 30
+  until: portainer_deployment is succeeded
+
+- name: Wait for Portainer to be ready
+  ansible.builtin.wait_for:
+    port: 9443
+    host: "{{ ansible_host }}"
+    delay: 10
+    timeout: 120
+
+- name: Initialize Portainer admin user
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:9443/api/users/admin/init"
+    method: POST
+    body_format: json
+    body:
+      username: "admin"
+      password: "{{ portainer_admin_password }}"
+    validate_certs: false
+    status_code: [200, 409]
+  register: portainer_init
+  retries: 5
+  delay: 10

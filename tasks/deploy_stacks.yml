@@ -1,0 +1,40 @@
+---
+# Deploy Docker Compose stacks
+- name: Create proxy network for services
+  community.docker.docker_network:
+    name: proxy-network
+    state: present
+    driver: bridge
+    ipam_config:
+      - subnet: "172.20.0.0/16"
+        gateway: "172.20.0.1"
+
+- name: Verify proxy network exists
+  ansible.builtin.command:
+    cmd: docker network inspect proxy-network
+  register: network_check
+  changed_when: false
+
+- name: Display network information
+  ansible.builtin.debug:
+    msg: |
+      ✅ proxy-network created successfully
+      Network ID: {{ (network_check.stdout | from_json)[0].Id[:12] }}
+      Driver: {{ (network_check.stdout | from_json)[0].Driver }}
+      Subnet: {{ (network_check.stdout | from_json)[0].IPAM.Config[0].Subnet }}
+
+- name: Deploy Docker Compose stacks
+  community.docker.docker_compose_v2:
+    project_name: "{{ item.name }}"
+    definition: "{{ lookup('template', item.compose_template) | from_yaml }}"
+    remove_orphans: true
+    state: present
+  loop: "{{ portainer_stacks }}"
+  register: stack_deployment_result
+
+- name: Display stack deployment results
+  ansible.builtin.debug:
+    msg: |
+      Stack: {{ item.item.name }}
+      Status: {{ 'Deployed' if item.changed else 'Already up to date' }}
+  loop: "{{ stack_deployment_result.results }}"

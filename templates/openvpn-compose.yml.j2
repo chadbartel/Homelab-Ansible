@@ -1,0 +1,30 @@
+---
+services:
+  openvpn-as:
+    image: openvpn/openvpn-as:2.14.3-5936bcd7-Ubuntu24
+    container_name: openvpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "943:943"
+      - "1194:1194/udp"
+      - "444:443"
+    volumes:
+      - openvpn_config:/config
+    environment:
+      TZ: '{{ timezone }}'
+      OPENVPN_AS_HOST: '{{ openvpn_hostname }}'
+    restart: unless-stopped
+    networks:
+      - proxy-network
+    sysctls:
+      - net.ipv4.ip_forward=1
+
+volumes:
+  openvpn_config:
+
+networks:
+  proxy-network:
+    external: true

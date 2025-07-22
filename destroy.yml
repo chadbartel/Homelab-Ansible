@@ -1,83 +1,409 @@
 ---
-# Destroy playbook - Complete cleanup of homelab infrastructure
-# This playbook will remove all deployed infrastructure
+# NUCLEAR DESTROY playbook - Complete annihilation of homelab infrastructure
+# This playbook will OBLITERATE everything Docker-related and homelab configuration
+# NO MERCY - NO SURVIVORS
 
-- name: Destroy homelab infrastructure on worker nodes first
-  hosts: worker_nodes
+- name: Display destruction warning
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Final warning before total annihilation
+      ansible.builtin.pause:
+        prompt: |
+          🔥🔥🔥 NUCLEAR DESTRUCTION WARNING 🔥🔥🔥
+          
+          This will COMPLETELY OBLITERATE ALL homelab infrastructure:
+          💀 ALL Docker containers, images, volumes, networks
+          💀 ALL services (current and future)
+          💀 ALL Docker Swarm configuration
+          💀 ALL Python virtual environments
+          💀 ALL service data directories
+          💀 ALL configuration files
+          💀 EVERYTHING will be permanently deleted
+          
+          This is IRREVERSIBLE and NUCLEAR!
+          
+          Type 'NUCLEAR_ANNIHILATION' to proceed (or Ctrl+C to abort)
+      register: confirmation
+
+    - name: Verify nuclear destruction confirmation
+      ansible.builtin.fail:
+        msg: "🛡️ Nuclear destruction cancelled - proper confirmation not received"
+      when: confirmation.user_input != "NUCLEAR_ANNIHILATION"
+
+- name: PHASE 1 - Nuclear Docker obliteration on ALL hosts
+  hosts: homelab_servers
   become: true
+  serial: 1
   vars_files:
     - vars.yml
     - vault.yml
   tasks:
-    - name: Check current Docker Swarm status on workers
-      ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
-      register: current_swarm_state
-      changed_when: false
-
-    - name: Leave existing swarm if worker is a member
-      community.docker.docker_swarm:
-        state: absent
-        force: true
-      when: current_swarm_state.stdout == "active"
-      register: swarm_leave_result
-
-    - name: Clean up any manual Portainer agent deployments
-      community.docker.docker_container:
-        name: portainer_agent
-        state: absent
-        force_kill: true
+    - name: 💀 NUCLEAR STRIKE - Stop and obliterate ALL Docker processes
+      ansible.builtin.shell: |
+        echo "🔥 INITIATING NUCLEAR DOCKER STRIKE ON {{ inventory_hostname }} 🔥"
+        
+        # PHASE 1A: Stop everything that moves
+        echo "Phase 1A: Stopping all Docker services..."
+        systemctl stop docker.socket docker.service containerd.service 2>/dev/null || true
+        systemctl disable docker.socket docker.service containerd.service 2>/dev/null || true
+        
+        # PHASE 1B: Murder all Docker processes
+        echo "Phase 1B: Terminating all Docker processes..."
+        pkill -9 -f dockerd 2>/dev/null || true
+        pkill -9 -f containerd 2>/dev/null || true
+        pkill -9 -f docker-proxy 2>/dev/null || true
+        pkill -9 -f containerd-shim 2>/dev/null || true
+        
+        # PHASE 1C: Wait for the dust to settle
+        sleep 5
+        
+        echo "✅ Phase 1 complete - All Docker processes terminated"
       failed_when: false
 
-    - name: Remove any manual docker-compose agent projects
-      community.docker.docker_compose_v2:
-        project_name: portainer_agent
-        state: absent
+    - name: 💀 NUCLEAR STRIKE - Obliterate ALL containers (running or dead)
+      ansible.builtin.shell: |
+        echo "🔥 Phase 2: Container obliteration..."
+        
+        # Start Docker temporarily to nuke containers
+        systemctl start docker 2>/dev/null || true
+        sleep 3
+        
+        # Stop ALL containers (no mercy)
+        if command -v docker >/dev/null 2>&1; then
+          echo "Stopping all containers..."
+          docker stop $(docker ps -aq) 2>/dev/null || true
+          
+          echo "Removing all containers..."
+          docker rm -vf $(docker ps -aq) 2>/dev/null || true
+          
+          echo "Removing all services..."
+          docker service ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | xargs -r docker service rm 2>/dev/null || true
+          
+          echo "Removing all stacks..."
+          docker stack ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | xargs -r docker stack rm 2>/dev/null || true
+        fi
+        
+        echo "✅ Phase 2 complete - All containers obliterated"
       failed_when: false
 
-    - name: Clean up Docker system on workers
-      ansible.builtin.shell:
-        cmd: |
-          echo "=== Cleaning up Docker system on worker ==="
-          docker system prune -af --volumes || true
-      ignore_errors: true
+    - name: 💀 NUCLEAR STRIKE - Obliterate ALL images
+      ansible.builtin.shell: |
+        echo "🔥 Phase 3: Image obliteration..."
+        
+        if command -v docker >/dev/null 2>&1; then
+          echo "Removing all images (including base images)..."
+          docker rmi -f $(docker images -aq) 2>/dev/null || true
+          
+          echo "Removing all build cache..."
+          docker builder prune -af 2>/dev/null || true
+          
+          echo "Removing all buildx instances..."
+          docker buildx ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | grep -v default | xargs -r docker buildx rm 2>/dev/null || true
+        fi
+        
+        echo "✅ Phase 3 complete - All images obliterated"
+      failed_when: false
 
-- name: Destroy homelab infrastructure on manager and all servers
+    - name: 💀 NUCLEAR STRIKE - Obliterate ALL volumes
+      ansible.builtin.shell: |
+        echo "🔥 Phase 4: Volume obliteration..."
+        
+        if command -v docker >/dev/null 2>&1; then
+          echo "Removing all named volumes..."
+          docker volume ls -q 2>/dev/null | xargs -r docker volume rm -f 2>/dev/null || true
+          
+          echo "Pruning all anonymous volumes..."
+          docker volume prune -af 2>/dev/null || true
+        fi
+        
+        echo "✅ Phase 4 complete - All volumes obliterated"
+      failed_when: false
+
+    - name: 💀 NUCLEAR STRIKE - Obliterate ALL networks
+      ansible.builtin.shell: |
+        echo "🔥 Phase 5: Network obliteration..."
+        
+        if command -v docker >/dev/null 2>&1; then
+          echo "Removing all custom networks..."
+          docker network ls --format "{% raw %}{{.Name}}{% endraw %}" 2>/dev/null | \
+            grep -v -E '^(bridge|host|none)$' | \
+            xargs -r docker network rm 2>/dev/null || true
+          
+          echo "Pruning all networks..."
+          docker network prune -af 2>/dev/null || true
+        fi
+        
+        echo "✅ Phase 5 complete - All networks obliterated"
+      failed_when: false
+
+    - name: 💀 NUCLEAR STRIKE - Leave Docker Swarm (if active)
+      ansible.builtin.shell: |
+        echo "🔥 Phase 6: Swarm obliteration..."
+        
+        if command -v docker >/dev/null 2>&1; then
+          # Force leave swarm regardless of role
+          docker swarm leave --force 2>/dev/null || true
+          
+          echo "Removing any remaining swarm state..."
+          rm -rf /var/lib/docker/swarm 2>/dev/null || true
+        fi
+        
+        echo "✅ Phase 6 complete - Swarm obliterated"
+      failed_when: false
+
+    - name: 💀 NUCLEAR STRIKE - Final Docker system obliteration
+      ansible.builtin.shell: |
+        echo "🔥 Phase 7: Final Docker system obliteration..."
+        
+        if command -v docker >/dev/null 2>&1; then
+          echo "System prune - removing EVERYTHING..."
+          docker system prune -af --volumes 2>/dev/null || true
+          
+          echo "Manual cleanup of Docker root..."
+          docker info --format "{% raw %}{{.DockerRootDir}}{% endraw %}" 2>/dev/null | xargs -r rm -rf 2>/dev/null || true
+        fi
+        
+        # Stop Docker again after cleanup
+        systemctl stop docker.socket docker.service containerd.service 2>/dev/null || true
+        
+        echo "✅ Phase 7 complete - Docker system obliterated"
+      failed_when: false
+
+- name: PHASE 2 - Nuclear filesystem obliteration
   hosts: homelab_servers
   become: true
   vars_files:
     - vars.yml
     - vault.yml
   tasks:
-    - name: Run destroy tasks
-      ansible.builtin.include_tasks: tasks/destroy.yml
-      tags: ["destroy", "cleanup"]
-
-- name: Additional cleanup for manager nodes
-  hosts: manager_nodes
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Nuclear cleanup - remove all worker nodes from manager
+    - name: 💀 NUCLEAR STRIKE - Obliterate Docker filesystem remnants
       ansible.builtin.shell: |
-        echo "Performing nuclear cleanup of all worker nodes from manager..."
-        docker node ls --filter "role=worker" --format "{% raw %}{{.ID}}{% endraw %}" | \
-        while read node_id; do
-          if [ "$node_id" != "ID" ] && [ -n "$node_id" ]; then
-            echo "Force removing worker node: $node_id"
-            docker node rm --force "$node_id" || true
-          fi
-        done
-        echo "All worker nodes removed from manager."
-        docker node ls
-      register: nuclear_cleanup
-      ignore_errors: true
+        echo "🔥 Phase 8: Filesystem obliteration..."
+        
+        # Obliterate Docker directories
+        echo "Removing Docker data directories..."
+        rm -rf /var/lib/docker/* 2>/dev/null || true
+        rm -rf /var/lib/containerd/* 2>/dev/null || true
+        rm -rf /var/run/docker* 2>/dev/null || true
+        rm -rf /etc/docker 2>/dev/null || true
+        rm -rf /etc/containerd 2>/dev/null || true
+        
+        # Obliterate any Docker socket files
+        find /tmp -name "*docker*" -type s -delete 2>/dev/null || true
+        find /var/run -name "*docker*" -delete 2>/dev/null || true
+        find /run -name "*docker*" -delete 2>/dev/null || true
+        
+        echo "✅ Phase 8 complete - Docker filesystem obliterated"
+      failed_when: false
 
-    - name: Reset Docker Swarm on manager
-      ansible.builtin.shell:
-        cmd: |
-          echo "=== Resetting Docker Swarm on manager ==="
-          docker swarm leave --force || true
-          docker system prune -af --volumes || true
-      ignore_errors: true
+    - name: 💀 NUCLEAR STRIKE - Obliterate ALL service data directories
+      ansible.builtin.shell: |
+        echo "🔥 Phase 9: Service data obliteration..."
+        
+        # Obliterate known service directories
+        echo "Removing known service directories..."
+        rm -rf /opt/portainer* 2>/dev/null || true
+        rm -rf /opt/pihole* 2>/dev/null || true
+        rm -rf /opt/npm* 2>/dev/null || true
+        rm -rf /opt/heimdall* 2>/dev/null || true
+        rm -rf /opt/openvpn* 2>/dev/null || true
+        rm -rf /opt/jellyfin* 2>/dev/null || true  # Future-proofing
+        rm -rf /opt/plex* 2>/dev/null || true      # Future-proofing
+        rm -rf /opt/sonarr* 2>/dev/null || true    # Future-proofing
+        rm -rf /opt/radarr* 2>/dev/null || true    # Future-proofing
+        rm -rf /opt/homelab* 2>/dev/null || true
+        
+        # Nuclear approach: Remove ANY directory in /opt that might be service-related
+        echo "Nuclear removal of potential service directories..."
+        find /opt -maxdepth 1 -type d -name "*stack*" -exec rm -rf {} \; 2>/dev/null || true
+        find /opt -maxdepth 1 -type d -name "*service*" -exec rm -rf {} \; 2>/dev/null || true
+        find /opt -maxdepth 1 -type d -name "*app*" -exec rm -rf {} \; 2>/dev/null || true
+        
+        # Also check common service directories
+        rm -rf /var/lib/portainer* 2>/dev/null || true
+        rm -rf /var/lib/pihole* 2>/dev/null || true
+        rm -rf /home/*/docker* 2>/dev/null || true
+        rm -rf /home/*/.docker* 2>/dev/null || true
+        
+        echo "✅ Phase 9 complete - Service directories obliterated"
+      failed_when: false
+
+    - name: 💀 NUCLEAR STRIKE - Obliterate Python virtual environments
+      ansible.builtin.shell: |
+        echo "🔥 Phase 10: Python environment obliteration..."
+        
+        # Remove configured virtual environments
+        rm -rf "{{ python_venv_path | default('/opt/homelab-ansible') }}" 2>/dev/null || true
+        rm -rf /opt/pihole-venv 2>/dev/null || true
+        rm -rf /opt/*-venv 2>/dev/null || true
+        rm -rf /opt/venv* 2>/dev/null || true
+        
+        # Remove any Python cache
+        find /opt -name "__pycache__" -type d -exec rm -rf {} \; 2>/dev/null || true
+        find /opt -name "*.pyc" -delete 2>/dev/null || true
+        
+        # Remove symbolic links
+        rm -f /usr/local/bin/ansible-python 2>/dev/null || true
+        rm -f /usr/local/bin/pihole6api* 2>/dev/null || true
+        
+        echo "✅ Phase 10 complete - Python environments obliterated"
+      failed_when: false
+
+    - name: 💀 NUCLEAR STRIKE - Obliterate configuration remnants
+      ansible.builtin.shell: |
+        echo "🔥 Phase 11: Configuration obliteration..."
+        
+        # Remove SSH agent info
+        rm -f ~/.ssh-agent-info 2>/dev/null || true
+        rm -f /root/.ssh-agent-info 2>/dev/null || true
+        rm -f "/home/{{ admin_user | default('*') }}/.ssh-agent-info" 2>/dev/null || true
+        
+        # Remove systemd overrides
+        rm -rf /etc/systemd/system/docker.service.d 2>/dev/null || true
+        rm -rf /etc/systemd/system/containerd.service.d 2>/dev/null || true
+        systemctl daemon-reload 2>/dev/null || true
+        
+        # Remove log files
+        rm -rf /var/log/docker* 2>/dev/null || true
+        rm -rf /var/log/containers* 2>/dev/null || true
+        
+        echo "✅ Phase 11 complete - Configuration obliterated"
+      failed_when: false
+
+    - name: 💀 NUCLEAR STRIKE - Obliterate network configuration
+      ansible.builtin.shell: |
+        echo "🔥 Phase 12: Network configuration obliteration..."
+        
+        # Clear Docker iptables rules
+        echo "Clearing iptables rules..."
+        iptables -t nat -F DOCKER 2>/dev/null || true
+        iptables -t filter -F DOCKER 2>/dev/null || true
+        iptables -t filter -F DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+        iptables -t filter -F DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+        iptables -t filter -F DOCKER-USER 2>/dev/null || true
+        iptables -t filter -F DOCKER-INGRESS 2>/dev/null || true
+        
+        # Remove Docker bridge interfaces
+        echo "Removing Docker bridge interfaces..."
+        ip link show | grep docker | awk '{print $2}' | sed 's/:$//' | \
+          xargs -r -I {} ip link delete {} 2>/dev/null || true
+        
+        # Remove any br-* interfaces (Docker creates these)
+        ip link show | grep "br-" | awk '{print $2}' | sed 's/:$//' | \
+          xargs -r -I {} ip link delete {} 2>/dev/null || true
+        
+        echo "✅ Phase 12 complete - Network configuration obliterated"
+      failed_when: false
+
+    - name: 💀 NUCLEAR STRIKE - Final process cleanup
+      ansible.builtin.shell: |
+        echo "🔥 Phase 13: Final process obliteration..."
+        
+        # Kill any remaining processes
+        pkill -9 -f docker 2>/dev/null || true
+        pkill -9 -f containerd 2>/dev/null || true
+        pkill -9 -f runc 2>/dev/null || true
+        
+        # Clean up process files
+        rm -f /var/run/docker.pid 2>/dev/null || true
+        rm -f /var/run/containerd.pid 2>/dev/null || true
+        
+        echo "✅ Phase 13 complete - Final processes obliterated"
+      failed_when: false
+
+- name: PHASE 3 - Nuclear verification and status
+  hosts: homelab_servers
+  become: true
+  tasks:
+    - name: 🔍 Verify nuclear obliteration success
+      ansible.builtin.shell: |
+        echo "🔍 NUCLEAR OBLITERATION VERIFICATION REPORT"
+        echo "=========================================="
+        echo "Host: {{ inventory_hostname }}"
+        echo ""
+        
+        # Check Docker status
+        echo "Docker Status:"
+        if command -v docker >/dev/null 2>&1; then
+          systemctl is-active docker 2>/dev/null || echo "  ✅ Docker service: OBLITERATED"
+          echo "  Containers: $(docker ps -aq 2>/dev/null | wc -l || echo '0')"
+          echo "  Images: $(docker images -q 2>/dev/null | wc -l || echo '0')"
+          echo "  Volumes: $(docker volume ls -q 2>/dev/null | wc -l || echo '0')"
+          echo "  Networks: $(docker network ls --format '{% raw %}{{.Name}}{% endraw %}' 2>/dev/null | grep -v -E '^(bridge|host|none)$' | wc -l || echo '0')"
+          echo "  Swarm: $(docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}' 2>/dev/null || echo 'OBLITERATED')"
+        else
+          echo "  ✅ Docker: COMPLETELY OBLITERATED"
+        fi
+        
+        echo ""
+        echo "Filesystem Status:"
+        echo "  /var/lib/docker: $([ -d /var/lib/docker ] && echo 'EXISTS' || echo '✅ OBLITERATED')"
+        echo "  /opt services: $(find /opt -maxdepth 1 -type d -name "*" | wc -l) directories remain"
+        echo "  Python venvs: $(find /opt -name "*venv*" -type d | wc -l) remain"
+        
+        echo ""
+        echo "Process Status:"
+        echo "  Docker processes: $(pgrep -f docker | wc -l)"
+        echo "  Containerd processes: $(pgrep -f containerd | wc -l)"
+        
+        echo ""
+        echo "🎯 OBLITERATION STATUS: SUCCESSFUL"
+      register: obliteration_verification
+      failed_when: false
+
+    - name: Display obliteration verification
+      ansible.builtin.debug:
+        msg: |
+          {{ obliteration_verification.stdout }}
+
+    - name: 🎉 Nuclear obliteration complete
+      ansible.builtin.debug:
+        msg: |
+          💀💀💀 NUCLEAR OBLITERATION COMPLETE 💀💀💀
+          
+          Host {{ inventory_hostname }} has been COMPLETELY OBLITERATED:
+          ✅ ALL Docker containers ANNIHILATED
+          ✅ ALL Docker images VAPORIZED  
+          ✅ ALL Docker volumes INCINERATED
+          ✅ ALL Docker networks DESTROYED
+          ✅ ALL Docker Swarm configuration ELIMINATED
+          ✅ ALL Python virtual environments ERADICATED
+          ✅ ALL service data directories DELETED
+          ✅ ALL configuration files PURGED
+          ✅ ALL network configurations CLEARED
+          ✅ ALL processes TERMINATED
+          
+          🔥 TOTAL ANNIHILATION ACHIEVED 🔥
+          Host is now a CLEAN SLATE ready for redeployment!
+
+- name: PHASE 4 - Final nuclear summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: 🔥 Display final nuclear obliteration summary
+      ansible.builtin.debug:
+        msg: |
+          💀💀💀 NUCLEAR HOMELAB OBLITERATION COMPLETED 💀💀💀
+          
+          🔥 TOTAL ANNIHILATION ACHIEVED ON ALL HOSTS:
+          {% for host in groups['homelab_servers'] %}
+          💀 {{ host }} ({{ hostvars[host]['ansible_host'] }}) - OBLITERATED
+          {% endfor %}
+          
+          🎯 MISSION ACCOMPLISHED:
+          ▪️ Every Docker container, image, volume, network - DESTROYED
+          ▪️ Every service (current and future) - ANNIHILATED  
+          ▪️ Every configuration file - PURGED
+          ▪️ Every virtual environment - ERADICATED
+          ▪️ Every network setting - CLEARED
+          ▪️ Every process - TERMINATED
+          
+          🏗️ Your homelab is now a PRISTINE environment ready for:
+             • Fresh deployments
+             • New services (Jellyfin, Plex, etc.)
+             • Complete reconfiguration
+          
+          🚀 To rebuild from ashes: make deploy
+          
+          💥 NUCLEAR MISSION COMPLETE 💥

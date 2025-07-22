@@ -17,7 +17,10 @@ all:
       vars:
         # We will define the root admin user here
         admin_user: thatsmidnight
-        admin_ssh_key_public: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCuPsLKnMJQrnRs/QxWjDwJofNGzHhK4FLJOHozWMrGolN7pkSTbNO5iDcOrYrPbmkGGOByf+8+Zr4/uDKHMfQVx5hJjbiYidBF/LMDvDIk8OiCG/F4Ugxw0uTqyoSoOkg5izKBNx78fr6CLKVKjEr2ttmF6jNgf3yycwA/nM5zW2MJ4JJaxE61/sIcXdJ5dbF7imblk0hsr+Xp84OCp3CI2JlIf7L00eS+33Jcd6duVsPT6knAyzWx+ZsroV8gXnX2vK7BIVEWGMPZ3/7v5I4Hy6GcfDDgL+f9PL2xF8JLQMAt3pY+vYGctbFpyVGAZB/YeAzZfVN3ILO39TxVVX4aGxhzrKbZWeqoEBr20X1sx1KCxdyN3zAJQtmSBgO0KCZp/lu7UPOXbXWhKTn+lW8Q7W/kmOUilRtDQsxf00ubfWdwmbf0pum8LB1ZWtbs0t5ijJebIkFH4jFXImhcyqtOZJQssUhV9oFIyVk2B7XZUynaa59eOdFJNn4wyf3V4U8= thatsmidnight@thatsmidnight.com"
+        python_version: "3.11"
+        python_venv_name: "homelab-ansible"
+        python_venv_path: "/opt/homelab-ansible"
+        admin_ssh_key_public: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCuPsLKnMJQrnRs/QxWjDwJofNGzHhK4FLJOHozWMrGolN7pkSTbNO5iDcOrYrPbmkGGOByf+8+Zr4/uDKHMfQVx5hJjbiYidBF/LMDvDIk8OiCG/F4Ugxw0uTqyoSoOkg5izKBNx78fr6CLKVKjEr2ttmF6jNgf3yycwA/nM5zW2MJ4JJaxE61/sIcXdJ5dbF7imblk0hsr+Xp84OCp3CI2JlIf7L00eS+33Jcd6duVsPT6knAyzWx+ZsroV8gXnX2vK7BIVEWGMPZ3/7v5I4Hy6GcfDDgL+f9PL2xF8JLQMAt3pY+vYGctbFpyVGAZB/YeAzZfVN3ILO39TxVVX4aGxhzrKbZWeqoEBr20X1sx1KCxdyN3zAJQtmSBgO0KCZp/lu7UPOXbXWhKTn+lW8Q7W/kmOUilRtDQsxf00ubfWdwmbf0pum8LB1ZWtbs0t5ijJebIkFH4jFXImhcyqtOZJQssUhV9oFIyVk2B7XZUynaa59eOdFJNn4wyf3V4U8= me@chadbartel.com"
         
         # Docker Stacks Configuration
         portainer_stacks:

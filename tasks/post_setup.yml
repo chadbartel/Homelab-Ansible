@@ -1,0 +1,26 @@
+---
+# Post-setup configuration tasks
+- name: Display deployment summary
+  ansible.builtin.debug:
+    msg: |
+      🎉 Homelab deployment completed successfully!
+      
+      Services available:
+      - Portainer: https://{{ ansible_host }}:9443
+      - Pi-hole: http://{{ ansible_host }}:8081/admin
+      - NPM: http://{{ ansible_host }}:8181
+      - Heimdall: http://{{ ansible_host }}:8082
+      - OpenVPN: https://{{ ansible_host }}:943
+      
+      Next steps:
+      1. Configure services through their web interfaces
+      2. Set up reverse proxy entries in NPM
+      3. Configure client devices to use Pi-hole DNS
+
+- name: Run post-setup tasks for Pi-hole
+  ansible.builtin.include_tasks: tasks/post_setup_pihole.yml
+  tags: ["post_setup", "pihole", "configure"]
+
+- name: Run post-setup tasks for OpenVPN
+  ansible.builtin.include_tasks: tasks/post_setup_openvpn.yml
+  tags: ["post_setup", "openvpn", "configure"]

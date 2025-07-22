@@ -1,0 +1,49 @@
+---
+services:
+  pihole:
+    hostname: {{ pihole_container_name }}
+    container_name: {{ pihole_container_name }}
+    image: mpgirro/pihole-unbound:2025.07.1
+    ports:
+      - "445:443/tcp"
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "{{ pihole_web_port }}:{{ pihole_dns_port | default(80) }}/tcp"
+    environment:
+      TZ: '{{ timezone }}'
+      FTLCONF_webserver_api_password: '{{ pihole_web_password }}'
+      # Sets the upstream DNS to the internal Unbound resolver
+      FTLCONF_dns_upstreams: '127.0.0.1#5335'
+      FTLCONF_dns_listeningMode: 'all'
+      FTLCONF_dns_revServers: 'true,192.168.1.0/24,192.168.1.1'
+      FTLCONF_dns_dnssec: 'true'
+      FTLCONF_dns_hosts: |
+        {{ manager_node_ip }} home.mid.night
+        {{ manager_node_ip }} pihole.mid.night
+        {{ manager_node_ip }} portainer.mid.night
+        {{ manager_node_ip }} proxy.mid.night
+        {{ manager_node_ip }} vpn.mid.night
+      FTLCONF_dhcp_router: '{{ gateway_ip }}'
+      FTLCONF_dns_domainNeeded: 'true'
+    volumes:
+      - pihole_etc:/etc/pihole
+      - pihole_dnsmasq:/etc/dnsmasq.d
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    networks:
+      - proxy-network
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == {{ pihole_target_host | default('pi4_01') }}
+
+volumes:
+  pihole_etc:
+  pihole_dnsmasq:
+
+networks:
+  proxy-network:
+    external: true

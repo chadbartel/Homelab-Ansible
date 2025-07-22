@@ -1,6 +1,0 @@
----
-# Handlers for common role
-- name: restart ssh
-  ansible.builtin.systemd_service:
-    name: ssh
-    state: restarted
