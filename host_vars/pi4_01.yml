@@ -8,7 +8,7 @@ proxy_hosts:
   - domain: "{{ openvpn_container_name }}.chad.bartel"
     host: "{{ openvpn_container_name }}"
     port: 943
-    scheme: "http"
+    scheme: ""
   - domain: "{{ portainer_container_name }}.chad.bartel"
     host: "{{ portainer_container_name }}"
     port: 9443
