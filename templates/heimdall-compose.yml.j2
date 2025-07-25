@@ -2,7 +2,8 @@
 services:
   heimdall:
     image: linuxserver/heimdall:2.7.1
-    container_name: heimdall
+    container_name: {{ heimdall_container_name }}
+    hostname: {{ heimdall_container_name }}
     environment:
       - PUID=1000
       - PGID=1000
