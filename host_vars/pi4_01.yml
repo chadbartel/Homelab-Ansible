@@ -4,11 +4,11 @@ proxy_hosts:
   - domain: "{{ pihole_container_name }}.chad.bartel"
     host: "{{ pihole_container_name }}"
     port: 80
-    scheme: ""
+    scheme: "http"
   - domain: "{{ openvpn_container_name }}.chad.bartel"
     host: "{{ openvpn_container_name }}"
     port: 943
-    scheme: ""
+    scheme: "http"
   - domain: "{{ portainer_container_name }}.chad.bartel"
     host: "{{ portainer_container_name }}"
     port: 9443
@@ -16,8 +16,8 @@ proxy_hosts:
   - domain: "{{ heimdall_container_name }}.chad.bartel"
     host: "{{ heimdall_container_name }}"
     port: 8082
-    scheme: ""
+    scheme: "http"
   - domain: "{{ nginx_proxy_container_name }}.chad.bartel"
     host: "{{ nginx_proxy_container_name }}"
     port: 8181
-    scheme: ""
+    scheme: "http"
