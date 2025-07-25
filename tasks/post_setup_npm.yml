@@ -21,7 +21,7 @@
     body:
       domain_names:
         - "{{ item.domain }}"
-      forward_scheme: "{{ item.scheme }}"
+      forward_scheme: "{{ item.scheme | default('http') }}"
       forward_host: "{{ item.host }}"
       forward_port: "{{ item.port }}"
     status_code: [200, 201]

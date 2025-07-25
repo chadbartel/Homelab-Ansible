@@ -1,7 +1,23 @@
 ---
 # Host variables for pi4_01
 proxy_hosts:
-  - domain: "pihole.chad.bartel"
-    host: "pihole"
+  - domain: "{{ pihole_container_name }}.chad.bartel"
+    host: "{{ pihole_container_name }}"
     port: 80
+    scheme: ""
+  - domain: "{{ openvpn_container_name }}.chad.bartel"
+    host: "{{ openvpn_container_name }}"
+    port: 943
     scheme: "http"
+  - domain: "{{ portainer_container_name }}.chad.bartel"
+    host: "{{ portainer_container_name }}"
+    port: 9443
+    scheme: "https"
+  - domain: "{{ heimdall_container_name }}.chad.bartel"
+    host: "{{ heimdall_container_name }}"
+    port: 8082
+    scheme: ""
+  - domain: "{{ nginx_proxy_container_name }}.chad.bartel"
+    host: "{{ nginx_proxy_container_name }}"
+    port: 8181
+    scheme: ""
