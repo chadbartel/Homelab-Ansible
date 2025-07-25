@@ -1,0 +1,28 @@
+---
+# NGINX Proxy Manager post-setup tasks
+- name: Authenticate with Nginx Proxy Manager to get session token
+  ansible.builtin.uri:
+    url: "http://{{ manager_node_ip }}:{{ npm_host_port }}/api/tokens"
+    method: POST
+    body_format: json
+    body:
+      identity: "{{ admin_email }}"
+      secret: "{{ npm_admin_password }}" # From Ansible Vault
+    return_content: yes
+  register: npm_auth
+
+- name: Create reverse proxy hosts from variables
+  ansible.builtin.uri:
+    url: "http://{{ manager_node_ip }}:{{ npm_host_port }}/api/nginx/proxy-hosts"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ npm_auth.json.token }}"
+    body_format: json
+    body:
+      domain_names:
+        - "{{ item.domain }}"
+      forward_scheme: "{{ item.scheme }}"
+      forward_host: "{{ item.host }}"
+      forward_port: "{{ item.port }}"
+    status_code: [200, 201]
+  loop: "{{ proxy_hosts }}"

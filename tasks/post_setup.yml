@@ -24,3 +24,7 @@
 - name: Run post-setup tasks for OpenVPN
   ansible.builtin.include_tasks: tasks/post_setup_openvpn.yml
   tags: ["post_setup", "openvpn", "configure"]
+
+- name: Run post-setup tasks for Nginx Proxy Manager
+  ansible.builtin.include_tasks: tasks/post_setup_npm.yml
+  tags: ["post_setup", "npm", "configure"]

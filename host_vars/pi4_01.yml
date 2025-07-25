@@ -1,0 +1,7 @@
+---
+# Host variables for pi4_01
+proxy_hosts:
+  - domain: "pihole.chad.bartel"
+    host: "pihole"
+    port: 80
+    scheme: "http"
