@@ -14,7 +14,7 @@ openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
 heimdall_admin_password: "{{ vault_heimdall_admin_password }}"
 
 # Portainer configuration
-portainer_agent_secret: ""  # Default empty
+portainer_agent_secret: "{{ vault_portainer_agent_secret }}"
 
 # OpenVPN configuration
 openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
