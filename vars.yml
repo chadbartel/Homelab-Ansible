@@ -60,7 +60,7 @@ worker_node_ip1: "192.168.1.11"
 worker_node_ip2: "192.168.1.12"
 gateway_ip: "192.168.1.1"
 npm_host_port: 8181
-local_domain: "chad.bartel"
+local_domain: "homelab.chadbartel.com"
 
 # Miscellaneous
 timezone: "America/Los_Angeles"
