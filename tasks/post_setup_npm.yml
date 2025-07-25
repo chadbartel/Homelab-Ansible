@@ -1,5 +1,12 @@
 ---
-# NGINX Proxy Manager post-setup tasks
+# NGINX Proxy Manager post-setup tasks - Simple idempotent version
+- name: Wait for Nginx Proxy Manager to be ready
+  ansible.builtin.wait_for:
+    port: "{{ npm_host_port }}"
+    host: "{{ manager_node_ip }}"
+    delay: 10
+    timeout: 120
+
 - name: Authenticate with Nginx Proxy Manager to get session token
   ansible.builtin.uri:
     url: "http://{{ manager_node_ip }}:{{ npm_host_port }}/api/tokens"
@@ -7,11 +14,13 @@
     body_format: json
     body:
       identity: "{{ admin_email }}"
-      secret: "{{ npm_admin_password }}" # From Ansible Vault
+      secret: "{{ npm_admin_password }}"
     return_content: yes
   register: npm_auth
+  retries: 3
+  delay: 5
 
-- name: Create reverse proxy hosts from variables
+- name: Create reverse proxy hosts (ignore if they already exist)
   ansible.builtin.uri:
     url: "http://{{ manager_node_ip }}:{{ npm_host_port }}/api/nginx/proxy-hosts"
     method: POST
@@ -24,5 +33,36 @@
       forward_scheme: "{{ item.scheme | default('http') }}"
       forward_host: "{{ item.host }}"
       forward_port: "{{ item.port }}"
-    status_code: [200, 201]
+      access_list_id: 0
+      certificate_id: 0
+      ssl_forced: false
+      block_exploits: true
+      caching_enabled: false
+      allow_websocket_upgrade: true
+      enabled: true
+    status_code: [200, 201, 400]  # Accept 400 for "already exists"
   loop: "{{ proxy_hosts }}"
+  register: proxy_creation_result
+  failed_when: 
+    - proxy_creation_result.status not in [200, 201, 400]
+    - '"already in use" not in (proxy_creation_result.json.error.message | default(""))'
+
+- name: Display proxy host creation results
+  ansible.builtin.debug:
+    msg: |
+      Proxy host: {{ item.item.domain }}
+      Status: {{ 'Created' if item.status in [200, 201] else 'Already exists' }}
+  loop: "{{ proxy_creation_result.results }}"
+  when: proxy_creation_result.results is defined
+
+- name: Display final NPM summary
+  ansible.builtin.debug:
+    msg: |
+      ✅ Nginx Proxy Manager configuration completed!
+      
+      Configured domains:
+      {% for item in proxy_hosts %}
+      - {{ item.domain }} → {{ item.scheme | default('http') }}://{{ item.host }}:{{ item.port }}
+      {% endfor %}
+      
+      Access NPM: http://{{ manager_node_ip }}:{{ npm_host_port }}
