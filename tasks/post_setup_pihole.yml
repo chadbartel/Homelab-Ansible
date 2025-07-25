@@ -157,4 +157,4 @@
       ✅ Pi-hole is configured successfully!
       Web Interface: http://{{ ansible_host }}:{{ pihole_web_port }}/admin
       DNS Server: {{ ansible_host }}:{{ pihole_dns_port }}
-      Custom DNS entries configured for .mid.night domains
+      Custom DNS entries configured for .{{ local_domain }} domains

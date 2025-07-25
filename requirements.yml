@@ -7,8 +7,8 @@ collections:
     version: ">=2.0.0"
   - name: community.general
     version: ">=11.0.0"
+  - name: community.crypto
+    version: ">=3.0.1"
 
 # External roles (none required - all functionality is in local roles)
-roles:
-  - name: nginxinc.nginx_config
-    version: "0.7.1"
+roles: []

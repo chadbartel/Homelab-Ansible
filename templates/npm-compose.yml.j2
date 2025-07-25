@@ -2,12 +2,13 @@
 services:
   npm:
     image: jc21/nginx-proxy-manager:2
-    container_name: npm
+    container_name: {{ nginx_proxy_container_name }}
+    hostname: {{ nginx_proxy_container_name }}
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
-      - "8181:81"
+      - "{{ npm_host_port }}:81"
     environment:
       DB_SQLITE_FILE: "/data/database.sqlite"
       INITIAL_ADMIN_EMAIL: "{{ admin_email }}"

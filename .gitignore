@@ -7,7 +7,6 @@
 .vscode/
 vault.yml
 .vault_pass.ansible/
-roles/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

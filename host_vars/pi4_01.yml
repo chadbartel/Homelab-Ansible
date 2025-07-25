@@ -1,0 +1,23 @@
+---
+# Host variables for pi4_01
+proxy_hosts:
+  - domain: "{{ pihole_container_name }}.{{ local_domain }}"
+    host: "{{ pihole_container_name }}"
+    port: 80
+    scheme: "http"
+  - domain: "{{ openvpn_container_name }}.{{ local_domain }}"
+    host: "{{ openvpn_container_name }}"
+    port: 943
+    scheme: "http"
+  - domain: "{{ portainer_container_name }}.{{ local_domain }}"
+    host: "{{ portainer_container_name }}"
+    port: 9443
+    scheme: "https"
+  - domain: "{{ heimdall_container_name }}.{{ local_domain }}"
+    host: "{{ heimdall_container_name }}"
+    port: 8082
+    scheme: "http"
+  - domain: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
+    host: "{{ nginx_proxy_container_name }}"
+    port: 8181
+    scheme: "http"

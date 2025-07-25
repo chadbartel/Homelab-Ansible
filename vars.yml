@@ -7,6 +7,12 @@ admin_email: "me@chadbartel.com"
 admin_password: "{{ vault_admin_password }}"
 admin_ssh_key_public: "{{ vault_admin_ssh_key_public }}"
 
+# Bootstrap configuration
+ansible_version: "2.18.6"
+x86_image_link: "https://mirror.pnl.gov/releases/noble/ubuntu-24.04.2-live-server-amd64.iso"
+arm_image_link: "https://downloads.raspberrypi.org/raspios_lite_arm64/archive/2025-05-13-08:03/"
+dietpi_image_link: "https://dietpi.com/downloads/images/DietPi_RPi234-ARMv8-Bookworm.img.xz"
+
 # Service passwords (should be stored in vault)
 portainer_admin_password: "{{ vault_portainer_admin_password }}"
 npm_admin_password: "{{ vault_npm_admin_password }}"
@@ -14,7 +20,7 @@ openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
 heimdall_admin_password: "{{ vault_heimdall_admin_password }}"
 
 # Portainer configuration
-portainer_agent_secret: ""  # Default empty
+portainer_agent_secret: "{{ vault_portainer_agent_secret }}"
 
 # OpenVPN configuration
 openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
@@ -27,7 +33,6 @@ pihole_config_path: "/opt/pihole/etc-pihole"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
 block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
 pihole_data_path: "/opt/pihole"
-pihole_container_name: "pihole"
 pihole_web_port: 8081  # Port for Pi-hole web interface
 pihole_dns_port: 80  # Port for Pi-hole DNS service
 pihole_target_host: "pi4_01"  # The specific host for Pi-hole
@@ -42,11 +47,20 @@ portainer_stacks:
     compose_template: heimdall-compose.yml.j2
   - name: vpn-stack
     compose_template: openvpn-compose.yml.j2
+pihole_container_name: "pihole"
+openvpn_container_name: "vpn"
+portainer_container_name: "portainer"
+heimdall_container_name: "home"
+nginx_proxy_container_name: "proxy"
 
 # Network configuration
 homelab_network: "192.168.2.0/24"
 manager_node_ip: "192.168.1.10"
+worker_node_ip1: "192.168.1.11"
+worker_node_ip2: "192.168.1.12"
 gateway_ip: "192.168.1.1"
+npm_host_port: 8181
+local_domain: "homelab.chadbartel.com"
 
 # Miscellaneous
 timezone: "America/Los_Angeles"
