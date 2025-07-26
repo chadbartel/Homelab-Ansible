@@ -2,14 +2,14 @@
 # NGINX Proxy Manager post-setup tasks - Simple idempotent version
 - name: Wait for Nginx Proxy Manager to be ready
   ansible.builtin.wait_for:
-    port: "{{ npm_host_port }}"
+    port: "{{ proxy_host_port }}"
     host: "{{ manager_node_ip }}"
     delay: 10
     timeout: 120
 
 - name: Authenticate with Nginx Proxy Manager to get session token
   ansible.builtin.uri:
-    url: "http://{{ manager_node_ip }}:{{ npm_host_port }}/api/tokens"
+    url: "http://{{ manager_node_ip }}:{{ proxy_host_port }}/api/tokens"
     method: POST
     body_format: json
     body:
@@ -22,7 +22,7 @@
 
 - name: Create reverse proxy hosts (ignore if they already exist)
   ansible.builtin.uri:
-    url: "http://{{ manager_node_ip }}:{{ npm_host_port }}/api/nginx/proxy-hosts"
+    url: "http://{{ manager_node_ip }}:{{ proxy_host_port }}/api/nginx/proxy-hosts"
     method: POST
     headers:
       Authorization: "Bearer {{ npm_auth.json.token }}"
@@ -65,4 +65,4 @@
       - {{ item.domain }} → {{ item.scheme | default('http') }}://{{ item.host }}:{{ item.port }}
       {% endfor %}
       
-      Access NPM: http://{{ manager_node_ip }}:{{ npm_host_port }}
+      Access NPM: http://{{ manager_node_ip }}:{{ proxy_host_port }}

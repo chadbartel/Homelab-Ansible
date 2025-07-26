@@ -6,9 +6,9 @@ services:
     hostname: {{ nginx_proxy_container_name }}
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "{{ pihole_host_port }}:80"
       - "443:443"
-      - "{{ npm_host_port }}:81"
+      - "{{ proxy_host_port }}:81"
     environment:
       DB_SQLITE_FILE: "/data/database.sqlite"
       INITIAL_ADMIN_EMAIL: "{{ admin_email }}"

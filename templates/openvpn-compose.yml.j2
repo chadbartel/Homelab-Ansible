@@ -9,7 +9,7 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     ports:
-      - "943:943"
+      - "{{ vpn_host_port }}:943"
       - "1194:1194/udp"
       - "444:443"
     volumes:

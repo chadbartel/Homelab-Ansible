@@ -59,8 +59,12 @@ manager_node_ip: "192.168.1.10"
 worker_node_ip1: "192.168.1.11"
 worker_node_ip2: "192.168.1.12"
 gateway_ip: "192.168.1.1"
-npm_host_port: 8181
 local_domain: "chadbartel.duckdns.org"
+proxy_host_port: 8181
+pihole_host_port: 80
+vpn_host_port: 943
+portainer_host_port: 9443
+heimdall_host_port: 8082
 
 # Miscellaneous
 timezone: "America/Los_Angeles"

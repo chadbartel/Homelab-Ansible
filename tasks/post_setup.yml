@@ -6,11 +6,11 @@
       🎉 Homelab deployment completed successfully!
       
       Services available:
-      - Portainer: https://{{ ansible_host }}:9443
+      - Portainer: https://{{ ansible_host }}:{{ portainer_host_port }}
       - Pi-hole: http://{{ ansible_host }}:8081/admin
-      - NPM: http://{{ ansible_host }}:8181
-      - Heimdall: http://{{ ansible_host }}:8082
-      - OpenVPN: https://{{ ansible_host }}:943
+      - NPM: http://{{ ansible_host }}:{{ proxy_host_port }}
+      - Heimdall: http://{{ ansible_host }}:{{ heimdall_host_port }}
+      - OpenVPN: https://{{ ansible_host }}:{{ vpn_host_port }}
       
       Next steps:
       1. Configure services through their web interfaces
