@@ -65,6 +65,7 @@ pihole_host_port: 80
 vpn_host_port: 943
 portainer_host_port: 9443
 heimdall_host_port: 8082
+ssl_certificate_id: 2  # Change this to 0 on initial deployment
 
 # Miscellaneous
 timezone: "America/Los_Angeles"
