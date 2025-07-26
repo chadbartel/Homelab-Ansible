@@ -34,8 +34,11 @@
       forward_host: "{{ item.host }}"
       forward_port: "{{ item.port }}"
       access_list_id: 0
-      certificate_id: 0
-      ssl_forced: false
+      certificate_id: "{{ ssl_certificate_id | int }}"
+      ssl_forced: "{{ true if ssl_certificate_id | int > 0 else false }}"
+      hsts_enabled: "{{ true if ssl_certificate_id | int > 0 else false }}"
+      hsts_subdomains: "{{ true if ssl_certificate_id | int > 0 else false }}"
+      http2_support: "{{ true if ssl_certificate_id | int > 0 else false }}"
       block_exploits: true
       caching_enabled: false
       allow_websocket_upgrade: true
