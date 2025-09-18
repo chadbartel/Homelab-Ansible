@@ -42,6 +42,13 @@
   retries: 3
   delay: 5
 
+- name: Allow auto-login for user thatsmidnight
+  ansible.builtin.shell: |
+    docker exec {{ openvpn_container_name }} sacli --user "thatsmidnight" --key "prop_autologin" --value "true" UserPropPut
+  register: user1_autologin_result
+  retries: 3
+  delay: 5
+
 - name: Create VPN user - tyramail
   ansible.builtin.shell: |
     docker exec {{ openvpn_container_name }} sacli --user "tyramail" --key "type" --value "user_connect" UserPropPut
@@ -53,6 +60,13 @@
   ansible.builtin.shell: |
     docker exec {{ openvpn_container_name }} sacli --user "tyramail" --new_pass "{{ openvpn_tyramail_password }}" SetLocalPassword
   register: user2_password_result
+  retries: 3
+  delay: 5
+
+- name: Allow auto-login for user tyramail
+  ansible.builtin.shell: |
+    docker exec {{ openvpn_container_name }} sacli --user "tyramail" --key "prop_autologin" --value "true" UserPropPut
+  register: user2_autologin_result
   retries: 3
   delay: 5
 
