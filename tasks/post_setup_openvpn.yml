@@ -2,7 +2,7 @@
 # OpenVPN post-deployment configuration tasks
 - name: Wait for OpenVPN Access Server to be fully ready
   ansible.builtin.wait_for:
-    port: {{ vpn_host_port }}
+    port: "{{ vpn_host_port }}"
     host: "{{ ansible_host }}"
     delay: 30
     timeout: 300
@@ -79,7 +79,7 @@
 
 - name: Wait for OpenVPN to restart and be ready
   ansible.builtin.wait_for:
-    port: {{ vpn_host_port }}
+    port: "{{ vpn_host_port }}"
     host: "{{ ansible_host }}"
     delay: 15
     timeout: 120
