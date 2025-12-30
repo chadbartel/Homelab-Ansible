@@ -2,7 +2,6 @@
 services:
   heimdall:
     image: linuxserver/heimdall:2.7.1
-    container_name: {{ heimdall_container_name }}
     hostname: {{ heimdall_container_name }}
     environment:
       - PUID=1000
@@ -13,7 +12,6 @@ services:
     ports:
       - "{{ heimdall_host_port }}:80"
       - "8443:443"
-    restart: unless-stopped
     networks:
       - proxy-network
 

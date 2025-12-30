@@ -1,10 +1,12 @@
 ---
 # Deploy Docker Compose stacks
-- name: Create proxy network for services
+- name: Create proxy network for services (Swarm overlay)
   community.docker.docker_network:
     name: proxy-network
     state: present
-    driver: bridge
+    driver: overlay
+    attachable: true
+    scope: swarm
     ipam_config:
       - subnet: "172.20.0.0/16"
         gateway: "172.20.0.1"
@@ -23,12 +25,22 @@
       Driver: {{ (network_check.stdout | from_json)[0].Driver }}
       Subnet: {{ (network_check.stdout | from_json)[0].IPAM.Config[0].Subnet }}
 
-- name: Deploy Docker Compose stacks
-  community.docker.docker_compose_v2:
-    project_name: "{{ item.name }}"
-    definition: "{{ lookup('template', item.compose_template) | from_yaml }}"
-    remove_orphans: true
-    state: present
+- name: Create temporary directory for stack compose files
+  ansible.builtin.file:
+    path: /tmp/docker-stacks
+    state: directory
+    mode: '0755'
+
+- name: Template stack compose files
+  ansible.builtin.template:
+    src: "{{ item.compose_template }}"
+    dest: "/tmp/docker-stacks/{{ item.name }}.yml"
+    mode: '0644'
+  loop: "{{ portainer_stacks }}"
+
+- name: Deploy stacks to Docker Swarm
+  ansible.builtin.shell:
+    cmd: "docker stack deploy -c /tmp/docker-stacks/{{ item.name }}.yml {{ item.name }}"
   loop: "{{ portainer_stacks }}"
   register: stack_deployment_result
 
@@ -37,4 +49,5 @@
     msg: |
       Stack: {{ item.item.name }}
       Status: {{ 'Deployed' if item.changed else 'Already up to date' }}
+      Output: {{ item.stdout }}
   loop: "{{ stack_deployment_result.results }}"

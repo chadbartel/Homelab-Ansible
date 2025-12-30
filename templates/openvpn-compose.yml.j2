@@ -2,7 +2,6 @@
 services:
   openvpn-as:
     image: openvpn/openvpn-as:2.14.3-5936bcd7-Ubuntu24
-    container_name: {{ openvpn_container_name }}
     hostname: {{ openvpn_container_name }}
     cap_add:
       - NET_ADMIN
@@ -17,7 +16,6 @@ services:
     environment:
       TZ: '{{ timezone }}'
       OPENVPN_AS_HOST: '{{ openvpn_hostname }}'
-    restart: unless-stopped
     networks:
       - proxy-network
     sysctls:

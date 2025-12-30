@@ -35,7 +35,7 @@ block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
 pihole_data_path: "/opt/pihole"
 pihole_web_port: 8081  # Port for Pi-hole web interface
 pihole_dns_port: 80  # Port for Pi-hole DNS service
-pihole_target_host: "pi4_01"  # The specific host for Pi-hole
+pihole_target_host: "midnight-laptop"  # The specific host for Pi-hole (must match Swarm node hostname)
 
 # Docker Stacks Configuration for manager nodes
 portainer_stacks:

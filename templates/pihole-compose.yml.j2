@@ -2,8 +2,7 @@
 services:
   pihole:
     hostname: {{ pihole_container_name }}
-    container_name: {{ pihole_container_name }}
-    image: mpgirro/pihole-unbound:2025.07.1
+    image: pihole/pihole:2025.11.1
     ports:
       - "445:443/tcp"
       - "53:53/tcp"
@@ -13,7 +12,7 @@ services:
       TZ: '{{ timezone }}'
       FTLCONF_webserver_api_password: '{{ pihole_web_password }}'
       # Sets the upstream DNS to the internal Unbound resolver
-      FTLCONF_dns_upstreams: '127.0.0.1#5335'
+      # FTLCONF_dns_upstreams: '127.0.0.1#5335'
       FTLCONF_dns_listeningMode: 'all'
       FTLCONF_dns_revServers: 'true,192.168.1.0/24,192.168.1.1'
       FTLCONF_dns_dnssec: 'true'
@@ -30,7 +29,6 @@ services:
       - pihole_dnsmasq:/etc/dnsmasq.d
     cap_add:
       - NET_ADMIN
-    restart: unless-stopped
     networks:
       - proxy-network
     deploy:
@@ -38,7 +36,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.hostname == {{ pihole_target_host | default('pi4_01') }}
+          - node.hostname == {{ pihole_target_host | default('lenovo_server') }}
 
 volumes:
   pihole_etc:

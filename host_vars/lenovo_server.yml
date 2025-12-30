@@ -1,0 +1,7 @@
+---
+# Host variables for lenovo_server
+proxy_hosts:
+  - domain: "{{ pihole_container_name }}.{{ local_domain }}"
+    host: "{{ pihole_container_name }}"
+    port: "{{ pihole_host_port }}"
+    scheme: "http"
