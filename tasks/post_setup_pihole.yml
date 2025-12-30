@@ -36,45 +36,62 @@
     content: |
       #!/bin/bash
       # Add adlists to Pi-hole gravity database
-      ADLISTS=(
-        "https://raw.githubusercontent.com/PolishFiltersTeam/KADhosts/master/KADhosts.txt"
-        "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Spam/hosts"
-        "https://v.firebog.net/hosts/static/w3kbl.txt"
-        "https://adaway.org/hosts.txt"
-        "https://v.firebog.net/hosts/AdguardDNS.txt"
-        "https://v.firebog.net/hosts/Admiral.txt"
-        "https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt"
-        "https://v.firebog.net/hosts/Easylist.txt"
-        "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext"
-        "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UncheckyAds/hosts"
-        "https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts"
-        "https://v.firebog.net/hosts/Easyprivacy.txt"
-        "https://v.firebog.net/hosts/Prigent-Ads.txt"
-        "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts"
-        "https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt"
-        "https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt"
-        "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt"
-        "https://v.firebog.net/hosts/Prigent-Crypto.txt"
-        "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts"
-        "https://bitbucket.org/ethanr/dns-blacklists/raw/8575c9f96e5b4a1308f2f12394abd86d0927a4a0/bad_lists/Mandiant_APT1_Report_Appendix_D.txt"
-        "https://phishing.army/download/phishing_army_blocklist_extended.txt"
-        "https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-malware.txt"
-        "https://v.firebog.net/hosts/RPiList-Malware.txt"
-        "https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt"
-        "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts"
-        "https://urlhaus.abuse.ch/downloads/hostfile/"
-        "https://lists.cyberhost.uk/malware.txt"
+      DB="/etc/pihole/gravity.db"
+      
+      # Array of adlists with comments
+      declare -A ADLISTS=(
+        ["https://raw.githubusercontent.com/PolishFiltersTeam/KADhosts/master/KADhosts.txt"]="KADhosts"
+        ["https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Spam/hosts"]="Spam Hosts"
+        ["https://v.firebog.net/hosts/static/w3kbl.txt"]="W3KBL"
+        ["https://adaway.org/hosts.txt"]="AdAway"
+        ["https://v.firebog.net/hosts/AdguardDNS.txt"]="AdGuard DNS"
+        ["https://v.firebog.net/hosts/Admiral.txt"]="Admiral"
+        ["https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt"]="Anudeep AdServers"
+        ["https://v.firebog.net/hosts/Easylist.txt"]="EasyList"
+        ["https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext"]="Peter Lowe's List"
+        ["https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UncheckyAds/hosts"]="UncheckyAds"
+        ["https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts"]="HostsVN"
+        ["https://v.firebog.net/hosts/Easyprivacy.txt"]="EasyPrivacy"
+        ["https://v.firebog.net/hosts/Prigent-Ads.txt"]="Prigent Ads"
+        ["https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts"]="2o7Net"
+        ["https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt"]="WindowsSpyBlocker"
+        ["https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt"]="Firstparty Trackers"
+        ["https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt"]="Anti-Malware"
+        ["https://v.firebog.net/hosts/Prigent-Crypto.txt"]="Prigent Crypto"
+        ["https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts"]="Risk Hosts"
+        ["https://bitbucket.org/ethanr/dns-blacklists/raw/8575c9f96e5b4a1308f2f12394abd86d0927a4a0/bad_lists/Mandiant_APT1_Report_Appendix_D.txt"]="Mandiant APT1"
+        ["https://phishing.army/download/phishing_army_blocklist_extended.txt"]="Phishing Army"
+        ["https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-malware.txt"]="NoTrack Malware"
+        ["https://v.firebog.net/hosts/RPiList-Malware.txt"]="RPiList Malware"
+        ["https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt"]="Spam404"
+        ["https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts"]="Stalkerware"
+        ["https://urlhaus.abuse.ch/downloads/hostfile/"]="URLhaus"
+        ["https://lists.cyberhost.uk/malware.txt"]="Cyberhost Malware"
       )
-
-      for url in "${ADLISTS[@]}"; do
-        # Check if adlist already exists
-        if ! grep -q "$url" /etc/pihole/adlists.list 2>/dev/null; then
-          echo "$url" >> /etc/pihole/adlists.list
-          echo "Added: $url"
+      
+      for url in "${!ADLISTS[@]}"; do
+        comment="${ADLISTS[$url]}"
+        
+        # Check if adlist already exists using pihole-FTL's sqlite3
+        EXISTS=$(pihole-FTL sqlite3 "$DB" "SELECT COUNT(*) FROM adlist WHERE address='$url';" 2>/dev/null || echo "0")
+        
+        if [ "$EXISTS" = "0" ]; then
+          # Insert new adlist
+          TIMESTAMP=$(date +%s)
+          pihole-FTL sqlite3 "$DB" "INSERT INTO adlist (address, enabled, comment, date_added, date_modified) VALUES ('$url', 1, '$comment', $TIMESTAMP, $TIMESTAMP);"
+          if [ $? -eq 0 ]; then
+            echo "Added: $comment"
+          else
+            echo "Failed to add: $comment"
+          fi
         else
-          echo "Already exists: $url"
+          echo "Already exists: $comment"
         fi
       done
+      
+      echo ""
+      echo "Total adlists in database:"
+      pihole-FTL sqlite3 "$DB" "SELECT COUNT(*) FROM adlist WHERE enabled=1;"
     dest: /tmp/configure_adlists.sh
     mode: '0755'
   delegate_to: lenovo_server
@@ -144,3 +161,19 @@
     path: /tmp/configure_adlists.sh
     state: absent
   delegate_to: lenovo_server
+
+- name: Display Pi-hole access information
+  ansible.builtin.debug:
+    msg: |
+      ✅ Pi-hole is configured successfully!
+      
+      🌐 Access Information (via Swarm ingress - accessible from ANY node):
+      Web Interface: http://{{ ansible_host }}:{{ pihole_web_port }}/admin
+      DNS Server: {{ ansible_host }}:53
+      Password: {{ pihole_web_password }}
+      
+       Configuration:
+      - Custom DNS entries configured for .{{ local_domain }} domains
+      - Running on node: {{ pihole_target_host }}
+      - Container ID: {{ pihole_container_id.stdout }}
+      - Block lists configured and gravity updated
