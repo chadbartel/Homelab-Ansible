@@ -142,6 +142,15 @@
   changed_when: custom_dns.rc == 0
   delegate_to: lenovo_server
 
+- name: Add line to misc.dnsmasq_lines to fix max concurrent dns queries warning
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id.stdout }} bash -c '
+    echo "dns-forward-max=300" >> /etc/dnsmasq.d/misc.dnsmasq_lines
+    '
+  register: dnsmasq_config
+  changed_when: dnsmasq_config.rc == 0
+  delegate_to: lenovo_server
+
 - name: Restart Pi-hole DNS to apply custom DNS entries
   ansible.builtin.shell: |
     docker exec {{ pihole_container_id.stdout }} pihole restartdns
