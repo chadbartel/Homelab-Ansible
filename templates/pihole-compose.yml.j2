@@ -15,7 +15,7 @@ services:
       # FTLCONF_dns_upstreams: '127.0.0.1#5335'
       FTLCONF_dns_listeningMode: 'all'
       FTLCONF_dns_revServers: 'true,192.168.1.0/24,192.168.1.1'
-      FTLCONF_dns_dnssec: 'true'
+      FTLCONF_dns_dnssec: 'false'
       FTLCONF_dns_hosts: |
         {{ manager_node_ip }} {{ heimdall_container_name }}.{{ local_domain }}
         {{ manager_node_ip }} {{ pihole_container_name }}.{{ local_domain }}
