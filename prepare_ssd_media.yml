@@ -1,0 +1,10 @@
+---
+# Prepare SSD media drive on lenovo_server (Storage Host) for Jellyfin.
+# Run: ansible-playbook prepare_ssd_media.yml
+# Configure in host_vars/lenovo_server.yml: ssd_media_device, ssd_media_format.
+- name: Prepare SSD media drive on Storage Host
+  hosts: lenovo_server
+  become: true
+  tasks:
+    - name: Include SSD media drive setup tasks
+      ansible.builtin.include_tasks: tasks/ssd_media_drive.yml

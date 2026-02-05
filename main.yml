@@ -43,6 +43,14 @@
           Socket: Available
           Daemon: Connected
 
+- name: Prepare SSD media drive on Storage Host (lenovo_server)
+  hosts: lenovo_server
+  become: true
+  tasks:
+    - name: Include SSD media drive setup tasks
+      ansible.builtin.include_tasks: tasks/ssd_media_drive.yml
+      tags: ["ssd-media", "storage"]
+
 - name: Setup Docker Swarm cluster
   hosts: manager_nodes
   become: true
