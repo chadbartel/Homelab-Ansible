@@ -73,6 +73,42 @@
       ansible.builtin.include_tasks: tasks/nfs_client.yml
       tags: ["nfs", "storage"]
 
+- name: Verify NFS mount on worker nodes
+  hosts: nfs_client_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Check if NFS mount is accessible
+      ansible.builtin.command:
+        cmd: ls -la {{ nfs_client_mount_path }}
+      register: nfs_mount_check
+      changed_when: false
+      failed_when: nfs_mount_check.rc != 0
+
+    - name: Display NFS mount contents
+      ansible.builtin.debug:
+        msg: |
+          ✅ NFS mount verified on {{ inventory_hostname }}!
+          Mount point: {{ nfs_client_mount_path }}
+          Contents:
+          {{ nfs_mount_check.stdout }}
+
+    - name: Verify music folder is visible
+      ansible.builtin.stat:
+        path: "{{ nfs_client_mount_path }}/music"
+      register: music_folder_check
+
+    - name: Display music folder status
+      ansible.builtin.debug:
+        msg: |
+          {% if music_folder_check.stat.exists %}
+          ✅ Music folder is accessible at {{ nfs_client_mount_path }}/music
+          {% else %}
+          ⚠️  Music folder not found - you may need to create it on the storage host
+          {% endif %}
+
 - name: Setup Docker Swarm cluster
   hosts: manager_nodes
   become: true

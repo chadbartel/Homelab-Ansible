@@ -34,6 +34,17 @@ portainer_stacks:
     compose_template: heimdall-compose.yml.j2
   - name: vpn-stack
     compose_template: openvpn-compose.yml.j2
+  - name: jellyfin-stack
+    compose_template: jellyfin-compose.yml.j2
+
+# NFS: Storage Host exports /mnt/ssd_media to other nodes
+# all_squash with anonuid/anongid ensures container users map to your user ID (1000)
+nfs_storage_host_ip: "192.168.1.12"
+nfs_export_path: "/mnt/ssd_media"
+nfs_export_network: "192.168.1.0/24"
+nfs_export_options: "rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000"
+nfs_client_mount_path: "/mnt/ssd_media"
+nfs_client_options: "rw,soft,intr,noatime,timeo=14,_netdev"
 
 # Network configuration
 homelab_network: "192.168.1.0/24"

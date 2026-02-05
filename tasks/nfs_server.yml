@@ -11,10 +11,9 @@
 - name: Ensure NFS export line exists in /etc/exports
   ansible.builtin.lineinfile:
     path: /etc/exports
+    regexp: "^{{ nfs_export_path }}" # This finds ANY line starting with your path
     line: "{{ nfs_export_path }} {{ nfs_export_network }}({{ nfs_export_options }})"
     state: present
-    create: true
-    mode: "0644"
 
 - name: Apply NFS exports
   ansible.builtin.command: exportfs -ra
