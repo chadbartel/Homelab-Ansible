@@ -1,0 +1,23 @@
+---
+# NFS client on nodes that are not the Storage Host. Mount Storage Host's /mnt/ssd_media.
+# Uses: nfs_storage_host_ip, nfs_export_path, nfs_client_mount_path, nfs_client_options.
+
+- name: Install NFS client
+  ansible.builtin.apt:
+    name: nfs-common
+    state: present
+    update_cache: true
+
+- name: Ensure NFS mount point exists
+  ansible.builtin.file:
+    path: "{{ nfs_client_mount_path }}"
+    state: directory
+    mode: "0755"
+
+- name: Mount NFS share and add to fstab
+  ansible.posix.mount:
+    path: "{{ nfs_client_mount_path }}"
+    src: "{{ nfs_storage_host_ip }}:{{ nfs_export_path }}"
+    fstype: nfs
+    opts: "{{ nfs_client_options }}"
+    state: mounted

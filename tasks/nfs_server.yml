@@ -1,0 +1,27 @@
+---
+# NFS server on Storage Host (lenovo_server). Exports /mnt/ssd_media for Swarm nodes.
+# Uses: nfs_export_path, nfs_export_network (e.g. 192.168.1.0/24), nfs_export_options.
+
+- name: Install NFS server
+  ansible.builtin.apt:
+    name: nfs-kernel-server
+    state: present
+    update_cache: true
+
+- name: Ensure NFS export line exists in /etc/exports
+  ansible.builtin.lineinfile:
+    path: /etc/exports
+    line: "{{ nfs_export_path }} {{ nfs_export_network }}({{ nfs_export_options }})"
+    state: present
+    create: true
+    mode: "0644"
+
+- name: Apply NFS exports
+  ansible.builtin.command: exportfs -ra
+  changed_when: true
+
+- name: Ensure NFS server is started and enabled
+  ansible.builtin.systemd:
+    name: nfs-kernel-server
+    state: started
+    enabled: true

@@ -51,6 +51,28 @@
       ansible.builtin.include_tasks: tasks/ssd_media_drive.yml
       tags: ["ssd-media", "storage"]
 
+- name: Setup NFS server on Storage Host (lenovo_server)
+  hosts: lenovo_server
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Include NFS server tasks
+      ansible.builtin.include_tasks: tasks/nfs_server.yml
+      tags: ["nfs", "storage"]
+
+- name: Setup NFS clients on other nodes (mount SSD via NFS)
+  hosts: nfs_client_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Include NFS client tasks
+      ansible.builtin.include_tasks: tasks/nfs_client.yml
+      tags: ["nfs", "storage"]
+
 - name: Setup Docker Swarm cluster
   hosts: manager_nodes
   become: true

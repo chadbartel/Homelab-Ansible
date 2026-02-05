@@ -11,6 +11,7 @@
       - NPM: http://{{ ansible_host }}:{{ proxy_host_port }}
       - Heimdall: http://{{ ansible_host }}:{{ heimdall_host_port }}
       - OpenVPN: https://{{ ansible_host }}:{{ vpn_host_port }}
+      - Jellyfin: http://{{ jellyfin_container_name }}.{{ local_domain }} (via NPM)
       
       Next steps:
       1. Configure services through their web interfaces

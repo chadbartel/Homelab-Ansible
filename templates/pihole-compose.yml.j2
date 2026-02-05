@@ -22,6 +22,7 @@ services:
         {{ manager_node_ip }} {{ portainer_container_name }}.{{ local_domain }}
         {{ manager_node_ip }} {{ nginx_proxy_container_name }}.{{ local_domain }}
         {{ manager_node_ip }} {{ openvpn_container_name }}.{{ local_domain }}
+        {{ manager_node_ip }} {{ jellyfin_container_name }}.{{ local_domain }}
       FTLCONF_dhcp_router: '{{ gateway_ip }}'
       FTLCONF_dns_domainNeeded: 'true'
     volumes:

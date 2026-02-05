@@ -32,6 +32,14 @@ all:
             compose_template: heimdall-compose.yml.j2
           - name: vpn-stack
             compose_template: openvpn-compose.yml.j2
+          - name: jellyfin-stack
+            compose_template: jellyfin-compose.yml.j2
+
+    # Nodes that mount the SSD via NFS (all except Storage Host 192.168.1.12)
+    nfs_client_nodes:
+      hosts:
+        pi4_01:
+        pi3_01:
 
     arm_hosts:
       hosts:

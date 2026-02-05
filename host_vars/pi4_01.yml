@@ -1,6 +1,10 @@
 ---
-# Host variables for pi4_01
+# Host variables for pi4_01 (NPM runs here; these proxy hosts get SSL when certificate_id is set)
 proxy_hosts:
+  - domain: "{{ pihole_container_name }}.{{ local_domain }}"
+    host: "{{ pihole_container_name }}"
+    port: "{{ pihole_dns_port | default(80) }}"
+    scheme: "http"
   - domain: "{{ openvpn_container_name }}.{{ local_domain }}"
     host: "{{ openvpn_container_name }}"
     port: "{{ vpn_host_port }}"
@@ -16,4 +20,8 @@ proxy_hosts:
   - domain: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
     host: "{{ nginx_proxy_container_name }}"
     port: "{{ proxy_host_port }}"
+    scheme: "http"
+  - domain: "{{ jellyfin_container_name }}.{{ local_domain }}"
+    host: "{{ jellyfin_container_name }}"
+    port: "{{ jellyfin_host_port }}"
     scheme: "http"

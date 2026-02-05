@@ -1,5 +1,21 @@
 ---
 # NGINX Proxy Manager post-setup tasks - Simple idempotent version
+- name: Ensure proxy_hosts variable is defined
+  ansible.builtin.assert:
+    that:
+      - proxy_hosts is defined
+      - proxy_hosts | length > 0
+    fail_msg: "proxy_hosts must be defined in host_vars for this host ({{ inventory_hostname }})"
+    success_msg: "Found {{ proxy_hosts | length }} proxy host(s) to configure"
+
+- name: Display proxy hosts that will be created
+  ansible.builtin.debug:
+    msg: |
+      Will create NPM proxy hosts:
+      {% for item in proxy_hosts %}
+      - {{ item.domain }} → {{ item.scheme | default('http') }}://{{ item.host }}:{{ item.port }}
+      {% endfor %}
+
 - name: Wait for Nginx Proxy Manager to be ready
   ansible.builtin.wait_for:
     port: "{{ proxy_host_port }}"

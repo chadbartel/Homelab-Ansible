@@ -47,6 +47,21 @@ portainer_stacks:
     compose_template: heimdall-compose.yml.j2
   - name: vpn-stack
     compose_template: openvpn-compose.yml.j2
+  - name: jellyfin-stack
+    compose_template: jellyfin-compose.yml.j2
+
+# Jellyfin (media server)
+jellyfin_image: "jellyfin/jellyfin:latest"
+jellyfin_container_name: "jellyfin"
+jellyfin_host_port: 8096
+
+# NFS: Storage Host 192.168.1.12 (lenovo_server) exports /mnt/ssd_media to other nodes
+nfs_storage_host_ip: "192.168.1.12"
+nfs_export_path: "/mnt/ssd_media"
+nfs_export_network: "192.168.1.0/24"
+nfs_export_options: "rw,sync,no_subtree_check,no_root_squash"
+nfs_client_mount_path: "/mnt/ssd_media"
+nfs_client_options: "rw,soft,intr,noatime"
 pihole_container_name: "pihole"
 openvpn_container_name: "vpn"
 portainer_container_name: "portainer"
