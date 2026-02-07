@@ -1,0 +1,91 @@
+---
+# Example: Initial Jellyfin Setup
+# This playbook demonstrates setting up a new Jellyfin instance with users and libraries
+
+- name: Initialize Jellyfin Server
+  hosts: localhost
+  gather_facts: false
+  vars:
+    jellyfin_url: "http://localhost:8096"
+    jellyfin_api_token: "your-api-token-here"  # Use ansible-vault in production
+  
+  tasks:
+    - name: Verify Jellyfin is running
+      import_role:
+        name: jellyfin
+        tasks_from: system
+      vars:
+        jellyfin_action: ping
+    
+    - name: Get Jellyfin system information
+      import_role:
+        name: jellyfin
+        tasks_from: system
+      vars:
+        jellyfin_action: info
+    
+    - name: Create admin user
+      import_role:
+        name: jellyfin
+        tasks_from: users
+      vars:
+        jellyfin_action: create
+        jellyfin_new_user_name: "admin"
+        jellyfin_new_user_password: "ChangeMeInProduction123!"
+    
+    - name: Create regular user
+      import_role:
+        name: jellyfin
+        tasks_from: users
+      vars:
+        jellyfin_action: create
+        jellyfin_new_user_name: "family_member"
+        jellyfin_new_user_password: "SecurePass456!"
+    
+    - name: Create Movies library
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: create
+        jellyfin_library_name: "Movies"
+        jellyfin_library_type: "movies"
+        jellyfin_library_paths:
+          - Path: "/mnt/media/movies"
+    
+    - name: Create TV Shows library
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: create
+        jellyfin_library_name: "TV Shows"
+        jellyfin_library_type: "tvshows"
+        jellyfin_library_paths:
+          - Path: "/mnt/media/tv"
+    
+    - name: Create Music library
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: create
+        jellyfin_library_name: "Music"
+        jellyfin_library_type: "music"
+        jellyfin_library_paths:
+          - Path: "/mnt/media/music"
+    
+    - name: Trigger initial library scan
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: scan
+    
+    - name: Create API key for automation
+      import_role:
+        name: jellyfin
+        tasks_from: api_keys
+      vars:
+        jellyfin_action: create
+        jellyfin_api_key_app_name: "Ansible Automation"

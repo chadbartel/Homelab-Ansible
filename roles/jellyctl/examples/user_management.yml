@@ -1,0 +1,56 @@
+---
+# Example: User Management with jellyctl role
+# This playbook demonstrates various user management operations
+
+- name: Manage Jellyfin Users
+  hosts: jellyfin_servers
+  vars_files:
+    - ../vault.yml  # Contains vault_jellyfin_api_token
+  
+  vars:
+    jellyctl_url: "http://jellyfin.local:8096"
+    jellyctl_token: "{{ vault_jellyfin_api_token }}"
+
+  tasks:
+    - name: List all users
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "list"
+        jellyctl_output_format: "json"
+
+    - name: Create a new user
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "create"
+        jellyctl_username: "moviefan"
+
+    - name: Promote user to administrator
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "set-admin"
+        jellyctl_username: "admin_user"
+
+    - name: Hide service account from login
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "set-hidden"
+        jellyctl_username: "service_account"
+
+    - name: Disable inactive user
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "disable"
+        jellyctl_username: "inactive_user"
+
+    - name: Remove old user
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "delete"
+        jellyctl_username: "old_user"
+      when: cleanup_old_users | default(false)

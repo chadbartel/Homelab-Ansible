@@ -1,0 +1,87 @@
+---
+# System management tasks for jellyctl
+
+- name: Build jellyctl base command
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ jellyctl_binary }} --url {{ jellyctl_url }}"
+
+- name: Add token to command if provided
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ _jellyctl_cmd }} --token {{ jellyctl_token }}"
+  when: jellyctl_token | length > 0
+
+# System info
+- name: Get system information
+  ansible.builtin.command: "{{ _jellyctl_cmd }} system info {{ '--public' if jellyctl_system_public_info | default(false) else '' }}"
+  register: jellyctl_system_info
+  changed_when: false
+  when: jellyctl_system_operation == 'info'
+
+- name: Display system information
+  ansible.builtin.debug:
+    var: jellyctl_system_info.stdout_lines
+  when: jellyctl_system_operation == 'info'
+
+# Shutdown
+- name: Shutdown Jellyfin server
+  ansible.builtin.command: "{{ _jellyctl_cmd }} system shutdown"
+  register: jellyctl_system_shutdown
+  when: jellyctl_system_operation == 'shutdown'
+  changed_when: jellyctl_system_shutdown.rc == 0
+
+- name: Confirm shutdown
+  ansible.builtin.debug:
+    msg: "Jellyfin server shutdown initiated"
+  when: jellyctl_system_operation == 'shutdown'
+
+# Restart
+- name: Restart Jellyfin server
+  ansible.builtin.command: "{{ _jellyctl_cmd }} system restart"
+  register: jellyctl_system_restart
+  when: jellyctl_system_operation == 'restart'
+  changed_when: jellyctl_system_restart.rc == 0
+
+- name: Confirm restart
+  ansible.builtin.debug:
+    msg: "Jellyfin server restart initiated"
+  when: jellyctl_system_operation == 'restart'
+
+# Backup
+- name: Export Jellyfin data
+  ansible.builtin.command: "{{ _jellyctl_cmd }} system backup"
+  register: jellyctl_system_backup
+  when: jellyctl_system_operation == 'backup'
+  changed_when: jellyctl_system_backup.rc == 0
+
+- name: Display backup information
+  ansible.builtin.debug:
+    var: jellyctl_system_backup.stdout_lines
+  when: jellyctl_system_operation == 'backup'
+
+# Restore
+- name: Build restore command
+  ansible.builtin.set_fact:
+    _restore_cmd: "{{ _jellyctl_cmd }} system restore {{ jellyctl_backup_file }}"
+  when:
+    - jellyctl_system_operation == 'restore'
+    - jellyctl_backup_file is defined
+
+- name: Add restore options
+  ansible.builtin.set_fact:
+    _restore_cmd: "{{ _restore_cmd }} {{ '--unfav' if jellyctl_backup_unfavorite else '' }} {{ '--unplay' if jellyctl_backup_unplay else '' }}"
+  when:
+    - jellyctl_system_operation == 'restore'
+    - jellyctl_backup_file is defined
+
+- name: Restore Jellyfin data
+  ansible.builtin.command: "{{ _restore_cmd }}"
+  register: jellyctl_system_restore
+  when:
+    - jellyctl_system_operation == 'restore'
+    - jellyctl_backup_file is defined
+  changed_when: jellyctl_system_restore.rc == 0
+
+- name: Display restore information
+  ansible.builtin.debug:
+    var: jellyctl_system_restore.stdout_lines
+  when: jellyctl_system_operation == 'restore'

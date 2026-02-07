@@ -1,0 +1,106 @@
+---
+# User management tasks for Jellyfin
+
+- name: Get all Jellyfin users
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Users"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_users_list
+  when: jellyfin_action == 'list'
+
+- name: Display Jellyfin users
+  ansible.builtin.debug:
+    var: jellyfin_users_list.response
+  when: jellyfin_action == 'list' and jellyfin_users_list is defined
+
+- name: Create Jellyfin user
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Users/New"
+    method: POST
+    body:
+      Name: "{{ jellyfin_new_user_name }}"
+      Password: "{{ jellyfin_new_user_password | default('') }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_user_created
+  when: jellyfin_action == 'create' and jellyfin_new_user_name is defined
+
+- name: Get specific user by ID
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Users/{{ jellyfin_user_id }}"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_user_info
+  when: jellyfin_action == 'get' and jellyfin_user_id is defined
+
+- name: Update Jellyfin user
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Users/{{ jellyfin_user_id }}"
+    method: POST
+    body: "{{ jellyfin_user_update_data }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_user_updated
+  when: jellyfin_action == 'update' and jellyfin_user_id is defined and jellyfin_user_update_data is defined
+
+- name: Delete Jellyfin user
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Users/{{ jellyfin_user_id }}"
+    method: DELETE
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_user_deleted
+  when: jellyfin_action == 'delete' and jellyfin_user_id is defined
+
+- name: Update user password
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Users/{{ jellyfin_user_id }}/Password"
+    method: POST
+    body:
+      CurrentPw: "{{ jellyfin_user_current_password | default('') }}"
+      NewPw: "{{ jellyfin_user_new_password }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_user_password_updated
+  when: jellyfin_action == 'update_password' and jellyfin_user_id is defined and jellyfin_user_new_password is defined
+
+- name: Update user policy
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Users/{{ jellyfin_user_id }}/Policy"
+    method: POST
+    body: "{{ jellyfin_user_policy }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_user_policy_updated
+  when: jellyfin_action == 'update_policy' and jellyfin_user_id is defined and jellyfin_user_policy is defined
