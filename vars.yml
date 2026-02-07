@@ -28,6 +28,9 @@ openvpn_thatsmidnight_password: "{{ vault_openvpn_thatsmidnight_password }}"
 openvpn_tyramail_password: "{{ vault_openvpn_tyramail_password }}"
 openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
+# Jellyfin configuration
+jellyfin_thatsmidnight_password: "{{ vault_jellyfin_thatsmidnight_password }}"
+
 # Pi-hole configuration
 pihole_config_path: "/opt/pihole/etc-pihole"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
