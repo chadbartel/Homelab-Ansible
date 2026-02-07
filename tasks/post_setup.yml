@@ -29,3 +29,7 @@
 - name: Run post-setup tasks for Nginx Proxy Manager
   ansible.builtin.include_tasks: tasks/post_setup_npm.yml
   tags: ["post_setup", "npm", "configure"]
+
+- name: Run post-setup tasks for Jellyfin
+  ansible.builtin.include_tasks: tasks/post_setup_jellyfin.yml
+  tags: ["post_setup", "jellyfin", "configure"]

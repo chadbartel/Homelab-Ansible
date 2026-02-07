@@ -1,0 +1,117 @@
+---
+# Jellyfin post-deployment verification tasks
+- name: Wait for Jellyfin service to stabilize
+  ansible.builtin.pause:
+    seconds: 45
+    prompt: "Waiting for Jellyfin service to fully deploy and initialize database..."
+
+- name: Verify Jellyfin service exists
+  ansible.builtin.shell: |
+    docker service ls --filter "name=jellyfin-stack_jellyfin" --format '{% raw %}{{.Name}}{% endraw %}'
+  register: jellyfin_service_check
+  changed_when: false
+  failed_when: jellyfin_service_check.stdout == ""
+
+- name: Get Jellyfin service status
+  ansible.builtin.shell: |
+    docker service ps jellyfin-stack_jellyfin --format '{% raw %}{{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.Error}}{% endraw %}'
+  register: jellyfin_service_status
+  changed_when: false
+
+- name: Display Jellyfin service status
+  ansible.builtin.debug:
+    msg: |
+      📊 Jellyfin Service Status:
+      {{ jellyfin_service_status.stdout_lines | join('\n      ') }}
+
+- name: Check if Jellyfin is running on correct node
+  ansible.builtin.shell: |
+    docker service ps jellyfin-stack_jellyfin --filter "desired-state=running" --format '{% raw %}{{.Node}}{% endraw %}'
+  register: jellyfin_node
+  changed_when: false
+
+- name: Verify Jellyfin is on midnight-laptop
+  ansible.builtin.assert:
+    that:
+      - "'midnight-laptop' in jellyfin_node.stdout"
+    fail_msg: "ERROR: Jellyfin is not running on midnight-laptop! Currently on: {{ jellyfin_node.stdout }}"
+    success_msg: "✅ Jellyfin is correctly running on midnight-laptop"
+
+- name: Check Jellyfin container logs for errors
+  ansible.builtin.shell: |
+    CONTAINER_ID=$(docker ps --filter "name=jellyfin-stack_jellyfin" --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1)
+    if [ -n "$CONTAINER_ID" ]; then
+      docker logs --tail 100 $CONTAINER_ID 2>&1 | tail -20
+    else
+      echo "Container not yet running"
+    fi
+  register: jellyfin_logs
+  changed_when: false
+  failed_when: false
+  delegate_to: lenovo_server
+
+- name: Display recent Jellyfin logs
+  ansible.builtin.debug:
+    msg: |
+      🔍 Recent Jellyfin Logs:
+      {{ jellyfin_logs.stdout }}
+
+- name: Check for fatal errors in logs
+  ansible.builtin.assert:
+    that:
+      - "'readonly database' not in jellyfin_logs.stdout"
+      - "'FTL' not in jellyfin_logs.stdout or 'Successfully started' in jellyfin_logs.stdout"
+    fail_msg: "❌ Jellyfin has fatal errors - check logs above"
+    success_msg: "✅ No fatal errors detected in Jellyfin logs"
+  failed_when: false
+
+- name: Check hardware acceleration device access
+  ansible.builtin.shell: |
+    CONTAINER_ID=$(docker ps --filter "name=jellyfin-stack_jellyfin" --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1)
+    if [ -n "$CONTAINER_ID" ]; then
+      docker exec $CONTAINER_ID ls -la /dev/dri/ 2>&1 || echo "Cannot access /dev/dri"
+    else
+      echo "Container not yet running"
+    fi
+  register: jellyfin_gpu_check
+  changed_when: false
+  failed_when: false
+  delegate_to: lenovo_server
+
+- name: Display GPU device access status
+  ansible.builtin.debug:
+    msg: |
+      🎮 GPU Device Access:
+      {{ jellyfin_gpu_check.stdout }}
+
+- name: Wait for Jellyfin web interface to be available
+  ansible.builtin.wait_for:
+    host: "{{ manager_node_ip }}"
+    port: "{{ jellyfin_host_port }}"
+    delay: 10
+    timeout: 120
+  failed_when: false
+
+- name: Display Jellyfin access information
+  ansible.builtin.debug:
+    msg: |
+      ✅ Jellyfin Deployment Complete!
+      
+      🌐 Access Information:
+      Web Interface: http://{{ manager_node_ip }}:{{ jellyfin_host_port }}
+      Direct Access: http://192.168.1.12:{{ jellyfin_host_port }}
+      
+      📍 Deployment Details:
+      - Running on: midnight-laptop (lenovo_server)
+      - Memory Limit: 4GB
+      - Hardware Acceleration: {{ 'Enabled (/dev/dri detected)' if 'renderD128' in jellyfin_gpu_check.stdout else 'Check GPU access above' }}
+      - Media Path: /mnt/ssd_media → /media (in container)
+      
+      🔧 Next Steps:
+      1. Complete initial Jellyfin setup wizard
+      2. Navigate to Dashboard → Playback → Transcoding
+      3. Set Hardware acceleration to "Intel Quick Sync (QSV)"
+      4. Add media libraries pointing to /media/music, /media/movies, etc.
+      
+      💡 Portainer Integration:
+      Check Portainer UI for full stack visibility and container management

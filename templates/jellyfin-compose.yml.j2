@@ -3,7 +3,8 @@ version: "3.8"
 
 services:
   jellyfin:
-    image: {{ jellyfin_image | default('jellyfin/jellyfin:2026020205') }}
+    image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
+    user: "1000:993"
     networks:
       - proxy-network
     volumes:
@@ -13,13 +14,27 @@ services:
         source: /mnt/ssd_media
         target: /media
         read_only: false
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/dri/card0:/dev/dri/card0
     deploy:
       replicas: 1
       placement:
         constraints:
-          - node.role == worker
+          - node.hostname == midnight-laptop
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
       restart_policy:
         condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        order: start-first
+        failure_action: rollback
 
 networks:
   proxy-network:
@@ -27,4 +42,6 @@ networks:
 
 volumes:
   jellyfin_config:
+    driver: local
   jellyfin_cache:
+    driver: local

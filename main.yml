@@ -97,16 +97,16 @@
 
     - name: Verify music folder is visible
       ansible.builtin.stat:
-        path: "{{ nfs_client_mount_path }}/music"
-      register: music_folder_check
+        path: "{{ nfs_client_mount_path }}"
+      register: media_folder_check
 
     - name: Display music folder status
       ansible.builtin.debug:
         msg: |
-          {% if music_folder_check.stat.exists %}
-          ✅ Music folder is accessible at {{ nfs_client_mount_path }}/music
+          {% if media_folder_check.stat.exists %}
+          ✅ Media folder is accessible at {{ nfs_client_mount_path }}
           {% else %}
-          ⚠️  Music folder not found - you may need to create it on the storage host
+          ⚠️  Media folder not found - you may need to create it on the storage host
           {% endif %}
 
 - name: Setup Docker Swarm cluster
@@ -172,6 +172,44 @@
         remote_addrs: 
           - "{{ hostvars[groups['manager_nodes'][0]]['ansible_default_ipv4']['address'] }}"
       when: current_swarm_state.stdout != "active"
+
+- name: Prepare Jellyfin volume directories on worker node
+  hosts: lenovo_server
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Ensure Jellyfin volume directories exist with correct ownership
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0755"
+        recurse: true
+      loop:
+        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_config/_data"
+        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_cache/_data"
+      tags: ["jellyfin", "volumes", "prepare"]
+
+    - name: Verify volume directory permissions
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_config/_data"
+        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_cache/_data"
+      register: volume_permissions
+      tags: ["jellyfin", "volumes", "verify"]
+
+    - name: Display volume permissions
+      ansible.builtin.debug:
+        msg: |
+          ✅ Jellyfin volume permissions verified:
+          {{ item.item }}: owner={{ item.stat.uid }}:{{ item.stat.gid }} mode={{ item.stat.mode }}
+      loop: "{{ volume_permissions.results }}"
+      when: item.stat.exists
+      tags: ["jellyfin", "volumes", "verify"]
 
 - name: Deploy Portainer and stacks to the manager node
   hosts: manager_nodes
