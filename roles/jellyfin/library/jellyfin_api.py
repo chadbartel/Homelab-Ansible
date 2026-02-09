@@ -5,9 +5,10 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: jellyfin_api
 short_description: Interact with Jellyfin API endpoints
@@ -87,9 +88,9 @@ options:
 
 author:
     - Homelab Ansible
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 # Get system information
 - name: Get Jellyfin system info
   jellyfin_api:
@@ -147,9 +148,9 @@ EXAMPLES = r'''
     password: "adminpass"
     endpoint: "/Users/Me"
     method: GET
-'''
+"""
 
-RETURN = r'''
+RETURN = r"""
 response:
     description: The API response data
     type: dict
@@ -162,7 +163,7 @@ msg:
     description: Message describing what happened
     type: str
     returned: always
-'''
+"""
 
 import json
 from ansible.module_utils.basic import AnsibleModule
@@ -173,88 +174,86 @@ from ansible.module_utils.six.moves.urllib.parse import urlencode
 class JellyfinAPI:
     def __init__(self, module):
         self.module = module
-        self.base_url = module.params['base_url'].rstrip('/')
-        self.api_token = module.params.get('api_token')
-        self.username = module.params.get('username')
-        self.password = module.params.get('password')
-        self.endpoint = module.params['endpoint']
-        self.method = module.params['method']
-        self.query_params = module.params.get('query_params', {})
-        self.body = module.params.get('body', {})
-        self.headers = module.params.get('headers', {})
-        self.validate_certs = module.params['validate_certs']
-        self.timeout = module.params['timeout']
+        self.base_url = module.params["base_url"].rstrip("/")
+        self.api_token = module.params.get("api_token")
+        self.username = module.params.get("username")
+        self.password = module.params.get("password")
+        self.endpoint = module.params["endpoint"]
+        self.method = module.params["method"]
+        self.query_params = module.params.get("query_params", {})
+        self.body = module.params.get("body", {})
+        self.headers = module.params.get("headers", {})
+        self.validate_certs = module.params["validate_certs"]
+        self.timeout = module.params["timeout"]
         self.access_token = None
 
     def authenticate_with_credentials(self):
         """Authenticate using username and password to get access token"""
         auth_endpoint = "/Users/AuthenticateByName"
         auth_url = self.base_url + auth_endpoint
-        
-        auth_body = {
-            "Username": self.username,
-            "Pw": self.password
-        }
-        
+
+        auth_body = {"Username": self.username, "Pw": self.password}
+
         headers = {
-            'Content-Type': 'application/json',
-            'X-Emby-Authorization': 'MediaBrowser Client="Ansible", Device="Server", DeviceId="ansible-module", Version="1.0.0"'
+            "Content-Type": "application/json",
+            "X-Emby-Authorization": 'MediaBrowser Client="Ansible", Device="Server", DeviceId="ansible-module", Version="1.0.0"',
         }
-        
+
         response, info = fetch_url(
             self.module,
             auth_url,
             data=json.dumps(auth_body),
             headers=headers,
-            method='POST',
-            timeout=self.timeout
+            method="POST",
+            timeout=self.timeout,
         )
-        
-        if info['status'] != 200:
+
+        if info["status"] != 200:
             self.module.fail_json(
                 msg="Authentication failed",
-                status_code=info['status'],
-                response=info.get('body', '')
+                status_code=info["status"],
+                response=info.get("body", ""),
             )
-        
+
         try:
             result = json.loads(response.read())
-            self.access_token = result.get('AccessToken')
+            self.access_token = result.get("AccessToken")
             if not self.access_token:
-                self.module.fail_json(msg="No access token returned from authentication")
+                self.module.fail_json(
+                    msg="No access token returned from authentication"
+                )
         except Exception as e:
-            self.module.fail_json(msg="Failed to parse authentication response: %s" % str(e))
+            self.module.fail_json(
+                msg="Failed to parse authentication response: %s" % str(e)
+            )
 
     def build_headers(self):
         """Build request headers with authentication"""
-        headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-        
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+
         # Add custom headers
         headers.update(self.headers)
-        
+
         # Add authentication
         if self.api_token:
-            headers['X-MediaBrowser-Token'] = self.api_token
+            headers["X-MediaBrowser-Token"] = self.api_token
         elif self.access_token:
-            headers['X-MediaBrowser-Token'] = self.access_token
-        
+            headers["X-MediaBrowser-Token"] = self.access_token
+
         # Add Emby authorization header
         auth_header = 'MediaBrowser Client="Ansible", Device="Server", DeviceId="ansible-module", Version="1.0.0"'
         if self.api_token:
             auth_header += ', Token="%s"' % self.api_token
         elif self.access_token:
             auth_header += ', Token="%s"' % self.access_token
-        headers['X-Emby-Authorization'] = auth_header
-        
+        headers["X-Emby-Authorization"] = auth_header
+
         return headers
 
     def build_url(self):
         """Build the complete URL with query parameters"""
         url = self.base_url + self.endpoint
-        
+
         if self.query_params:
             # Filter out None values and convert booleans to lowercase strings
             clean_params = {}
@@ -264,10 +263,10 @@ class JellyfinAPI:
                         clean_params[key] = str(value).lower()
                     else:
                         clean_params[key] = value
-            
+
             if clean_params:
-                url += '?' + urlencode(clean_params)
-        
+                url += "?" + urlencode(clean_params)
+
         return url
 
     def make_request(self):
@@ -275,16 +274,16 @@ class JellyfinAPI:
         # Authenticate if using username/password
         if self.username and self.password and not self.access_token:
             self.authenticate_with_credentials()
-        
+
         # Build request components
         url = self.build_url()
         headers = self.build_headers()
-        
+
         # Prepare request data
         data = None
-        if self.method in ['POST', 'PUT', 'PATCH'] and self.body:
+        if self.method in ["POST", "PUT", "PATCH"] and self.body:
             data = json.dumps(self.body)
-        
+
         # Make the request
         response, info = fetch_url(
             self.module,
@@ -292,76 +291,74 @@ class JellyfinAPI:
             data=data,
             headers=headers,
             method=self.method,
-            timeout=self.timeout
+            timeout=self.timeout,
         )
-        
+
         # Parse response
-        status_code = info['status']
-        
-        result = {
-            'status_code': status_code,
-            'response': {},
-            'msg': ''
-        }
-        
+        status_code = info["status"]
+
+        result = {"status_code": status_code, "response": {}, "msg": ""}
+
         # Read response body
         if response:
             try:
                 body = response.read()
                 if body:
-                    result['response'] = json.loads(body)
+                    result["response"] = json.loads(body)
             except Exception as e:
-                result['response'] = body.decode('utf-8') if body else ''
-        
+                result["response"] = body.decode("utf-8") if body else ""
+
         # Handle error responses
         if status_code >= 400:
             error_msg = "API request failed with status %d" % status_code
-            if 'body' in info:
-                error_msg += ": %s" % info['body']
-            result['msg'] = error_msg
-            result['failed'] = True
+            if "body" in info:
+                error_msg += ": %s" % info["body"]
+            result["msg"] = error_msg
+            result["failed"] = True
             return result
-        
+
         # Success
-        result['msg'] = "API request successful"
-        result['changed'] = self.method in ['POST', 'PUT', 'DELETE', 'PATCH']
-        
+        result["msg"] = "API request successful"
+        result["changed"] = self.method in ["POST", "PUT", "DELETE", "PATCH"]
+
         return result
 
 
 def main():
     argument_spec = url_argument_spec()
     argument_spec.update(
-        base_url=dict(type='str', required=True),
-        api_token=dict(type='str', required=False, no_log=True),
-        username=dict(type='str', required=False),
-        password=dict(type='str', required=False, no_log=True),
-        endpoint=dict(type='str', required=True),
-        method=dict(type='str', default='GET', choices=['GET', 'POST', 'PUT', 'DELETE', 'PATCH']),
-        query_params=dict(type='dict', default={}),
-        body=dict(type='dict', default={}),
-        headers=dict(type='dict', default={}),
-        timeout=dict(type='int', default=30),
+        base_url=dict(type="str", required=True),
+        api_token=dict(type="str", required=False, no_log=True),
+        username=dict(type="str", required=False),
+        password=dict(type="str", required=False, no_log=True),
+        endpoint=dict(type="str", required=True),
+        method=dict(
+            type="str", default="GET", choices=["GET", "POST", "PUT", "DELETE", "PATCH"]
+        ),
+        query_params=dict(type="dict", default={}),
+        body=dict(type="dict", default={}),
+        headers=dict(type="dict", default={}),
+        timeout=dict(type="int", default=30),
     )
-    
+
     module = AnsibleModule(
         argument_spec=argument_spec,
-        required_one_of=[['api_token', 'username']],
-        required_together=[['username', 'password']],
-        supports_check_mode=True
+        required_one_of=[["api_token", "username"]],
+        required_together=[["username", "password"]],
+        supports_check_mode=True,
     )
-    
+
     if module.check_mode:
         module.exit_json(changed=False)
-    
+
     api = JellyfinAPI(module)
     result = api.make_request()
-    
-    if result.get('failed'):
+
+    if result.get("failed"):
         module.fail_json(**result)
     else:
         module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
