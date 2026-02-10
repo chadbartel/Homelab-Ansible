@@ -165,6 +165,23 @@
     - inventory_hostname == 'lenovo_server'
     - gpu_type.stdout == 'intel'
 
+- name: Load i915 kernel module for Intel GPU
+  community.general.modprobe:
+    name: i915
+    state: present
+  when:
+    - inventory_hostname == 'lenovo_server'
+    - gpu_type.stdout == 'intel'
+
+- name: Ensure i915 module loads on boot
+  ansible.builtin.lineinfile:
+    path: /etc/modules
+    line: i915
+    create: yes
+  when:
+    - inventory_hostname == 'lenovo_server'
+    - gpu_type.stdout == 'intel'
+
 - name: Install NVIDIA GPU drivers
   ansible.builtin.apt:
     name:

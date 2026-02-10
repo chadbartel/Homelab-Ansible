@@ -142,3 +142,28 @@
       {{ stack_update_results.results | selectattr('status', 'defined') | selectattr('status', 'equalto', 200) | map(attribute='item.item.name') | list | join(', ') | default('None') }}
       
       All containers should now be visible in Portainer UI.
+
+- name: Check if GPU device exists for Jellyfin
+  ansible.builtin.stat:
+    path: /dev/dri
+  register: dri_device_check
+  delegate_to: lenovo_server
+
+- name: Display GPU acceleration status note
+  ansible.builtin.debug:
+    msg: |
+      {% if dri_device_check.stat.exists %}
+      ✅ /dev/dri exists on lenovo_server - GPU acceleration can be enabled!
+      
+      To enable GPU hardware acceleration for Jellyfin:
+      1. Set in vars.yml: jellyfin_enable_hw_accel: true
+      2. Run: make deploy
+      {% else %}
+      ⚠️ GPU Hardware Acceleration: DISABLED
+      
+      /dev/dri does not exist on lenovo_server. Possible fixes:
+      1. Reboot lenovo_server to load GPU kernel modules: ssh lenovo_server sudo reboot
+      2. Or manually load i915 module: ssh lenovo_server sudo modprobe i915
+      3. After device appears, set jellyfin_enable_hw_accel: true in vars.yml
+      4. Redeploy with: make deploy
+      {% endif %}

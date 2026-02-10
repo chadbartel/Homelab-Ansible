@@ -30,6 +30,7 @@ openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
 # Jellyfin configuration
 jellyfin_thatsmidnight_password: "{{ vault_jellyfin_thatsmidnight_password }}"
+jellyfin_enable_hw_accel: false  # Temporarily disabled until /dev/dri is available (NEEDS REBOOT OF lenovo_server)
 
 # Pi-hole configuration
 pihole_config_path: "/opt/pihole/etc-pihole"

@@ -15,8 +15,41 @@
     docker service ls --filter "name=jellyfin-stack_jellyfin" --format '{% raw %}{{.Name}}{% endraw %}'
   register: jellyfin_service_check
   changed_when: false
-  failed_when: jellyfin_service_check.stdout == ""
+  failed_when: false
   delegate_to: pi4_01
+
+- name: Check if service failed to start
+  ansible.builtin.shell: |
+    docker service ps jellyfin-stack_jellyfin --format '{% raw %}{{.Name}}\t{{.CurrentState}}\t{{.Error}}{% endraw %}' 2>&1 || echo "Service not found"
+  register: jellyfin_service_debug
+  changed_when: false
+  failed_when: false
+  delegate_to: pi4_01
+  when: jellyfin_service_check.stdout == ""
+
+- name: Display service creation issue
+  ansible.builtin.debug:
+    msg: |
+      ⚠️ Jellyfin service not found or failed to start!
+      
+      Diagnostic info:
+      {{ jellyfin_service_debug.stdout }}
+      
+      This usually means:
+      1. Stack deployment via Portainer failed
+      2. Service configuration has errors (check Portainer logs)
+      3. /dev/dri device mounting failed (GPU acceleration disabled by default now)
+      
+      Next steps:
+      - Check Portainer UI for jellyfin-stack deployment status
+      - Review stack logs in Portainer
+      - If GPU is needed, verify /dev/dri exists on lenovo_server
+  when: jellyfin_service_check.stdout == ""
+
+- name: Fail if service doesn't exist
+  ansible.builtin.fail:
+    msg: "Jellyfin service does not exist - check Portainer for deployment errors"
+  when: jellyfin_service_check.stdout == ""
 
 - name: Get Jellyfin service status
   ansible.builtin.shell: |
@@ -89,21 +122,32 @@
     msg: |
       🎮 GPU Device Access:
       {{ jellyfin_gpu_check.stdout }}
+      
+      {% if 'Cannot access' in jellyfin_gpu_check.stdout %}
+      ⚠️ GPU pass-through is DISABLED in the current deployment
+      /dev/dri is not available in the container (and possibly not on the host)
+      
+      To enable GPU hardware acceleration:
+      1. Verify /dev/dri exists on lenovo_server host: ls -la /dev/dri/
+      2. If missing, kernel module may need loading or system reboot
+      3. Set jellyfin_enable_hw_accel: true in vars.yml
+      4. Redeploy with make deploy
+      {% endif %}
 
-- name: Wait for Jellyfin web interface to be available
+- name: Wait for Jellyfin web interface to be available (localhost since we're on lenovo_server)
   ansible.builtin.wait_for:
-    host: "{{ worker_node_ip2 }}"
+    host: 127.0.0.1
     port: "{{ jellyfin_host_port }}"
     delay: 10
     timeout: 120
-  failed_when: false
+    msg: "Jellyfin port {{ jellyfin_host_port }} not accessible on localhost after 120s"
 
 # ========================================
 # PHASE 2: Setup Wizard Completion
 # ========================================
 - name: Check if setup wizard has been completed
   ansible.builtin.uri:
-    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/Configuration"
+    url: "http://127.0.0.1:{{ jellyfin_host_port }}/Startup/Configuration"
     method: GET
     status_code: [200, 404]
     validate_certs: false
@@ -121,7 +165,7 @@
 
 - name: Complete Jellyfin startup wizard - Set UI culture
   ansible.builtin.uri:
-    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/Configuration"
+    url: "http://127.0.0.1:{{ jellyfin_host_port }}/Startup/Configuration"
     method: POST
     body_format: json
     body:
@@ -136,7 +180,7 @@
 
 - name: Complete Jellyfin startup wizard - Disable remote access
   ansible.builtin.uri:
-    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/RemoteAccess"
+    url: "http://127.0.0.1:{{ jellyfin_host_port }}/Startup/RemoteAccess"
     method: POST
     body_format: json
     body:
@@ -148,7 +192,7 @@
 
 - name: Complete Jellyfin startup wizard - Create admin user
   ansible.builtin.uri:
-    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/User"
+    url: "http://127.0.0.1:{{ jellyfin_host_port }}/Startup/User"
     method: POST
     body_format: json
     body:
@@ -161,7 +205,7 @@
 
 - name: Complete Jellyfin startup wizard - Finalize setup
   ansible.builtin.uri:
-    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/Complete"
+    url: "http://127.0.0.1:{{ jellyfin_host_port }}/Startup/Complete"
     method: POST
     body_format: json
     body: {}
@@ -181,7 +225,7 @@
 # ========================================
 - name: Test authentication before creating API key
   ansible.builtin.uri:
-    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/User/AuthenticateByName"
+    url: "http://127.0.0.1:{{ jellyfin_host_port }}/User/AuthenticateByName"
     method: POST
     body_format: json
     body:
@@ -198,6 +242,12 @@
       Authentication test: {{ 'SUCCESS' if jellyfin_auth_test.status == 200 else 'FAILED (status: ' + (jellyfin_auth_test.status | string) + ')' }}
       {% if jellyfin_auth_test.status != 200 %}
       Error: {{ jellyfin_auth_test.msg | default('Unknown error') }}
+      URL tested: http://127.0.0.1:{{ jellyfin_host_port }}/User/AuthenticateByName
+      Username: {{ admin_user }}
+      {% else %}
+      🎉 Authentication successful!
+      Access Token: {{ jellyfin_auth_test.json.AccessToken | default('N/A') }}
+      User ID: {{ jellyfin_auth_test.json.User.Id | default('N/A') }}
       {% endif %}
 
 - name: Create API key using Jellyfin API (authenticated with username/password)
@@ -205,7 +255,7 @@
     name: jellyfin
     tasks_from: api_keys
   vars:
-    jellyfin_url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}"
+    jellyfin_url: "http://127.0.0.1:{{ jellyfin_host_port }}"
     jellyfin_username: "{{ admin_user }}"
     jellyfin_password: "{{ jellyfin_thatsmidnight_password }}"
     jellyfin_action: create
@@ -233,7 +283,7 @@
     name: jellyfin
     tasks_from: libraries
   vars:
-    jellyfin_url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}"
+    jellyfin_url: "http://127.0.0.1:{{ jellyfin_host_port }}"
     jellyfin_api_token: "{{ api_token }}"
     jellyfin_action: create
     jellyfin_library_name: "Music"
@@ -248,7 +298,7 @@
     name: jellyfin
     tasks_from: libraries
   vars:
-    jellyfin_url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}"
+    jellyfin_url: "http://127.0.0.1:{{ jellyfin_host_port }}"
     jellyfin_api_token: "{{ api_token }}"
     jellyfin_action: create
     jellyfin_library_name: "Concerts"
@@ -263,7 +313,7 @@
     name: jellyfin
     tasks_from: libraries
   vars:
-    jellyfin_url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}"
+    jellyfin_url: "http://127.0.0.1:{{ jellyfin_host_port }}"
     jellyfin_api_token: "{{ api_token }}"
     jellyfin_action: create
     jellyfin_library_name: "Movies"
@@ -282,8 +332,9 @@
       ✅ Jellyfin Deployment & Configuration Complete!
 
       🌐 Access Information:
-      Web Interface: http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}
-      Direct Access: http://192.168.1.12:{{ jellyfin_host_port }}
+      External (Recommended): http://jellyfin.chadbartel.duckdns.org (via Nginx Proxy Manager)
+      Direct Access (LAN): http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}
+      From lenovo_server: http://127.0.0.1:{{ jellyfin_host_port }}
 
       👤 Admin Credentials:
       Username: {{ admin_user }}
@@ -292,7 +343,7 @@
       📍 Deployment Details:
       - Running on: midnight-laptop (lenovo_server)
       - Memory Limit: 4GB
-      - Hardware Acceleration: {{ 'Enabled (/dev/dri detected)' if 'renderD128' in jellyfin_gpu_check.stdout else 'Check GPU access above' }}
+      - Hardware Acceleration: {{ 'Enabled (Intel QSV)' if jellyfin_enable_hw_accel | default(false) else 'DISABLED (set jellyfin_enable_hw_accel: true to enable)' }}
       - Media Path: /mnt/ssd_media → /media (in container)
 
       📚 Configured Libraries:
