@@ -1,5 +1,10 @@
 ---
-# Jellyfin post-deployment verification tasks
+# Jellyfin post-deployment configuration using jellyfin and jellyctl roles
+# All tasks run on lenovo_server where Jellyfin is deployed
+
+# ========================================
+# PHASE 1: Service Verification
+# ========================================
 - name: Wait for Jellyfin service to stabilize
   ansible.builtin.pause:
     seconds: 45
@@ -11,12 +16,14 @@
   register: jellyfin_service_check
   changed_when: false
   failed_when: jellyfin_service_check.stdout == ""
+  delegate_to: pi4_01
 
 - name: Get Jellyfin service status
   ansible.builtin.shell: |
     docker service ps jellyfin-stack_jellyfin --format '{% raw %}{{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.Error}}{% endraw %}'
   register: jellyfin_service_status
   changed_when: false
+  delegate_to: pi4_01
 
 - name: Display Jellyfin service status
   ansible.builtin.debug:
@@ -29,6 +36,7 @@
     docker service ps jellyfin-stack_jellyfin --filter "desired-state=running" --format '{% raw %}{{.Node}}{% endraw %}'
   register: jellyfin_node
   changed_when: false
+  delegate_to: pi4_01
 
 - name: Verify Jellyfin is on midnight-laptop
   ansible.builtin.assert:
@@ -48,7 +56,6 @@
   register: jellyfin_logs
   changed_when: false
   failed_when: false
-  delegate_to: lenovo_server
 
 - name: Display recent Jellyfin logs
   ansible.builtin.debug:
@@ -76,7 +83,6 @@
   register: jellyfin_gpu_check
   changed_when: false
   failed_when: false
-  delegate_to: lenovo_server
 
 - name: Display GPU device access status
   ansible.builtin.debug:
@@ -86,32 +92,221 @@
 
 - name: Wait for Jellyfin web interface to be available
   ansible.builtin.wait_for:
-    host: "{{ manager_node_ip }}"
+    host: "{{ worker_node_ip2 }}"
     port: "{{ jellyfin_host_port }}"
     delay: 10
     timeout: 120
   failed_when: false
 
-- name: Display Jellyfin access information
+# ========================================
+# PHASE 2: Setup Wizard Completion
+# ========================================
+- name: Check if setup wizard has been completed
+  ansible.builtin.uri:
+    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/Configuration"
+    method: GET
+    status_code: [200, 404]
+    validate_certs: false
+  register: jellyfin_startup_check
+  failed_when: false
+
+- name: Display setup wizard status
   ansible.builtin.debug:
     msg: |
-      ✅ Jellyfin Deployment Complete!
-      
+      {% if jellyfin_startup_check.status == 404 %}
+      ✅ Setup wizard already completed
+      {% else %}
+      ⚠️ Setup wizard needs completion (status: {{ jellyfin_startup_check.status }})
+      {% endif %}
+
+- name: Complete Jellyfin startup wizard - Set UI culture
+  ansible.builtin.uri:
+    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/Configuration"
+    method: POST
+    body_format: json
+    body:
+      ServerName: "jellyfin"
+      UICulture: "en-US"
+      MetadataCountryCode: "US"
+      PreferredMetadataLanguage: "en"
+    status_code: [200, 204]
+    validate_certs: false
+  when: jellyfin_startup_check.status == 200
+  failed_when: false
+
+- name: Complete Jellyfin startup wizard - Disable remote access
+  ansible.builtin.uri:
+    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/RemoteAccess"
+    method: POST
+    body_format: json
+    body:
+      EnableRemoteAccess: false
+    status_code: [200, 204]
+    validate_certs: false
+  when: jellyfin_startup_check.status == 200
+  failed_when: false
+
+- name: Complete Jellyfin startup wizard - Create admin user
+  ansible.builtin.uri:
+    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/User"
+    method: POST
+    body_format: json
+    body:
+      Name: "{{ admin_user }}"
+      Password: "{{ jellyfin_thatsmidnight_password }}"
+    status_code: [200, 204]
+    validate_certs: false
+  when: jellyfin_startup_check.status == 200
+  failed_when: false
+
+- name: Complete Jellyfin startup wizard - Finalize setup
+  ansible.builtin.uri:
+    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/Startup/Complete"
+    method: POST
+    body_format: json
+    body: {}
+    status_code: [200, 204]
+    validate_certs: false
+  when: jellyfin_startup_check.status == 200
+  failed_when: false
+
+- name: Wait for wizard completion to settle
+  ansible.builtin.pause:
+    seconds: 10
+    prompt: "Waiting for setup wizard completion to settle..."
+  when: jellyfin_startup_check.status == 200
+
+# ========================================
+# PHASE 3: API Token Generation
+# ========================================
+- name: Test authentication before creating API key
+  ansible.builtin.uri:
+    url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}/User/AuthenticateByName"
+    method: POST
+    body_format: json
+    body:
+      Username: "{{ admin_user }}"
+      Pw: "{{ jellyfin_thatsmidnight_password }}"
+    status_code: [200]
+    validate_certs: false
+  register: jellyfin_auth_test
+  failed_when: false
+
+- name: Display authentication test result
+  ansible.builtin.debug:
+    msg: |
+      Authentication test: {{ 'SUCCESS' if jellyfin_auth_test.status == 200 else 'FAILED (status: ' + (jellyfin_auth_test.status | string) + ')' }}
+      {% if jellyfin_auth_test.status != 200 %}
+      Error: {{ jellyfin_auth_test.msg | default('Unknown error') }}
+      {% endif %}
+
+- name: Create API key using Jellyfin API (authenticated with username/password)
+  ansible.builtin.include_role:
+    name: jellyfin
+    tasks_from: api_keys
+  vars:
+    jellyfin_url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}"
+    jellyfin_username: "{{ admin_user }}"
+    jellyfin_password: "{{ jellyfin_thatsmidnight_password }}"
+    jellyfin_action: create
+    jellyfin_api_key_app_name: "ansible_automation"
+    jellyfin_validate_certs: false
+  when: jellyfin_auth_test.status == 200
+
+- name: Extract API token from creation response
+  ansible.builtin.set_fact:
+    api_token: "{{ jellyfin_api_key_created.response.AccessToken }}"
+  when: jellyfin_api_key_created is defined and jellyfin_api_key_created.response.AccessToken is defined
+
+- name: Display generated API token
+  ansible.builtin.debug:
+    msg: |
+      🔑 Generated API Token: {{ api_token }}
+      ⚠️ Store this token securely in vault.yml as vault_jellyfin_api_token
+  when: api_token is defined
+
+# ========================================
+# PHASE 4: Library Configuration (jellyfin role)
+# ========================================
+- name: Create Music library
+  ansible.builtin.include_role:
+    name: jellyfin
+    tasks_from: libraries
+  vars:
+    jellyfin_url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}"
+    jellyfin_api_token: "{{ api_token }}"
+    jellyfin_action: create
+    jellyfin_library_name: "Music"
+    jellyfin_library_type: "music"
+    jellyfin_library_refresh_on_create: true
+    jellyfin_library_paths:
+      - Path: "/media/music"
+  when: api_token is defined
+
+- name: Create Concerts library
+  ansible.builtin.include_role:
+    name: jellyfin
+    tasks_from: libraries
+  vars:
+    jellyfin_url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}"
+    jellyfin_api_token: "{{ api_token }}"
+    jellyfin_action: create
+    jellyfin_library_name: "Concerts"
+    jellyfin_library_type: "movies"
+    jellyfin_library_refresh_on_create: true
+    jellyfin_library_paths:
+      - Path: "/media/concerts"
+  when: api_token is defined
+
+- name: Create Movies library
+  ansible.builtin.include_role:
+    name: jellyfin
+    tasks_from: libraries
+  vars:
+    jellyfin_url: "http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}"
+    jellyfin_api_token: "{{ api_token }}"
+    jellyfin_action: create
+    jellyfin_library_name: "Movies"
+    jellyfin_library_type: "movies"
+    jellyfin_library_refresh_on_create: true
+    jellyfin_library_paths:
+      - Path: "/media/movies"
+  when: api_token is defined
+
+# ========================================
+# PHASE 5: Final Information Display
+# ========================================
+- name: Display Jellyfin deployment summary
+  ansible.builtin.debug:
+    msg: |
+      ✅ Jellyfin Deployment & Configuration Complete!
+
       🌐 Access Information:
-      Web Interface: http://{{ manager_node_ip }}:{{ jellyfin_host_port }}
+      Web Interface: http://{{ worker_node_ip2 }}:{{ jellyfin_host_port }}
       Direct Access: http://192.168.1.12:{{ jellyfin_host_port }}
-      
+
+      👤 Admin Credentials:
+      Username: {{ admin_user }}
+      Password: {{ jellyfin_thatsmidnight_password }}
+
       📍 Deployment Details:
       - Running on: midnight-laptop (lenovo_server)
       - Memory Limit: 4GB
       - Hardware Acceleration: {{ 'Enabled (/dev/dri detected)' if 'renderD128' in jellyfin_gpu_check.stdout else 'Check GPU access above' }}
       - Media Path: /mnt/ssd_media → /media (in container)
-      
+
+      📚 Configured Libraries:
+      - Music (/media/music)
+      - Concerts (/media/concerts - Movies type)
+      - Movies (/media/movies)
+
       🔧 Next Steps:
-      1. Complete initial Jellyfin setup wizard
+      1. Store API token in vault.yml: vault_jellyfin_api_token: "{{ api_token | default('MANUAL_CREATION_NEEDED') }}"
       2. Navigate to Dashboard → Playback → Transcoding
       3. Set Hardware acceleration to "Intel Quick Sync (QSV)"
-      4. Add media libraries pointing to /media/music, /media/movies, etc.
-      
-      💡 Portainer Integration:
-      Check Portainer UI for full stack visibility and container management
+      4. Monitor library scanning progress in Dashboard
+
+      💡 Management Options:
+      - Portainer: Check stack status and container logs
+      - Jellyfin API: Programmatic access via jellyfin ansible role
+      - jellyctl (optional): CLI tool for manual management (install via: go install github.com/sj14/jellyctl@latest)
