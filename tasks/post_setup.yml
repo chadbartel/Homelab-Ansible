@@ -19,7 +19,10 @@
       3. Configure client devices to use Pi-hole DNS
 
 - name: Run post-setup tasks for Pi-hole
-  ansible.builtin.include_tasks: tasks/post_setup_pihole.yml
+  block:
+    - name: Include Pi-hole post-setup tasks
+      ansible.builtin.include_tasks: tasks/post_setup_pihole.yml
+  delegate_to: pi4_01
   tags: ["post_setup", "pihole", "configure"]
 
 - name: Run post-setup tasks for OpenVPN

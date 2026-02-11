@@ -39,7 +39,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.hostname == {{ pihole_target_host | default('lenovo_server') }}
+          - node.hostname == {{ pihole_target_host | default('midnight-laptop') }}
 
 volumes:
   pihole_etc:

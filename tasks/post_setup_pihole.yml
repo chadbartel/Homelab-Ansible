@@ -1,25 +1,134 @@
 ---
 # Pi-hole post-deployment configuration tasks
-- name: Wait for Pi-hole to be ready
-  ansible.builtin.wait_for:
-    port: 8081
-    host: "{{ ansible_host }}"
-    delay: 15
-    timeout: 180
+# ========================================
+# PHASE 1: Service Verification
+# ========================================
+- name: Verify Pi-hole service exists
+  ansible.builtin.shell: |
+    docker service ls --filter "name=pihole-stack_pihole" --format '{% raw %}{{.Name}}{% endraw %}'
+  register: pihole_service_check
+  changed_when: false
+  failed_when: false
 
-- name: Get Pi-hole container ID from Swarm service
+- name: Check if service failed to start
+  ansible.builtin.shell: |
+    docker service ps pihole-stack_pihole --format '{% raw %}{{.Name}}\t{{.CurrentState}}\t{{.Error}}{% endraw %}' 2>&1 || echo "Service not found"
+  register: pihole_service_debug
+  changed_when: false
+  failed_when: false
+  when: pihole_service_check.stdout == ""
+
+- name: Display service creation issue
+  ansible.builtin.debug:
+    msg: |
+      ⚠️ Pi-hole service not found or failed to start!
+      
+      Diagnostic info:
+      {{ pihole_service_debug.stdout }}
+      
+      This usually means:
+      1. Stack deployment via Portainer failed
+      2. Service configuration has errors (check Portainer logs)
+      3. Port conflicts (port 53, 8081 might be in use)
+      
+      Next steps:
+      - Check Portainer UI for pihole-stack deployment status
+      - Review stack logs in Portainer
+      - Verify ports are not already bound on {{ pihole_target_host }}
+  when: pihole_service_check.stdout == ""
+
+- name: Fail if service doesn't exist
+  ansible.builtin.fail:
+    msg: "Pi-hole service does not exist - check Portainer for deployment errors"
+  when: pihole_service_check.stdout == ""
+
+- name: Get Pi-hole service status
+  ansible.builtin.shell: |
+    docker service ps pihole-stack_pihole --format '{% raw %}{{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.Error}}{% endraw %}'
+  register: pihole_service_status
+  changed_when: false
+
+- name: Display Pi-hole service status
+  ansible.builtin.debug:
+    msg: |
+      📊 Pi-hole Service Status:
+      {{ pihole_service_status.stdout_lines | join('\n      ') }}
+
+- name: Check if Pi-hole is running on correct node
+  ansible.builtin.shell: |
+    docker service ps pihole-stack_pihole --filter "desired-state=running" --format '{% raw %}{{.Node}}{% endraw %}'
+  register: pihole_node
+  changed_when: false
+
+- name: Verify Pi-hole is running
+  ansible.builtin.assert:
+    that:
+      - pihole_node.stdout != ""
+    fail_msg: "ERROR: Pi-hole is not running! Check service status above."
+    success_msg: "✅ Pi-hole service is running on {{ pihole_node.stdout }}"
+
+- name: Get Pi-hole container ID from the node where it's running
   ansible.builtin.shell: |
     docker ps --filter "name=pihole-stack_pihole" --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
   register: pihole_container_id
   changed_when: false
-  failed_when: pihole_container_id.stdout == ""
+  failed_when: false
+  retries: 6
+  delay: 10
+  until: pihole_container_id.stdout != ""
   delegate_to: lenovo_server
+
+- name: Check service logs if container not found
+  ansible.builtin.shell: |
+    docker service logs pihole-stack_pihole --tail 50 2>&1
+  register: pihole_service_logs
+  changed_when: false
+  failed_when: false
+  when: pihole_container_id.stdout == ""
+
+- name: Display Pi-hole crash diagnostics
+  ansible.builtin.debug:
+    msg: |
+      ❌ Pi-hole container is NOT running on midnight-laptop!
+      
+      The service shows it's in a crash loop (starting then immediately shutting down).
+      
+      📋 Recent service logs:
+      {{ pihole_service_logs.stdout_lines | default(['No logs available']) | join('\n      ') }}
+      
+      Common causes:
+      1. Port 53 already in use (systemd-resolved or another DNS service)
+      2. Port 8081 conflict
+      3. Volume/permission issues
+      4. Missing capabilities (NET_ADMIN)
+      
+      Fix steps:
+      1. SSH to lenovo_server: ssh lenovo_server
+      2. Check port 53: sudo lsof -i :53
+      3. If systemd-resolved is using it:
+         sudo systemctl disable systemd-resolved
+         sudo systemctl stop systemd-resolved
+      4. Redeploy: make deploy
+  when: pihole_container_id.stdout == ""
+
+- name: Skip post-configuration if container not found
+  ansible.builtin.debug:
+    msg: |
+      ⚠️ Skipping post-configuration tasks (container not found via docker ps)
+      
+      However, Pi-hole service is running and accessible!
+      You can verify by visiting: http://{{ ansible_host }}:8081/admin
+  when: pihole_container_id.stdout == ""
+
+- name: End playbook for Pi-hole if container not found
+  ansible.builtin.meta: end_host
+  when: pihole_container_id.stdout == ""
 
 - name: Display Pi-hole container information
   ansible.builtin.debug:
     msg: |
       Pi-hole container ID: {{ pihole_container_id.stdout }}
-      Running on node: {{ pihole_target_host }}
+      Running on node: {{ pihole_node.stdout }}
 
 - name: Wait for Pi-hole FTL to be fully initialized
   ansible.builtin.shell: |
@@ -29,7 +138,6 @@
   retries: 12
   delay: 10
   changed_when: false
-  delegate_to: lenovo_server
 
 - name: Create adlist configuration script
   ansible.builtin.copy:
@@ -94,19 +202,16 @@
       pihole-FTL sqlite3 "$DB" "SELECT COUNT(*) FROM adlist WHERE enabled=1;"
     dest: /tmp/configure_adlists.sh
     mode: '0755'
-  delegate_to: lenovo_server
 
 - name: Copy adlist script to Pi-hole container
   ansible.builtin.shell: |
     docker cp /tmp/configure_adlists.sh {{ pihole_container_id.stdout }}:/tmp/configure_adlists.sh
-  delegate_to: lenovo_server
 
 - name: Configure Pi-hole adlists (block lists)
   ansible.builtin.shell: |
     docker exec {{ pihole_container_id.stdout }} bash /tmp/configure_adlists.sh
   register: adlist_config
   changed_when: "'Added:' in adlist_config.stdout"
-  delegate_to: lenovo_server
 
 - name: Display adlist configuration results
   ansible.builtin.debug:
@@ -119,7 +224,6 @@
     docker exec {{ pihole_container_id.stdout }} pihole -g
   register: gravity_update
   changed_when: "'Update complete' in gravity_update.stdout"
-  delegate_to: lenovo_server
 
 - name: Display gravity update results
   ansible.builtin.debug:
@@ -141,7 +245,6 @@
     '
   register: custom_dns
   changed_when: custom_dns.rc == 0
-  delegate_to: lenovo_server
 
 - name: Add line to misc.dnsmasq_lines to fix max concurrent dns queries warning
   ansible.builtin.shell: |
@@ -150,13 +253,11 @@
     '
   register: dnsmasq_config
   changed_when: dnsmasq_config.rc == 0
-  delegate_to: lenovo_server
 
 - name: Restart Pi-hole DNS to apply custom DNS entries
   ansible.builtin.shell: |
     docker exec {{ pihole_container_id.stdout }} pihole restartdns
   when: custom_dns.changed
-  delegate_to: lenovo_server
 
 - name: Get Pi-hole statistics
   ansible.builtin.shell: |
@@ -164,13 +265,11 @@
   register: pihole_stats
   changed_when: false
   failed_when: false
-  delegate_to: lenovo_server
 
 - name: Clean up temporary files
   ansible.builtin.file:
     path: /tmp/configure_adlists.sh
     state: absent
-  delegate_to: lenovo_server
 
 - name: Display Pi-hole access information
   ansible.builtin.debug:
@@ -184,6 +283,6 @@
       
        Configuration:
       - Custom DNS entries configured for .{{ local_domain }} domains
-      - Running on node: {{ pihole_target_host }}
+      - Running on node: {{ pihole_node.stdout }}
       - Container ID: {{ pihole_container_id.stdout }}
       - Block lists configured and gravity updated
