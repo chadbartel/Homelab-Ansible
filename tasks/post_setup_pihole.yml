@@ -67,62 +67,29 @@
     fail_msg: "ERROR: Pi-hole is not running! Check service status above."
     success_msg: "✅ Pi-hole service is running on {{ pihole_node.stdout }}"
 
-- name: Get Pi-hole container ID from the node where it's running
+- name: Get Pi-hole container ID using service inspect (more reliable than docker ps)
   ansible.builtin.shell: |
-    docker ps --filter "name=pihole-stack_pihole" --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
+    # Get the task ID from the running service
+    TASK_ID=$(docker service ps pihole-stack_pihole --filter 'desired-state=running' --format '{% raw %}{{.ID}}{% endraw %}' --no-trunc | head -n 1)
+    if [ -z "$TASK_ID" ]; then
+      echo ""
+      exit 0
+    fi
+    # Get container ID from the task
+    docker inspect "${TASK_ID}" --format '{% raw %}{{.Status.ContainerStatus.ContainerID}}{% endraw %}' 2>/dev/null | head -c 12 || echo ""
   register: pihole_container_id
   changed_when: false
   failed_when: false
-  retries: 6
-  delay: 10
-  until: pihole_container_id.stdout != ""
-  delegate_to: lenovo_server
 
-- name: Check service logs if container not found
-  ansible.builtin.shell: |
-    docker service logs pihole-stack_pihole --tail 50 2>&1
-  register: pihole_service_logs
-  changed_when: false
-  failed_when: false
-  when: pihole_container_id.stdout == ""
-
-- name: Display Pi-hole crash diagnostics
-  ansible.builtin.debug:
-    msg: |
-      ❌ Pi-hole container is NOT running on midnight-laptop!
-      
-      The service shows it's in a crash loop (starting then immediately shutting down).
-      
-      📋 Recent service logs:
-      {{ pihole_service_logs.stdout_lines | default(['No logs available']) | join('\n      ') }}
-      
-      Common causes:
-      1. Port 53 already in use (systemd-resolved or another DNS service)
-      2. Port 8081 conflict
-      3. Volume/permission issues
-      4. Missing capabilities (NET_ADMIN)
-      
-      Fix steps:
-      1. SSH to lenovo_server: ssh lenovo_server
-      2. Check port 53: sudo lsof -i :53
-      3. If systemd-resolved is using it:
-         sudo systemctl disable systemd-resolved
-         sudo systemctl stop systemd-resolved
-      4. Redeploy: make deploy
-  when: pihole_container_id.stdout == ""
-
-- name: Skip post-configuration if container not found
-  ansible.builtin.debug:
-    msg: |
-      ⚠️ Skipping post-configuration tasks (container not found via docker ps)
-      
-      However, Pi-hole service is running and accessible!
-      You can verify by visiting: http://{{ ansible_host }}:8081/admin
-  when: pihole_container_id.stdout == ""
-
-- name: End playbook for Pi-hole if container not found
-  ansible.builtin.meta: end_host
-  when: pihole_container_id.stdout == ""
+- name: Verify container ID was found
+  ansible.builtin.assert:
+    that:
+      - pihole_container_id.stdout != ""
+    fail_msg: |
+      ❌ Could not get Pi-hole container ID from Swarm.
+      Service is running but container ID lookup failed.
+      Check 'docker service ps pihole-stack_pihole' manually.
+    success_msg: "✅ Found Pi-hole container: {{ pihole_container_id.stdout }}"
 
 - name: Display Pi-hole container information
   ansible.builtin.debug:
