@@ -46,102 +46,19 @@
   register: jellyfin_volume_check
   changed_when: "'jellyfin_config' in jellyfin_volume_check.stdout or 'jellyfin_cache' in jellyfin_volume_check.stdout"
 
-- name: Get Portainer authentication token
-  ansible.builtin.uri:
-    url: "https://{{ ansible_host }}:{{ portainer_host_port }}/api/auth"
-    method: POST
-    body_format: json
-    body:
-      username: "admin"
-      password: "{{ portainer_admin_password }}"
-    validate_certs: false
-    status_code: [200]
-  register: portainer_auth
-  retries: 3
-  delay: 5
-
-- name: Get Portainer endpoint ID
-  ansible.builtin.uri:
-    url: "https://{{ ansible_host }}:{{ portainer_host_port }}/api/endpoints"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ portainer_auth.json.jwt }}"
-    validate_certs: false
-    status_code: [200]
-  register: portainer_endpoints
-
-- name: Set Portainer endpoint ID
-  ansible.builtin.set_fact:
-    portainer_endpoint_id: "{{ portainer_endpoints.json[0].Id }}"
-
-- name: Get Docker Swarm ID
-  ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.Cluster.ID}}{% endraw %}'
-  register: swarm_id_result
-  changed_when: false
-
-- name: Read all stack compose files
-  ansible.builtin.slurp:
-    src: "/tmp/docker-stacks/{{ item.name }}.yml"
+- name: Deploy stacks to Docker Swarm
+  ansible.builtin.shell:
+    cmd: "docker stack deploy -c /tmp/docker-stacks/{{ item.name }}.yml {{ item.name }}"
   loop: "{{ portainer_stacks }}"
-  register: stack_file_contents
+  register: stack_deployment_result
 
-- name: Get existing stacks from Portainer
-  ansible.builtin.uri:
-    url: "https://{{ ansible_host }}:{{ portainer_host_port }}/api/stacks"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ portainer_auth.json.jwt }}"
-    validate_certs: false
-    status_code: [200]
-  register: existing_stacks
-
-- name: Deploy new stacks via Portainer API
-  ansible.builtin.uri:
-    url: "https://{{ ansible_host }}:{{ portainer_host_port }}/api/stacks/create/swarm/string?endpointId={{ portainer_endpoint_id }}"
-    method: POST
-    headers:
-      Authorization: "Bearer {{ portainer_auth.json.jwt }}"
-    body_format: json
-    body:
-      name: "{{ item.item.name }}"
-      stackFileContent: "{{ item.content | b64decode }}"
-      swarmID: "{{ swarm_id_result.stdout }}"
-    validate_certs: false
-    status_code: [200]
-  loop: "{{ stack_file_contents.results }}"
-  when: existing_stacks.json | selectattr('Name', 'equalto', item.item.name) | list | length == 0
-  register: stack_create_results
-  failed_when: false
-
-- name: Update existing stacks via Portainer API
-  ansible.builtin.uri:
-    url: "https://{{ ansible_host }}:{{ portainer_host_port }}/api/stacks/{{ (existing_stacks.json | selectattr('Name', 'equalto', item.item.name) | list)[0].Id }}?endpointId={{ portainer_endpoint_id }}"
-    method: PUT
-    headers:
-      Authorization: "Bearer {{ portainer_auth.json.jwt }}"
-    body_format: json
-    body:
-      stackFileContent: "{{ item.content | b64decode }}"
-      prune: false
-    validate_certs: false
-    status_code: [200]
-  loop: "{{ stack_file_contents.results }}"
-  when: existing_stacks.json | selectattr('Name', 'equalto', item.item.name) | list | length > 0
-  register: stack_update_results
-  failed_when: false
-
-- name: Display stack deployment summary
+- name: Display stack deployment results
   ansible.builtin.debug:
     msg: |
-      ✅ All stacks deployed via Portainer API for full visibility!
-      
-      Created Stacks:
-      {{ stack_create_results.results | selectattr('status', 'defined') | selectattr('status', 'equalto', 200) | map(attribute='item.item.name') | list | join(', ') | default('None') }}
-      
-      Updated Stacks:
-      {{ stack_update_results.results | selectattr('status', 'defined') | selectattr('status', 'equalto', 200) | map(attribute='item.item.name') | list | join(', ') | default('None') }}
-      
-      All containers should now be visible in Portainer UI.
+      Stack: {{ item.item.name }}
+      Status: {{ 'Deployed' if item.changed else 'Already up to date' }}
+      Output: {{ item.stdout }}
+  loop: "{{ stack_deployment_result.results }}"
 
 - name: Check if GPU device exists for Jellyfin
   ansible.builtin.stat:

@@ -19,7 +19,6 @@ services:
       FTLCONF_dns_revServers: 'true,192.168.1.0/24,192.168.1.1'
       FTLCONF_dns_dnssec: 'false'
       FTLCONF_dns_hosts: |
-        {{ manager_node_ip }} {{ heimdall_container_name }}.{{ local_domain }}
         {{ manager_node_ip }} {{ pihole_container_name }}.{{ local_domain }}
         {{ manager_node_ip }} {{ portainer_container_name }}.{{ local_domain }}
         {{ manager_node_ip }} {{ nginx_proxy_container_name }}.{{ local_domain }}

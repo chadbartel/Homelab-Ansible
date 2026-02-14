@@ -9,7 +9,6 @@
       - Portainer: https://{{ ansible_host }}:{{ portainer_host_port }}
       - Pi-hole: http://{{ ansible_host }}:8081/admin
       - NPM: http://{{ ansible_host }}:{{ proxy_host_port }}
-      - Heimdall: http://{{ ansible_host }}:{{ heimdall_host_port }}
       - OpenVPN: https://{{ ansible_host }}:{{ vpn_host_port }}
       - Jellyfin: http://{{ jellyfin_container_name }}.{{ local_domain }} (via NPM)
       
@@ -19,10 +18,7 @@
       3. Configure client devices to use Pi-hole DNS
 
 - name: Run post-setup tasks for Pi-hole
-  block:
-    - name: Include Pi-hole post-setup tasks
-      ansible.builtin.include_tasks: tasks/post_setup_pihole.yml
-  delegate_to: pi4_01
+  ansible.builtin.include_tasks: tasks/post_setup_pihole.yml
   tags: ["post_setup", "pihole", "configure"]
 
 - name: Run post-setup tasks for OpenVPN
