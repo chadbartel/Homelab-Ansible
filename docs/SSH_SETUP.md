@@ -7,6 +7,7 @@ This setup automatically handles SSH key management to avoid repeated password p
 ## 🚀 Quick Start
 
 ### Option 1: Automatic Setup (Recommended)
+
 ```bash
 # This will automatically handle everything:
 make deploy
@@ -15,6 +16,7 @@ make test
 ```
 
 ### Option 2: Manual Setup
+
 ```bash
 # Setup SSH agent and keys manually:
 make setup-ssh
@@ -40,6 +42,7 @@ ansible-playbook main.yml --ask-vault-pass
 ## 🔧 Configuration
 
 ### Environment Variables
+
 ```bash
 export SSH_KEY_PATH="$HOME/.ssh/id_rsa"      # Path to your SSH key
 export SSH_AGENT_TIMEOUT="3600"             # Key timeout (1 hour)
@@ -47,6 +50,7 @@ export SSH_SKIP_TEST="1"                     # Skip connectivity test
 ```
 
 ### Manual SSH Agent Commands
+
 ```bash
 # Start agent
 eval $(ssh-agent -s)
@@ -63,7 +67,8 @@ ssh-add -l
 
 ## 🐛 Troubleshooting
 
-### If You Get Permission Denied Errors:
+### If You Get Permission Denied Errors
+
 ```bash
 # Run the troubleshooting script:
 make troubleshoot-ssh
@@ -72,19 +77,21 @@ make troubleshoot-ssh
 ./troubleshoot-ssh.sh
 ```
 
-### Common Issues:
+### Common Issues
 
 1. **SSH key not found**: Ensure `~/.ssh/id_rsa` exists
 2. **Agent not running**: Run `make setup-ssh`
 3. **Key not loaded**: Check with `ssh-add -l`
 4. **Connectivity issues**: Verify hosts are online and SSH port 22 is open
 
-### Manual Key Generation (if needed):
+### Manual Key Generation (if needed)
+
 ```bash
 ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
 ```
 
-### Copy Keys to Remote Hosts:
+### Copy Keys to Remote Hosts
+
 ```bash
 ssh-copy-id username@192.168.1.10
 ssh-copy-id username@192.168.1.11
@@ -94,6 +101,7 @@ ssh-copy-id username@192.168.1.12
 ## ✅ Verification
 
 Test that everything works:
+
 ```bash
 # Test SSH setup
 make setup-ssh
