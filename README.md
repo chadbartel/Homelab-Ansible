@@ -5,6 +5,7 @@ A modular Ansible collection for deploying and managing homelab infrastructure w
 ## 🏗️ Architecture
 
 This collection provides independent, reusable roles that can be composed to create various homelab deployments:
+
 - **Common**: Base system configuration, user management, SSH hardening
 - **Docker**: Docker Engine installation with multi-architecture support
 - **Docker Swarm**: Docker Swarm cluster management
@@ -13,7 +14,7 @@ This collection provides independent, reusable roles that can be composed to cre
 
 ## 📁 Structure
 
-```
+```text
 homelab-ansible/
 ├── roles/                      # Reusable Ansible roles
 │   ├── common/                 # Base system configuration
@@ -55,6 +56,7 @@ make test
 ```
 
 For troubleshooting SSH issues:
+
 ```bash
 make troubleshoot-ssh
 ```
@@ -183,6 +185,7 @@ ansible-vault view vault.yml
 ### SSH Configuration
 
 The playbook automatically:
+
 - Disables password authentication
 - Disables root login
 - Sets up public key authentication
@@ -191,22 +194,22 @@ The playbook automatically:
 ## 📋 Services
 
 ### Portainer
+
 - **URL**: `https://your-manager-ip:9443`
 - **Purpose**: Docker management interface
 
 ### Pi-hole
+
 - **URL**: `http://your-manager-ip:80/admin`
 - **Purpose**: Network-wide ad blocking and DNS
 
 ### Nginx Proxy Manager
+
 - **URL**: `http://your-manager-ip:8181`
 - **Purpose**: Reverse proxy with SSL
 
-### Heimdall
-- **URL**: `http://your-manager-ip:8080`
-- **Purpose**: Application dashboard
-
 ### OpenVPN Access Server
+
 - **URL**: `https://your-manager-ip:943`
 - **Purpose**: VPN server
 
