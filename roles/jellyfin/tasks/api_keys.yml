@@ -1,0 +1,56 @@
+---
+# API Key management tasks for Jellyfin
+
+- name: Get all API keys
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Auth/Keys"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_api_keys_list
+  when: jellyfin_action == 'list'
+
+- name: Display API keys
+  ansible.builtin.debug:
+    var: jellyfin_api_keys_list.response
+  when: jellyfin_action == 'list' and jellyfin_api_keys_list is defined
+
+- name: Create new API key
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Auth/Keys"
+    method: POST
+    query_params:
+      app: "{{ jellyfin_api_key_app_name }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_api_key_created
+  when: jellyfin_action == 'create' and jellyfin_api_key_app_name is defined
+
+- name: Display created API key
+  ansible.builtin.debug:
+    msg: "API Key created: {{ jellyfin_api_key_created.response.AccessToken }}"
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_api_key_created is defined and
+    jellyfin_api_key_created.response.AccessToken is defined
+
+- name: Revoke API key
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Auth/Keys/{{ jellyfin_api_key_to_revoke }}"
+    method: DELETE
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_api_key_revoked
+  when: jellyfin_action == 'revoke' and jellyfin_api_key_to_revoke is defined

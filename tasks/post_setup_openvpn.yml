@@ -2,85 +2,138 @@
 # OpenVPN post-deployment configuration tasks
 - name: Wait for OpenVPN Access Server to be fully ready
   ansible.builtin.wait_for:
-    port: 943
+    port: "{{ vpn_host_port }}"
     host: "{{ ansible_host }}"
     delay: 30
     timeout: 300
 
-- name: Set OpenVPN admin password
+- name: Get OpenVPN container ID from Swarm service
   ansible.builtin.shell: |
-    docker exec {{ openvpn_container_name }} sacli --user "{{ openvpn_container_name }}" --new_pass "{{ openvpn_admin_password }}" SetLocalPassword
-  register: admin_password_result
-  retries: 3
-  delay: 10
+    docker ps --filter "name=vpn-stack_openvpn-as" --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
+  register: openvpn_container_id
+  changed_when: false
+  failed_when: openvpn_container_id.stdout == ""
 
-- name: Set OpenVPN server name/hostname
+- name: Display OpenVPN container information
+  ansible.builtin.debug:
+    msg: |
+      OpenVPN container ID: {{ openvpn_container_id.stdout }}
+      Running on manager node
+
+# Check if initial configuration has been done
+- name: Check if OpenVPN has been configured
   ansible.builtin.shell: |
-    docker exec {{ openvpn_container_name }} sacli --key "host.name" --value "{{ openvpn_hostname }}" ConfigPut
-  register: hostname_result
-  retries: 3
-  delay: 10
+    docker exec {{ openvpn_container_id.stdout }} test -f /config/.ansible_configured && echo "configured" || echo "not_configured"
+  register: openvpn_configured
+  changed_when: false
+  failed_when: false
 
-- name: Activate OpenVPN with activation key
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_name }} sacli --value "{{ openvpn_activation_key }}" LoadSubscription
-  register: activation_result
-  retries: 3
-  delay: 10
+- name: Configuration block - only runs on first deployment
+  when: openvpn_configured.stdout == "not_configured"
+  block:
+    - name: Set OpenVPN admin password
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --user "{{ openvpn_container_name }}" --new_pass "{{ openvpn_admin_password }}" SetLocalPassword
+      register: admin_password_result
+      retries: 3
+      delay: 10
 
-- name: Create VPN user - thatsmidnight
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_name }} sacli --user "thatsmidnight" --key "type" --value "user_connect" UserPropPut
-  register: user1_create_result
-  retries: 3
-  delay: 5
+    - name: Grant admin privileges to vpn user
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --user "{{ openvpn_container_name }}" --key "prop_superuser" --value "true" UserPropPut
+      register: admin_privileges_result
+      retries: 3
+      delay: 10
 
-- name: Set password for user thatsmidnight
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_name }} sacli --user "thatsmidnight" --new_pass "{{ openvpn_thatsmidnight_password }}" SetLocalPassword
-  register: user1_password_result
-  retries: 3
-  delay: 5
+    - name: Set OpenVPN server name/hostname
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --key "host.name" --value "{{ openvpn_hostname }}" ConfigPut
+      register: hostname_result
+      retries: 3
+      delay: 10
 
-- name: Create VPN user - tyramail
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_name }} sacli --user "tyramail" --key "type" --value "user_connect" UserPropPut
-  register: user2_create_result
-  retries: 3
-  delay: 5
+    - name: Activate OpenVPN with activation key
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --value "{{ openvpn_activation_key }}" LoadSubscription
+      register: activation_result
+      retries: 3
+      delay: 10
 
-- name: Set password for user tyramail
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_name }} sacli --user "tyramail" --new_pass "{{ openvpn_tyramail_password }}" SetLocalPassword
-  register: user2_password_result
-  retries: 3
-  delay: 5
+    - name: Create VPN user - thatsmidnight
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --user "thatsmidnight" --key "type" --value "user_connect" UserPropPut
+      register: user1_create_result
+      retries: 3
+      delay: 5
 
-- name: Restart OpenVPN Access Server to apply all settings
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_name }} sacli start
-  register: openvpn_restart_result
-  retries: 2
-  delay: 10
+    - name: Set password for user thatsmidnight
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --user "thatsmidnight" --new_pass "{{ openvpn_thatsmidnight_password }}" SetLocalPassword
+      register: user1_password_result
+      retries: 3
+      delay: 5
 
-- name: Wait for OpenVPN to restart and be ready
-  ansible.builtin.wait_for:
-    port: 943
-    host: "{{ ansible_host }}"
-    delay: 15
-    timeout: 120
+    - name: Allow auto-login for user thatsmidnight
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --user "thatsmidnight" --key "prop_autologin" --value "true" UserPropPut
+      register: user1_autologin_result
+      retries: 3
+      delay: 5
+
+    - name: Create VPN user - tyramail
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --user "tyramail" --key "type" --value "user_connect" UserPropPut
+      register: user2_create_result
+      retries: 3
+      delay: 5
+
+    - name: Set password for user tyramail
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --user "tyramail" --new_pass "{{ openvpn_tyramail_password }}" SetLocalPassword
+      register: user2_password_result
+      retries: 3
+      delay: 5
+
+    - name: Allow auto-login for user tyramail
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli --user "tyramail" --key "prop_autologin" --value "true" UserPropPut
+      register: user2_autologin_result
+      retries: 3
+      delay: 5
+
+    - name: Restart OpenVPN Access Server to apply initial settings
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli start
+      register: openvpn_restart_result
+      retries: 2
+      delay: 10
+
+    - name: Wait for OpenVPN to restart and be ready
+      ansible.builtin.wait_for:
+        port: "{{ vpn_host_port }}"
+        host: "{{ ansible_host }}"
+        delay: 15
+        timeout: 120
+
+    - name: Mark OpenVPN as configured
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} touch /config/.ansible_configured
+      changed_when: true
 
 - name: Display OpenVPN configuration summary
   ansible.builtin.debug:
     msg: |
-      🔐 OpenVPN Access Server configured:
-      - Admin Web UI: https://{{ ansible_host }}:943/admin
-      - Client Web UI: https://{{ ansible_host }}:943/
+      🔐 OpenVPN Access Server Status:
+      - Admin Web UI: https://{{ ansible_host }}:{{ vpn_host_port }}/admin
+      - Client Web UI: https://{{ ansible_host }}:{{ vpn_host_port }}/
       - Server hostname: {{ openvpn_hostname }}
-      - Users created: thatsmidnight, tyramail
-      - Activation status: {{ 'Applied' if activation_result.rc == 0 else 'Failed' }}
+      - Configuration: {{ 'Already configured (skipped)' if openvpn_configured.stdout == 'configured' else 'Newly configured' }}
       
-      Next steps:
-      1. Login to admin UI to verify activation
-      2. Users can download client configs from: https://{{ openvpn_hostname }}:943/
-      3. Test VPN connections from client devices
+      {% if openvpn_configured.stdout == 'not_configured' %}
+      Initial setup completed:
+      - Users created: thatsmidnight, tyramail
+      - Activation applied
+      - Download .ovpn profiles from: https://{{ openvpn_hostname }}:{{ vpn_host_port }}/
+      {% else %}
+      Existing configuration preserved - no changes made.
+      {% endif %}

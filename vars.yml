@@ -17,7 +17,6 @@ dietpi_image_link: "https://dietpi.com/downloads/images/DietPi_RPi234-ARMv8-Book
 portainer_admin_password: "{{ vault_portainer_admin_password }}"
 npm_admin_password: "{{ vault_npm_admin_password }}"
 openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
-heimdall_admin_password: "{{ vault_heimdall_admin_password }}"
 
 # Portainer configuration
 portainer_agent_secret: "{{ vault_portainer_agent_secret }}"
@@ -28,6 +27,10 @@ openvpn_thatsmidnight_password: "{{ vault_openvpn_thatsmidnight_password }}"
 openvpn_tyramail_password: "{{ vault_openvpn_tyramail_password }}"
 openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
+# Jellyfin configuration
+jellyfin_thatsmidnight_password: "{{ vault_jellyfin_thatsmidnight_password }}"
+jellyfin_enable_hw_accel: false  # Temporarily disabled until /dev/dri is available (NEEDS REBOOT OF lenovo_server)
+
 # Pi-hole configuration
 pihole_config_path: "/opt/pihole/etc-pihole"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
@@ -35,7 +38,7 @@ block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
 pihole_data_path: "/opt/pihole"
 pihole_web_port: 8081  # Port for Pi-hole web interface
 pihole_dns_port: 80  # Port for Pi-hole DNS service
-pihole_target_host: "pi4_01"  # The specific host for Pi-hole
+pihole_target_host: "midnight-laptop"  # The specific host for Pi-hole (must match Swarm node hostname)
 
 # Docker Stacks Configuration for manager nodes
 portainer_stacks:
@@ -43,14 +46,26 @@ portainer_stacks:
     compose_template: npm-compose.yml.j2
   - name: pihole-stack
     compose_template: pihole-compose.yml.j2
-  - name: heimdall-stack
-    compose_template: heimdall-compose.yml.j2
   - name: vpn-stack
     compose_template: openvpn-compose.yml.j2
+  - name: jellyfin-stack
+    compose_template: jellyfin-compose.yml.j2
+
+# Jellyfin (media server)
+jellyfin_image: "jellyfin/jellyfin:latest"
+jellyfin_container_name: "jellyfin"
+jellyfin_host_port: 8096
+
+# NFS: Storage Host 192.168.1.12 (lenovo_server) exports /mnt/ssd_media to other nodes
+nfs_storage_host_ip: "192.168.1.12"
+nfs_export_path: "/mnt/ssd_media"
+nfs_export_network: "192.168.1.0/24"
+nfs_export_options: "rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000"
+nfs_client_mount_path: "/mnt/ssd_media"
+nfs_client_options: "rw,soft,intr,noatime,timeo=14,_netdev"
 pihole_container_name: "pihole"
 openvpn_container_name: "vpn"
 portainer_container_name: "portainer"
-heimdall_container_name: "home"
 nginx_proxy_container_name: "proxy"
 
 # Network configuration
@@ -59,8 +74,12 @@ manager_node_ip: "192.168.1.10"
 worker_node_ip1: "192.168.1.11"
 worker_node_ip2: "192.168.1.12"
 gateway_ip: "192.168.1.1"
-npm_host_port: 8181
-local_domain: "homelab.chadbartel.com"
+local_domain: "chadbartel.duckdns.org"
+proxy_host_port: 8181
+pihole_host_port: 80
+vpn_host_port: 943
+portainer_host_port: 9443
+ssl_certificate_id: 2  # Change this to 0 on initial deployment
 
 # Miscellaneous
 timezone: "America/Los_Angeles"

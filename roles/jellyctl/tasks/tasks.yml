@@ -1,0 +1,55 @@
+---
+# Scheduled task management tasks for jellyctl
+
+- name: Build jellyctl base command
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ jellyctl_binary }} --url {{ jellyctl_url }}"
+
+- name: Add token to command if provided
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ _jellyctl_cmd }} --token {{ jellyctl_token }}"
+  when: jellyctl_token | length > 0
+
+# List tasks
+- name: List scheduled tasks
+  ansible.builtin.command: "{{ _jellyctl_cmd }} task list {{ '--json' if jellyctl_output_format == 'json' else '' }}"
+  register: jellyctl_tasks_list
+  changed_when: false
+  when: jellyctl_task_operation == 'list'
+
+- name: Display scheduled tasks
+  ansible.builtin.debug:
+    var: jellyctl_tasks_list.stdout_lines
+  when: jellyctl_task_operation == 'list'
+
+# Start task
+- name: Start scheduled task
+  ansible.builtin.command: "{{ _jellyctl_cmd }} task start {{ jellyctl_task_name }}"
+  register: jellyctl_task_start
+  when:
+    - jellyctl_task_operation == 'start'
+    - jellyctl_task_name is defined
+  changed_when: jellyctl_task_start.rc == 0
+
+- name: Confirm task started
+  ansible.builtin.debug:
+    msg: "Task '{{ jellyctl_task_name }}' started"
+  when:
+    - jellyctl_task_operation == 'start'
+    - jellyctl_task_name is defined
+
+# Stop task
+- name: Stop scheduled task
+  ansible.builtin.command: "{{ _jellyctl_cmd }} task stop {{ jellyctl_task_name }}"
+  register: jellyctl_task_stop
+  when:
+    - jellyctl_task_operation == 'stop'
+    - jellyctl_task_name is defined
+  changed_when: jellyctl_task_stop.rc == 0
+
+- name: Confirm task stopped
+  ansible.builtin.debug:
+    msg: "Task '{{ jellyctl_task_name }}' stopped"
+  when:
+    - jellyctl_task_operation == 'stop'
+    - jellyctl_task_name is defined

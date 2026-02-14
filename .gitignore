@@ -192,4 +192,7 @@ pyrightconfig.json
 pyvenv.cfg
 pip-selfcheck.json
 
+# Miscellaneous
+.github/
+
 # End of https://www.toptal.com/developers/gitignore/api/ansible,python,virtualenv

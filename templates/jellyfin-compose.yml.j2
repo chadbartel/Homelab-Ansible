@@ -1,0 +1,53 @@
+---
+version: "3.8"
+
+services:
+  jellyfin:
+    image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
+    user: "1000:993"
+    ports:
+      - "{{ jellyfin_host_port }}:8096"  # Publish port for direct access and API automation
+    networks:
+      - proxy-network
+    volumes:
+      - jellyfin_config:/config
+      - jellyfin_cache:/cache
+      - type: bind
+        source: /mnt/ssd_media
+        target: /media
+        read_only: false
+{% if jellyfin_enable_hw_accel | default(false) %}
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "{{ hostvars['lenovo_server'].render_group_gid | default('109') }}"  # Render group GID
+      - "{{ hostvars['lenovo_server'].video_group_gid | default('44') }}"   # Video group GID
+{% endif %}
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == midnight-laptop
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        order: start-first
+        failure_action: rollback
+
+networks:
+  proxy-network:
+    external: true
+
+volumes:
+  jellyfin_config:
+    driver: local
+  jellyfin_cache:
+    driver: local

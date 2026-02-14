@@ -1,0 +1,22 @@
+---
+# Main tasks file for Jellyfin role
+# This file is intentionally minimal - use specific task files or the jellyfin_api module directly
+
+- name: Display Jellyfin role information
+  ansible.builtin.debug:
+    msg: |
+      Jellyfin role loaded. Use the jellyfin_api module to interact with the Jellyfin API.
+      Available task files:
+        - users.yml: User management operations
+        - libraries.yml: Library management operations
+        - api_keys.yml: API key management
+        - system.yml: System information and configuration
+        - backups.yml: Backup operations
+      
+      Example:
+        - import_role:
+            name: jellyfin
+            tasks_from: users
+          vars:
+            jellyfin_url: "http://localhost:8096"
+            jellyfin_api_token: "your-token"

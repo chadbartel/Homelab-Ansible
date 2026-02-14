@@ -1,0 +1,46 @@
+---
+# Example: Library Management with jellyctl role
+# This playbook demonstrates library scanning and maintenance tasks
+
+- name: Manage Jellyfin Library
+  hosts: jellyfin_servers
+  vars_files:
+    - ../vault.yml  # Contains vault_jellyfin_api_token
+  
+  vars:
+    jellyctl_url: "http://jellyfin.local:8096"
+    jellyctl_token: "{{ vault_jellyfin_api_token }}"
+
+  tasks:
+    - name: Trigger a full library scan
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_library_operation: "scan"
+
+    - name: Find unscraped movies and series
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_library_operation: "unscraped"
+        jellyctl_library_types:
+          - Movie
+          - Series
+        jellyctl_output_format: "json"
+
+    - name: Search for specific content
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_library_operation: "search"
+        jellyctl_library_search_term: "Star Wars"
+        jellyctl_output_format: "json"
+
+    - name: Identify duplicate media files
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_library_operation: "duplicates"
+        jellyctl_library_types:
+          - Movie
+          - Series

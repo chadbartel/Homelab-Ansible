@@ -206,7 +206,6 @@
         rm -rf /opt/portainer* 2>/dev/null || true
         rm -rf /opt/pihole* 2>/dev/null || true
         rm -rf /opt/npm* 2>/dev/null || true
-        rm -rf /opt/heimdall* 2>/dev/null || true
         rm -rf /opt/openvpn* 2>/dev/null || true
         rm -rf /opt/jellyfin* 2>/dev/null || true  # Future-proofing
         rm -rf /opt/plex* 2>/dev/null || true      # Future-proofing

@@ -1,15 +1,31 @@
 ---
 # NGINX Proxy Manager post-setup tasks - Simple idempotent version
+- name: Ensure proxy_hosts variable is defined
+  ansible.builtin.assert:
+    that:
+      - proxy_hosts is defined
+      - proxy_hosts | length > 0
+    fail_msg: "proxy_hosts must be defined in host_vars for this host ({{ inventory_hostname }})"
+    success_msg: "Found {{ proxy_hosts | length }} proxy host(s) to configure"
+
+- name: Display proxy hosts that will be created
+  ansible.builtin.debug:
+    msg: |
+      Will create NPM proxy hosts:
+      {% for item in proxy_hosts %}
+      - {{ item.domain }} → {{ item.scheme | default('http') }}://{{ item.host }}:{{ item.port }}
+      {% endfor %}
+
 - name: Wait for Nginx Proxy Manager to be ready
   ansible.builtin.wait_for:
-    port: "{{ npm_host_port }}"
+    port: "{{ proxy_host_port }}"
     host: "{{ manager_node_ip }}"
     delay: 10
     timeout: 120
 
 - name: Authenticate with Nginx Proxy Manager to get session token
   ansible.builtin.uri:
-    url: "http://{{ manager_node_ip }}:{{ npm_host_port }}/api/tokens"
+    url: "http://{{ manager_node_ip }}:{{ proxy_host_port }}/api/tokens"
     method: POST
     body_format: json
     body:
@@ -22,7 +38,7 @@
 
 - name: Create reverse proxy hosts (ignore if they already exist)
   ansible.builtin.uri:
-    url: "http://{{ manager_node_ip }}:{{ npm_host_port }}/api/nginx/proxy-hosts"
+    url: "http://{{ manager_node_ip }}:{{ proxy_host_port }}/api/nginx/proxy-hosts"
     method: POST
     headers:
       Authorization: "Bearer {{ npm_auth.json.token }}"
@@ -34,8 +50,11 @@
       forward_host: "{{ item.host }}"
       forward_port: "{{ item.port }}"
       access_list_id: 0
-      certificate_id: 0
-      ssl_forced: false
+      certificate_id: "{{ ssl_certificate_id | int }}"
+      ssl_forced: "{{ true if ssl_certificate_id | int > 0 else false }}"
+      hsts_enabled: "{{ true if ssl_certificate_id | int > 0 else false }}"
+      hsts_subdomains: "{{ true if ssl_certificate_id | int > 0 else false }}"
+      http2_support: "{{ true if ssl_certificate_id | int > 0 else false }}"
       block_exploits: true
       caching_enabled: false
       allow_websocket_upgrade: true
@@ -65,4 +84,4 @@
       - {{ item.domain }} → {{ item.scheme | default('http') }}://{{ item.host }}:{{ item.port }}
       {% endfor %}
       
-      Access NPM: http://{{ manager_node_ip }}:{{ npm_host_port }}
+      Access NPM: http://{{ manager_node_ip }}:{{ proxy_host_port }}

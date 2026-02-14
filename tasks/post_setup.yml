@@ -6,11 +6,11 @@
       🎉 Homelab deployment completed successfully!
       
       Services available:
-      - Portainer: https://{{ ansible_host }}:9443
+      - Portainer: https://{{ ansible_host }}:{{ portainer_host_port }}
       - Pi-hole: http://{{ ansible_host }}:8081/admin
-      - NPM: http://{{ ansible_host }}:8181
-      - Heimdall: http://{{ ansible_host }}:8082
-      - OpenVPN: https://{{ ansible_host }}:943
+      - NPM: http://{{ ansible_host }}:{{ proxy_host_port }}
+      - OpenVPN: https://{{ ansible_host }}:{{ vpn_host_port }}
+      - Jellyfin: http://{{ jellyfin_container_name }}.{{ local_domain }} (via NPM)
       
       Next steps:
       1. Configure services through their web interfaces
@@ -28,3 +28,10 @@
 - name: Run post-setup tasks for Nginx Proxy Manager
   ansible.builtin.include_tasks: tasks/post_setup_npm.yml
   tags: ["post_setup", "npm", "configure"]
+
+- name: Run post-setup tasks for Jellyfin
+  block:
+    - name: Include Jellyfin post-setup tasks
+      ansible.builtin.include_tasks: tasks/post_setup_jellyfin.yml
+  delegate_to: lenovo_server
+  tags: ["post_setup", "jellyfin", "configure"]

@@ -1,0 +1,87 @@
+---
+# Example: User Management Operations
+# This playbook shows various user management tasks
+
+- name: Manage Jellyfin Users
+  hosts: localhost
+  gather_facts: false
+  vars:
+    jellyfin_url: "http://localhost:8096"
+    jellyfin_api_token: "your-api-token-here"
+  
+  tasks:
+    - name: List all users
+      import_role:
+        name: jellyfin
+        tasks_from: users
+      vars:
+        jellyfin_action: list
+      register: users_output
+    
+    - name: Create a new user
+      import_role:
+        name: jellyfin
+        tasks_from: users
+      vars:
+        jellyfin_action: create
+        jellyfin_new_user_name: "john_doe"
+        jellyfin_new_user_password: "SecurePassword123!"
+    
+    - name: Get user ID for update operations
+      import_role:
+        name: jellyfin
+        tasks_from: users
+      vars:
+        jellyfin_action: list
+      register: all_users
+    
+    - name: Set user ID variable
+      set_fact:
+        john_user_id: "{{ (all_users.ansible_facts.jellyfin_users_list.response | selectattr('Name', 'equalto', 'john_doe') | first).Id }}"
+      when: all_users.ansible_facts.jellyfin_users_list.response is defined
+    
+    # Update user with custom settings
+    - name: Update user configuration
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/Users/{{ john_user_id }}"
+        method: POST
+        body:
+          Name: "john_doe"
+          ServerId: "{{ (all_users.ansible_facts.jellyfin_users_list.response | first).ServerId }}"
+          Configuration:
+            PlayDefaultAudioTrack: true
+            DisplayMissingEpisodes: false
+            EnableLocalPassword: true
+      when: john_user_id is defined
+    
+    # Update user policy (permissions)
+    - name: Set user policy - restrict to specific libraries
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/Users/{{ john_user_id }}/Policy"
+        method: POST
+        body:
+          IsAdministrator: false
+          IsHidden: false
+          IsDisabled: false
+          EnableAllFolders: false
+          EnabledFolders: []  # Add folder IDs here
+          EnableRemoteAccess: true
+          EnableLiveTvAccess: false
+          EnableMediaPlayback: true
+          EnableContentDeletion: false
+      when: john_user_id is defined
+    
+    # Change user password
+    - name: Update user password
+      import_role:
+        name: jellyfin
+        tasks_from: users
+      vars:
+        jellyfin_action: update_password
+        jellyfin_user_id: "{{ john_user_id }}"
+        jellyfin_user_new_password: "NewSecurePassword456!"
+      when: john_user_id is defined

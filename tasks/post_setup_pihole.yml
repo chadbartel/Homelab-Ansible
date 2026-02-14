@@ -7,154 +7,185 @@
     delay: 15
     timeout: 180
 
-- name: Install pihole6api in virtual environment
-  ansible.builtin.pip:
-    name: pihole6api
-    state: present
-    extra_args: --upgrade
-    virtualenv: "{{ python_venv_path }}"
-    virtualenv_command: "python{{ python_version }} -m venv"
+- name: Get Pi-hole task ID from Swarm service
+  ansible.builtin.shell: |
+    docker service ps pihole-stack_pihole --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
+  register: pihole_task_id
+  changed_when: false
+  failed_when: pihole_task_id.stdout == ""
 
-- name: Display pip installation results
+- name: Get Pi-hole node name from Swarm service
+  ansible.builtin.shell: |
+    docker service ps pihole-stack_pihole --format '{% raw %}{{.Node}}{% endraw %}' | head -n 1
+  register: pihole_node_name
+  changed_when: false
+  failed_when: pihole_node_name.stdout == ""
+
+- name: Get Pi-hole container ID from service
+  ansible.builtin.shell: |
+    docker inspect -f '{% raw %}{{.Status.ContainerStatus.ContainerID}}{% endraw %}' {{ pihole_task_id.stdout }} | head -n 1
+  register: pihole_container_id
+  changed_when: false
+  failed_when: pihole_container_id.stdout == ""
+
+- name: Display Pi-hole container information
   ansible.builtin.debug:
     msg: |
-      Pip installation results:
-      - Changed: {{ pip_install_result.changed }}
-      - Command: {{ pip_install_result.cmd | default('N/A') }}
-      - Return code: {{ pip_install_result.rc | default('N/A') }}
-  when: pip_install_result is defined
+      Pi-hole container ID: {{ pihole_container_id.stdout }}
+      Running on node: {{ pihole_node_name.stdout }}
 
-- name: List contents of virtual environment bin directory
-  ansible.builtin.find:
-    paths: /opt/pihole-venv/bin
-    patterns: "*pihole*"
-  register: venv_bin_contents
-
-- name: Check if pihole6api module can be imported
-  ansible.builtin.command:
-    cmd: /opt/pihole-venv/bin/python -c "import pihole6api; print('pihole6api module imported successfully')"
-  register: pihole6api_import_check
+- name: Wait for Pi-hole FTL to be fully initialized
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id.stdout }} pihole status
+  register: pihole_status
+  until: "'Pi-hole blocking is enabled' in pihole_status.stdout or 'enabled' in pihole_status.stdout"
+  retries: 12
+  delay: 10
   changed_when: false
-  failed_when: false
+  delegate_to: lenovo_server
 
-- name: Create symlink for pihole6api executable (if it exists)
-  ansible.builtin.file:
-    src: /opt/pihole-venv/bin/pihole6api
-    dest: /usr/local/bin/pihole6api
-    state: link
-  failed_when: false
-  when: venv_bin_contents.files | selectattr('path', 'match', '.*pihole6api$') | list | length > 0
-
-- name: Create wrapper script for pihole6api module (if no executable)
+- name: Create adlist configuration script
   ansible.builtin.copy:
     content: |
       #!/bin/bash
-      /opt/pihole-venv/bin/python -m pihole6api "$@"
-    dest: /usr/local/bin/pihole6api-module
+      # Add adlists to Pi-hole gravity database
+      DB="/etc/pihole/gravity.db"
+      
+      # Array of adlists with comments
+      declare -A ADLISTS=(
+        ["https://raw.githubusercontent.com/PolishFiltersTeam/KADhosts/master/KADhosts.txt"]="KADhosts"
+        ["https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Spam/hosts"]="Spam Hosts"
+        ["https://v.firebog.net/hosts/static/w3kbl.txt"]="W3KBL"
+        ["https://adaway.org/hosts.txt"]="AdAway"
+        ["https://v.firebog.net/hosts/AdguardDNS.txt"]="AdGuard DNS"
+        ["https://v.firebog.net/hosts/Admiral.txt"]="Admiral"
+        ["https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt"]="Anudeep AdServers"
+        ["https://v.firebog.net/hosts/Easylist.txt"]="EasyList"
+        ["https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext"]="Peter Lowe's List"
+        ["https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UncheckyAds/hosts"]="UncheckyAds"
+        ["https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts"]="HostsVN"
+        ["https://v.firebog.net/hosts/Easyprivacy.txt"]="EasyPrivacy"
+        ["https://v.firebog.net/hosts/Prigent-Ads.txt"]="Prigent Ads"
+        ["https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts"]="2o7Net"
+        ["https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt"]="WindowsSpyBlocker"
+        ["https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt"]="Firstparty Trackers"
+        ["https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt"]="Anti-Malware"
+        ["https://v.firebog.net/hosts/Prigent-Crypto.txt"]="Prigent Crypto"
+        ["https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts"]="Risk Hosts"
+        ["https://bitbucket.org/ethanr/dns-blacklists/raw/8575c9f96e5b4a1308f2f12394abd86d0927a4a0/bad_lists/Mandiant_APT1_Report_Appendix_D.txt"]="Mandiant APT1"
+        ["https://phishing.army/download/phishing_army_blocklist_extended.txt"]="Phishing Army"
+        ["https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-malware.txt"]="NoTrack Malware"
+        ["https://v.firebog.net/hosts/RPiList-Malware.txt"]="RPiList Malware"
+        ["https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt"]="Spam404"
+        ["https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts"]="Stalkerware"
+        ["https://urlhaus.abuse.ch/downloads/hostfile/"]="URLhaus"
+        ["https://lists.cyberhost.uk/malware.txt"]="Cyberhost Malware"
+      )
+      
+      for url in "${!ADLISTS[@]}"; do
+        comment="${ADLISTS[$url]}"
+        
+        # Check if adlist already exists using pihole-FTL's sqlite3
+        EXISTS=$(pihole-FTL sqlite3 "$DB" "SELECT COUNT(*) FROM adlist WHERE address='$url';" 2>/dev/null || echo "0")
+        
+        if [ "$EXISTS" = "0" ]; then
+          # Insert new adlist
+          TIMESTAMP=$(date +%s)
+          pihole-FTL sqlite3 "$DB" "INSERT INTO adlist (address, enabled, comment, date_added, date_modified) VALUES ('$url', 1, '$comment', $TIMESTAMP, $TIMESTAMP);"
+          if [ $? -eq 0 ]; then
+            echo "Added: $comment"
+          else
+            echo "Failed to add: $comment"
+          fi
+        else
+          echo "Already exists: $comment"
+        fi
+      done
+      
+      echo ""
+      echo "Total adlists in database:"
+      pihole-FTL sqlite3 "$DB" "SELECT COUNT(*) FROM adlist WHERE enabled=1;"
+    dest: /tmp/configure_adlists.sh
     mode: '0755'
-  when: 
-    - pihole6api_import_check.rc == 0
-    - venv_bin_contents.files | selectattr('path', 'match', '.*pihole6api$') | list | length == 0
+  delegate_to: lenovo_server
 
-- name: Verify pihole6api is available (try executable)
-  ansible.builtin.command:
-    cmd: /opt/pihole-venv/bin/pihole6api --help
-  register: pihole6api_executable_check
-  changed_when: false
-  failed_when: false
+- name: Copy adlist script to Pi-hole container
+  ansible.builtin.shell: |
+    docker cp /tmp/configure_adlists.sh {{ pihole_container_id.stdout }}:/tmp/configure_adlists.sh
+  delegate_to: lenovo_server
 
-- name: Verify pihole6api is available (try as module)
-  ansible.builtin.command:
-    cmd: /opt/pihole-venv/bin/python -m pihole6api --help
-  register: pihole6api_module_check
-  changed_when: false
-  failed_when: false
-  when: pihole6api_executable_check.rc != 0
+- name: Configure Pi-hole adlists (block lists)
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id.stdout }} bash /tmp/configure_adlists.sh
+  register: adlist_config
+  changed_when: "'Added:' in adlist_config.stdout"
+  delegate_to: lenovo_server
 
-- name: Set pihole6api command for future use
-  ansible.builtin.set_fact:
-    pihole6api_command: >-
-      {{
-        '/opt/pihole-venv/bin/pihole6api' if pihole6api_executable_check.rc == 0
-        else '/opt/pihole-venv/bin/python -m pihole6api' if pihole6api_module_check.rc == 0
-        else 'not_available'
-      }}
-
-- name: Display pihole6api verification results
+- name: Display adlist configuration results
   ansible.builtin.debug:
     msg: |
-      ✅ pihole6api installation verification:
-      - Package imported: {{ 'Yes' if pihole6api_import_check.rc == 0 else 'No' }}
-      - Executable available: {{ 'Yes' if pihole6api_executable_check.rc == 0 else 'No' }}
-      - Module callable: {{ 'Yes' if pihole6api_module_check.rc == 0 else 'No' }}
-      - Command to use: {{ pihole6api_command }}
-      - Bin directory contents: {{ venv_bin_contents.files | map(attribute='path') | select('match', '.*pihole.*') | list }}
+      Adlist configuration:
+      {{ adlist_config.stdout_lines | join('\n') }}
 
-- name: Configure Pi-hole block lists
-  sbarbett.pihole.block_list:
-    lists: 
-      - address: "https://raw.githubusercontent.com/PolishFiltersTeam/KADhosts/master/KADhosts.txt"
-        state: present
-      - address: https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Spam/hosts
-        state: present
-      - address: https://v.firebog.net/hosts/static/w3kbl.txt
-        state: present
-      - address: https://adaway.org/hosts.txt
-        state: present
-      - address: https://v.firebog.net/hosts/AdguardDNS.txt
-        state: present
-      - address: https://v.firebog.net/hosts/Admiral.txt
-        state: present
-      - address: https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt
-        state: present
-      - address: https://v.firebog.net/hosts/Easylist.txt
-        state: present
-      - address: https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext
-        state: present
-      - address: https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UncheckyAds/hosts
-        state: present
-      - address: https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts
-        state: present
-      - address: https://v.firebog.net/hosts/Easyprivacy.txt
-        state: present
-      - address: https://v.firebog.net/hosts/Prigent-Ads.txt
-        state: present
-      - address: https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts
-        state: present
-      - address: https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt
-        state: present
-      - address: https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt
-        state: present
-      - address: https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt
-        state: present
-      - address: https://v.firebog.net/hosts/Prigent-Crypto.txt
-        state: present
-      - address: https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts
-        state: present
-      - address: https://bitbucket.org/ethanr/dns-blacklists/raw/8575c9f96e5b4a1308f2f12394abd86d0927a4a0/bad_lists/Mandiant_APT1_Report_Appendix_D.txt
-        state: present
-      - address: https://phishing.army/download/phishing_army_blocklist_extended.txt
-        state: present
-      - address: https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-malware.txt
-        state: present
-      - address: https://v.firebog.net/hosts/RPiList-Malware.txt
-        state: present
-      - address: https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt
-        state: present
-      - address: https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts
-        state: present
-      - address: https://urlhaus.abuse.ch/downloads/hostfile/
-        state: present
-      - address: https://lists.cyberhost.uk/malware.txt
-        state: present
-    url: "http://{{ ansible_host }}:{{ pihole_web_port }}"
-    password: "{{ pihole_web_password }}"
-    update_gravity: true
+- name: Update Pi-hole gravity (download and process block lists)
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id.stdout }} pihole -g
+  register: gravity_update
+  changed_when: "'Update complete' in gravity_update.stdout"
+  delegate_to: lenovo_server
+
+- name: Display gravity update results
+  ansible.builtin.debug:
+    msg: |
+      Gravity update completed:
+      {{ gravity_update.stdout_lines | join('\n') }}
+
+- name: Configure custom DNS entries for local domains
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id.stdout }} bash -c '
+    cat > /etc/pihole/custom.list << EOF
+    {{ manager_node_ip }} {{ pihole_container_name }}.{{ local_domain }}
+    {{ manager_node_ip }} {{ portainer_container_name }}.{{ local_domain }}
+    {{ manager_node_ip }} {{ nginx_proxy_container_name }}.{{ local_domain }}
+    {{ manager_node_ip }} {{ openvpn_container_name }}.{{ local_domain }}
+    EOF
+    '
+  register: custom_dns
+  changed_when: custom_dns.rc == 0
+  delegate_to: lenovo_server
+
+- name: Restart Pi-hole DNS to apply custom DNS entries
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id.stdout }} pihole restartdns
+  when: custom_dns.changed
+  delegate_to: lenovo_server
+
+- name: Get Pi-hole statistics
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id.stdout }} pihole -c -j
+  register: pihole_stats
+  changed_when: false
+  failed_when: false
+  delegate_to: lenovo_server
+
+- name: Clean up temporary files
+  ansible.builtin.file:
+    path: /tmp/configure_adlists.sh
+    state: absent
+  delegate_to: lenovo_server
 
 - name: Display Pi-hole access information
   ansible.builtin.debug:
     msg: |
       ✅ Pi-hole is configured successfully!
+      
+      🌐 Access Information (via Swarm ingress - accessible from ANY node):
       Web Interface: http://{{ ansible_host }}:{{ pihole_web_port }}/admin
-      DNS Server: {{ ansible_host }}:{{ pihole_dns_port }}
-      Custom DNS entries configured for .{{ local_domain }} domains
+      DNS Server: {{ ansible_host }}:53
+      Password: {{ pihole_web_password }}
+      
+       Configuration:
+      - Custom DNS entries configured for .{{ local_domain }} domains
+      - Running on node: {{ pihole_target_host }}
+      - Container ID: {{ pihole_container_id.stdout }}
+      - Block lists configured and gravity updated

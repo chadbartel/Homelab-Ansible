@@ -49,7 +49,7 @@ for task in "${task_files[@]}"; do
 done
 
 # Check template files
-template_files=("pihole-compose.yml.j2" "npm-compose.yml.j2" "heimdall-compose.yml.j2" "openvpn-compose.yml.j2")
+template_files=("pihole-compose.yml.j2" "npm-compose.yml.j2" "openvpn-compose.yml.j2")
 for template in "${template_files[@]}"; do
     if [[ -f "templates/$template" ]]; then
         echo "✅ templates/$template exists"

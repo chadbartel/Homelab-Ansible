@@ -1,0 +1,18 @@
+---
+# Default variables for Jellyfin role
+
+# Jellyfin server configuration
+jellyfin_url: "http://localhost:8096"
+jellyfin_api_token: ""
+jellyfin_username: ""
+jellyfin_password: ""
+
+# SSL/TLS certificate validation
+jellyfin_validate_certs: true
+
+# Request timeout (seconds)
+jellyfin_request_timeout: 30
+
+# Common operation defaults
+jellyfin_user_password_required: false
+jellyfin_library_refresh_on_create: true
