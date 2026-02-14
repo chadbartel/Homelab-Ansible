@@ -28,8 +28,6 @@ all:
             compose_template: npm-compose.yml.j2
           - name: pihole-stack
             compose_template: pihole-compose.yml.j2
-          - name: heimdall-stack
-            compose_template: heimdall-compose.yml.j2
           - name: vpn-stack
             compose_template: openvpn-compose.yml.j2
           - name: jellyfin-stack
