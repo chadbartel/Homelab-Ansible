@@ -1,0 +1,10 @@
+---
+- name: Clean up dangling Docker containers and images
+  ansible.builtin.command: docker system prune -f
+  register: docker_cleanup
+  changed_when: docker_cleanup.stdout is search('Total reclaimed space')
+
+- name: Display cleanup results
+  ansible.builtin.debug:
+    msg: "🧹 Docker cleanup completed: {{ docker_cleanup.stdout_lines | last }}"
+  when: docker_cleanup.stdout_lines | length > 0

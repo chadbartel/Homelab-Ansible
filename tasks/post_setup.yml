@@ -35,3 +35,7 @@
       ansible.builtin.include_tasks: tasks/post_setup_jellyfin.yml
   delegate_to: lenovo_server
   tags: ["post_setup", "jellyfin", "configure"]
+
+- name: Run post-setup cleanup tasks
+  ansible.builtin.include_tasks: tasks/cleanup.yml
+  tags: ["post_setup", "cleanup"]
