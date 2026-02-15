@@ -17,11 +17,9 @@ services:
         target: /media
         read_only: false
 {% if jellyfin_enable_hw_accel | default(false) %}
-    devices:
       - /dev/dri:/dev/dri
-    group_add:
-      - "{{ hostvars['lenovo_server'].render_group_gid | default('109') }}"  # Render group GID
-      - "{{ hostvars['lenovo_server'].video_group_gid | default('44') }}"   # Video group GID
+    environment:
+      JELLYFIN_FFmpeg__VAAPI_DEVICE: '/dev/dri/renderD128'
 {% endif %}
     deploy:
       replicas: 1
