@@ -63,6 +63,11 @@ jellyfin_config_libraries:
       - "/media/concerts"
     refresh_on_create: true
 
+# NGINX Proxy Manager Config Role Variables
+npm_service_name: "npm-stack_npm"
+npm_swarm_manager: "pi4_01"
+npm_target_node: "lenovo_server"
+
 # Pi-hole configuration
 pihole_config_path: "/opt/pihole/etc-pihole"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
