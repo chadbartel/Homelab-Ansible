@@ -179,6 +179,7 @@
     matching_new_keys: "{{ updated_keys.json.Items | default([]) | selectattr('AppName', 'equalto', jellyfin_config_api_key_app_name) | list }}"
   when:
     - updated_keys is defined
+    - updated_keys.status is defined
     - updated_keys.status == 200
     - matching_new_keys | length > 0
 
