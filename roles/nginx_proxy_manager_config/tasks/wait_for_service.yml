@@ -9,6 +9,7 @@
     delay: "{{ npm_config_readiness_delay }}"
     timeout: "{{ npm_config_readiness_timeout }}"
   delegate_to: localhost
+  become: false
 
 - name: Verify NPM API is responding
   ansible.builtin.uri:
@@ -20,6 +21,7 @@
   retries: "{{ npm_config_readiness_retries }}"
   delay: "{{ npm_config_readiness_delay }}"
   until: npm_api_check.status in [200, 401]
+  become: false
 
 - name: Display NPM service status
   ansible.builtin.debug:
