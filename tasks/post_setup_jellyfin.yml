@@ -62,20 +62,20 @@
       ✅ Jellyfin Deployment & Configuration Complete!
 
       🌐 Access Information:
-      External (Recommended): http://jellyfin.chadbartel.duckdns.org (via Nginx Proxy Manager)
+      External (Recommended): {{ jellyfin_external_url }} (via Nginx Proxy Manager)
       Direct Access (LAN): http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_host_port }}
-      From lenovo_server: http://127.0.0.1:{{ jellyfin_host_port }}
+      From {{ jellyfin_config_target_node }}: http://127.0.0.1:{{ jellyfin_host_port }}
 
       👤 Admin Credentials:
-      Username: {{ admin_user }}
-      Password: {{ jellyfin_thatsmidnight_password }}
+      Username: {{ jellyfin_config_admin_user }}
+      Password: (stored in vault.yml)
 
       📍 Deployment Details:
-      - Running on: {{ jellyfin_node_name | default('midnight-laptop') }} ({{ jellyfin_config_target_node }})
+      - Running on: {{ jellyfin_node_name | default(jellyfin_target_host) }} ({{ jellyfin_config_target_node }})
       - Container ID: {{ jellyfin_container_id | default('N/A') }}
-      - Memory Limit: 4GB
+      - Memory Limit: {{ jellyfin_memory_limit }}
       - Hardware Acceleration: {{ 'Enabled (Intel QSV)' if jellyfin_enable_hw_accel | default(false) else 'DISABLED (set jellyfin_enable_hw_accel: true to enable)' }}
-      - Media Path: /mnt/ssd_media → /media (in container)
+      - Media Path: {{ jellyfin_media_mount_path }} → {{ jellyfin_container_media_path }} (in container)
 
       📚 Configured Libraries:
       {% for library in jellyfin_config_libraries %}
@@ -96,7 +96,7 @@
       - Portainer: Check stack status and container logs
       - Jellyfin API: Programmatic access via jellyfin ansible role
       - Jellyfin Config: Post-deployment configuration via jellyfin_config role
-      - jellyctl (optional): CLI tool for manual management (install via: go install github.com/sj14/jellyctl@latest)
+      - jellyctl (optional): CLI tool for manual management
 
       📖 Documentation:
       - Role README: roles/jellyfin_config/README.md

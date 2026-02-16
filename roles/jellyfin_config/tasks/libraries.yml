@@ -1,8 +1,8 @@
 ---
 # Jellyfin library management task
 #
-# Creates and manages Jellyfin media libraries using the jellyfin role.
-# Uses the jellyfin_config_libraries variable to define libraries to create.
+# Creates and manages Jellyfin media libraries with true idempotency.
+# Checks existing libraries before creating new ones.
 #
 # Required variables:
 #   - jellyfin_config_api_token: API token for authentication
@@ -10,9 +10,9 @@
 #
 # Library structure:
 #   - name: Library display name
-#     type: Library type (music, movies, tvshows, etc.)
-#     paths: List of media paths
-#     refresh_on_create: Boolean to trigger scan after creation
+#   - type: Library type (music, movies, tvshows, etc.)
+#   - paths: List of media paths
+#   - refresh_on_create: Boolean to trigger scan after creation (optional, default: true)
 #
 # Usage:
 #   - include_tasks: libraries.yml
@@ -31,32 +31,52 @@
     fail_msg: "API token not available. Run api_keys.yml task first or provide jellyfin_config_api_token"
     success_msg: "API token available for library operations"
 
+- name: Get existing virtual folders (libraries)
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Library/VirtualFolders"
+    method: GET
+    headers:
+      X-Emby-Token: "{{ jellyfin_config_api_token }}"
+    status_code: [200]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  register: existing_libraries
+
+- name: Build list of existing library names
+  ansible.builtin.set_fact:
+    existing_library_names: "{{ existing_libraries.json | map(attribute='Name') | list }}"
+
 - name: Display libraries to configure
   ansible.builtin.debug:
     msg: |
-      📚 Configuring {{ jellyfin_config_libraries | length }} Jellyfin libraries:
+      📚 Library Configuration Status:
+      
+      Existing libraries: {{ existing_library_names | join(', ') if existing_library_names | length > 0 else 'None' }}
+      
+      Desired libraries:
       {% for library in jellyfin_config_libraries %}
-      - {{ library.name }} ({{ library.type }})
+      - {{ library.name }} ({{ library.type }}) - {% if library.name in existing_library_names %}✅ Already exists{% else %}🆕 Will create{% endif %}
         Paths: {{ library.paths | join(', ') }}
       {% endfor %}
   when: jellyfin_config_display_results | default(true)
 
-- name: Create each media library
-  ansible.builtin.include_role:
-    name: jellyfin
-    tasks_from: libraries
-  vars:
-    jellyfin_url: "{{ jellyfin_target_url }}"
-    jellyfin_api_token: "{{ jellyfin_config_api_token }}"
-    jellyfin_action: create
-    jellyfin_library_name: "{{ item.name }}"
-    jellyfin_library_type: "{{ item.type }}"
-    jellyfin_library_refresh_on_create: "{{ item.refresh_on_create | default(true) }}"
-    jellyfin_library_paths: "{{ item.paths | map('regex_replace', '^(.*)$', '{\"Path\": \"\\1\"}') | map('from_json') | list }}"
-    jellyfin_validate_certs: "{{ jellyfin_config_validate_certs }}"
+- name: Create missing media libraries
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Library/VirtualFolders?name={{ item.name | urlencode }}&collectionType={{ item.type }}&refreshLibrary={{ item.refresh_on_create | default(true) }}"
+    method: POST
+    headers:
+      X-Emby-Token: "{{ jellyfin_config_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      LibraryOptions:
+        PathInfos: "{{ item.paths | map('regex_replace', '^(.*)$', '{\"Path\": \"\\1\"}') | map('from_json') | list }}"
+    status_code: [204]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
   loop: "{{ jellyfin_config_libraries }}"
   loop_control:
     label: "{{ item.name }}"
+  when: item.name not in existing_library_names
+  register: library_creation_results
 
 - name: Display library configuration completion
   ansible.builtin.debug:
@@ -65,9 +85,13 @@
       
       📚 Configured Libraries:
       {% for library in jellyfin_config_libraries %}
-      - {{ library.name }}
+      - {{ library.name }} {% if library.name in existing_library_names %}(already existed){% else %}(newly created){% endif %}
       {% endfor %}
       
-      💡 Libraries are now scanning media files. Check progress in:
+      {% if library_creation_results.changed %}
+      💡 New libraries are now scanning media files. Check progress in:
       Dashboard → Libraries → Scan All Libraries
+      {% else %}
+      ℹ️ All libraries already existed - no changes made (idempotent)
+      {% endif %}
   when: jellyfin_config_display_results | default(true)
