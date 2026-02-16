@@ -1,0 +1,58 @@
+---
+# Pi-hole adlist (block list) management task
+#
+# Manages Pi-hole adlists using the pihole_adlist custom module for true idempotency.
+# This replaces the previous bash script approach with a proper Ansible module.
+#
+# Usage:
+#   - include_tasks: adlists.yml
+#     vars:
+#       pihole_config_adlists:
+#         - url: "https://example.com/list.txt"
+#           comment: "Example List"
+#           enabled: true
+
+- name: Ensure container facts are available
+  ansible.builtin.include_tasks: discover_container.yml
+  when: pihole_container_id is not defined
+
+- name: Manage Pi-hole adlists
+  pihole_adlist:
+    container_id: "{{ pihole_container_id }}"
+    url: "{{ item.url }}"
+    comment: "{{ item.comment }}"
+    enabled: "{{ item.enabled | default(true) }}"
+    state: present
+  loop: "{{ pihole_config_adlists }}"
+  loop_control:
+    label: "{{ item.comment }}"
+  register: adlist_results
+  delegate_to: "{{ pihole_config_target_node }}"
+
+- name: Display adlist configuration summary
+  ansible.builtin.debug:
+    msg: |
+      Adlist Configuration Summary:
+      ├─ Total adlists processed: {{ pihole_config_adlists | length }}
+      ├─ Added: {{ adlist_results.results | selectattr('changed', 'equalto', true) | list | length }}
+      └─ Already present: {{ adlist_results.results | selectattr('changed', 'equalto', false) | list | length }}
+  when: pihole_config_display_results | default(true)
+
+- name: Update Pi-hole gravity database
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id }} pihole -g
+  register: gravity_update
+  changed_when: "'Update complete' in gravity_update.stdout"
+  delegate_to: "{{ pihole_config_target_node }}"
+  when:
+    - pihole_config_update_gravity | default(true)
+    - adlist_results.changed
+
+- name: Display gravity update results
+  ansible.builtin.debug:
+    msg: |
+      Gravity Update:
+      {{ gravity_update.stdout_lines | default(['Skipped - no changes']) | join('\n      ') }}
+  when:
+    - pihole_config_display_results | default(true)
+    - gravity_update is defined

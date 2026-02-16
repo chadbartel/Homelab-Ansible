@@ -1,0 +1,109 @@
+---
+# Dnsmasq Tuning Example
+#
+# This playbook demonstrates how to configure dnsmasq settings in Pi-hole
+# for optimal performance in different scenarios.
+
+- name: Configure Pi-hole Dnsmasq Settings
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    pihole_config_service_name: "pihole-stack_pihole"
+    pihole_config_swarm_manager: "pi4_01"
+    pihole_config_target_node: "lenovo_server"
+  
+  tasks:
+    # === SCENARIO 1: High-Traffic Network ===
+    - name: Configure for high-traffic network
+      import_role:
+        name: pihole_config
+        tasks_from: dnsmasq
+      vars:
+        pihole_config_dnsmasq_settings:
+          # Increase concurrent DNS queries
+          - "dns-forward-max=500"
+          
+          # Larger cache for better performance
+          - "cache-size=20000"
+          
+          # Minimum TTL to reduce upstream queries
+          - "min-cache-ttl=300"
+          
+          # Maximum TTL to prevent stale entries
+          - "max-cache-ttl=3600"
+          
+          # Enable negative caching
+          - "no-negcache"
+      tags: ['high-traffic']
+    
+    # === SCENARIO 2: Low-Memory Device (Raspberry Pi) ===
+    - name: Configure for low-memory device
+      import_role:
+        name: pihole_config
+        tasks_from: dnsmasq
+      vars:
+        pihole_config_dnsmasq_settings:
+          # Modest cache size
+          - "cache-size=5000"
+          
+          # Limit concurrent queries
+          - "dns-forward-max=150"
+          
+          # Shorter TTL to free cache faster
+          - "max-cache-ttl=1800"
+      tags: ['low-memory']
+    
+    # === SCENARIO 3: Privacy-Focused ===
+    - name: Configure for privacy focus
+      import_role:
+        name: pihole_config
+        tasks_from: dnsmasq
+      vars:
+        pihole_config_dnsmasq_settings:
+          # Disable DNS rebinding protection for local domains
+          - "rebind-domain-ok=/homelab.local/"
+          
+          # Don't read /etc/hosts
+          - "no-hosts"
+          
+          # Don't read /etc/resolv.conf
+          - "no-resolv"
+          
+          # Upstream DNS servers (privacy-focused)
+          - "server=9.9.9.9"  # Quad9
+          - "server=149.112.112.112"  # Quad9 secondary
+      tags: ['privacy']
+    
+    # === SCENARIO 4: Performance Optimized ===
+    - name: Configure for performance
+      import_role:
+        name: pihole_config
+        tasks_from: dnsmasq
+      vars:
+        pihole_config_dnsmasq_settings:
+          # Aggressive caching
+          - "cache-size=15000"
+          - "min-cache-ttl=600"
+          
+          # More concurrent queries
+          - "dns-forward-max=300"
+          
+          # Faster EDNS packet size
+          - "edns-packet-max=1232"
+          
+          # Enable DNSSEC
+          - "dnssec"
+          - "trust-anchor=.,20326,8,2,E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D"
+      tags: ['performance']
+    
+    - name: Display configuration summary
+      ansible.builtin.debug:
+        msg: |
+          Dnsmasq tuning applied!
+          
+          Use tags to apply specific scenarios:
+            --tags high-traffic    : High-traffic network
+            --tags low-memory      : Low-memory device
+            --tags privacy         : Privacy-focused
+            --tags performance     : Performance optimized

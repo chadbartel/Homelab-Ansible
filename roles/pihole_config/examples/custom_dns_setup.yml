@@ -1,0 +1,87 @@
+---
+# Custom DNS Configuration Example
+#
+# This playbook demonstrates how to configure custom DNS entries for
+# local domain resolution in Pi-hole.
+
+- name: Configure Pi-hole Custom DNS Entries
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    pihole_config_service_name: "pihole-stack_pihole"
+    pihole_config_swarm_manager: "pi4_01"
+    pihole_config_target_node: "lenovo_server"
+    
+    # Manager node IP for service access
+    manager_ip: "192.168.1.10"
+    
+    # Worker node IPs
+    worker1_ip: "192.168.1.11"
+    worker2_ip: "192.168.1.12"
+    
+    # Local domain
+    local_domain: "homelab.local"
+    
+    # Custom DNS entries
+    pihole_config_custom_dns_entries:
+      # === INFRASTRUCTURE SERVICES ===
+      - ip: "{{ manager_ip }}"
+        hostname: "pihole.{{ local_domain }}"
+      
+      - ip: "{{ manager_ip }}"
+        hostname: "portainer.{{ local_domain }}"
+      
+      - ip: "{{ manager_ip }}"
+        hostname: "swarm-manager.{{ local_domain }}"
+      
+      # === MEDIA SERVICES ===
+      - ip: "{{ worker2_ip }}"
+        hostname: "jellyfin.{{ local_domain }}"
+      
+      - ip: "{{ worker2_ip }}"
+        hostname: "media.{{ local_domain }}"
+      
+      # === NETWORKING SERVICES ===
+      - ip: "{{ manager_ip }}"
+        hostname: "nginx.{{ local_domain }}"
+      
+      - ip: "{{ manager_ip }}"
+        hostname: "npm.{{ local_domain }}"
+      
+      - ip: "{{ manager_ip }}"
+        hostname: "vpn.{{ local_domain }}"
+      
+      # === MONITORING ===
+      - ip: "{{ manager_ip }}"
+        hostname: "grafana.{{ local_domain }}"
+      
+      - ip: "{{ manager_ip }}"
+        hostname: "prometheus.{{ local_domain }}"
+      
+      # === WORKER NODES ===
+      - ip: "{{ worker1_ip }}"
+        hostname: "worker1.{{ local_domain }}"
+      
+      - ip: "{{ worker2_ip }}"
+        hostname: "worker2.{{ local_domain }}"
+  
+  tasks:
+    - name: Discover Pi-hole container
+      import_role:
+        name: pihole_config
+        tasks_from: discover_container
+    
+    - name: Configure custom DNS entries
+      import_role:
+        name: pihole_config
+        tasks_from: custom_dns
+    
+    - name: Display DNS configuration
+      ansible.builtin.debug:
+        msg: |
+          Custom DNS Entries Configured:
+          ────────────────────────────────────
+          {% for entry in pihole_config_custom_dns_entries %}
+          {{ entry.hostname }}  →  {{ entry.ip }}
+          {% endfor %}

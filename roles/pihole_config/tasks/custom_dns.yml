@@ -1,0 +1,92 @@
+---
+# Pi-hole custom DNS configuration task
+#
+# Manages custom DNS entries in /etc/pihole/custom.list
+# Uses template-based approach for true idempotency
+#
+# Usage:
+#   - include_tasks: custom_dns.yml
+#     vars:
+#       pihole_config_custom_dns_entries:
+#         - ip: "192.168.1.10"
+#           hostname: "pihole.local"
+#         - ip: "192.168.1.10"
+#           hostname: "portainer.local"
+
+- name: Ensure container facts are available
+  ansible.builtin.include_tasks: discover_container.yml
+  when: pihole_container_id is not defined
+
+- name: Skip custom DNS configuration if no entries defined
+  ansible.builtin.debug:
+    msg: "No custom DNS entries defined, skipping configuration"
+  when:
+    - pihole_config_custom_dns_entries | default([]) | length == 0
+    - pihole_config_display_results | default(true)
+
+- name: Generate custom DNS entries file
+  ansible.builtin.template:
+    src: custom_dns.list.j2
+    dest: /tmp/pihole_custom.list
+  delegate_to: localhost
+  become: false
+  when: pihole_config_custom_dns_entries | default([]) | length > 0
+  register: dns_template
+
+- name: Read generated custom DNS file
+  ansible.builtin.slurp:
+    src: /tmp/pihole_custom.list
+  delegate_to: localhost
+  become: false
+  register: dns_content_encoded
+  when: pihole_config_custom_dns_entries | default([]) | length > 0
+
+- name: Set DNS content fact
+  ansible.builtin.set_fact:
+    dns_content: "{{ dns_content_encoded.content | b64decode }}"
+  when: pihole_config_custom_dns_entries | default([]) | length > 0
+
+- name: Read existing custom DNS from container
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id }} cat /etc/pihole/custom.list 2>/dev/null || echo ""
+  register: existing_dns
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ pihole_config_target_node }}"
+  when: pihole_config_custom_dns_entries | default([]) | length > 0
+
+- name: Update custom DNS entries in container
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id }} bash -c 'cat > /etc/pihole/custom.list << '\''EOF'\''
+    {{ dns_content }}
+    EOF'
+  register: dns_update
+  changed_when: existing_dns.stdout != dns_content
+  delegate_to: "{{ pihole_config_target_node }}"
+  when: pihole_config_custom_dns_entries | default([]) | length > 0
+
+- name: Restart Pi-hole DNS to apply custom DNS entries
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id }} pihole restartdns
+  when:
+    - pihole_config_custom_dns_entries | default([]) | length > 0
+    - dns_update.changed
+  delegate_to: "{{ pihole_config_target_node }}"
+
+- name: Clean up temporary DNS file
+  ansible.builtin.file:
+    path: /tmp/pihole_custom.list
+    state: absent
+  delegate_to: localhost
+  become: false
+  when: pihole_config_custom_dns_entries | default([]) | length > 0
+
+- name: Display custom DNS configuration status
+  ansible.builtin.debug:
+    msg: |
+      Custom DNS Configuration:
+      ├─ Entries configured: {{ pihole_config_custom_dns_entries | length }}
+      └─ DNS restarted: {{ dns_update.changed | default(false) }}
+  when:
+    - pihole_config_display_results | default(true)
+    - pihole_config_custom_dns_entries | default([]) | length > 0

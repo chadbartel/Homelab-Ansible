@@ -47,6 +47,33 @@ pihole_web_port: 8081  # Port for Pi-hole web interface
 pihole_dns_port: 80  # Port for Pi-hole DNS service
 pihole_target_host: "midnight-laptop"  # The specific host for Pi-hole (must match Swarm node hostname)
 
+# Pi-hole Config Role Variables
+pihole_config_service_name: "pihole-stack_pihole"
+pihole_config_swarm_manager: "pi4_01"
+pihole_config_target_node: "lenovo_server"
+
+# Custom DNS entries for local services
+pihole_config_custom_dns_entries:
+  - ip: "{{ manager_node_ip }}"
+    hostname: "{{ pihole_container_name }}.{{ local_domain }}"
+  - ip: "{{ manager_node_ip }}"
+    hostname: "{{ portainer_container_name }}.{{ local_domain }}"
+  - ip: "{{ manager_node_ip }}"
+    hostname: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
+  - ip: "{{ manager_node_ip }}"
+    hostname: "{{ openvpn_container_name }}.{{ local_domain }}"
+
+# Dnsmasq performance tuning
+pihole_config_dnsmasq_settings:
+  - "dns-forward-max=300"
+
+# Note: pihole_config_adlists uses defaults from role (roles/pihole_config/defaults/main.yml)
+# Override here if needed:
+# pihole_config_adlists:
+#   - url: "https://example.com/custom-list.txt"
+#     comment: "Custom List"
+#     enabled: true
+
 # Docker Stacks Configuration for manager nodes
 portainer_stacks:
   - name: npm-stack
