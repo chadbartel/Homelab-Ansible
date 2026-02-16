@@ -2,18 +2,42 @@
 # Container Discovery Tasks - Find OpenVPN Access Server container
 # Supports multiple deployment modes: Swarm, standalone Docker, or direct container ID
 
-- name: Set discovery method based on provided variables
+- name: Debug - Show all openvpn_config variables
+  ansible.builtin.debug:
+    msg: |
+      OpenVPN Config Variables:
+      - openvpn_config_container_id: {{ openvpn_config_container_id | default('UNDEFINED') }}
+      - openvpn_config_service_name: {{ openvpn_config_service_name | default('UNDEFINED') }}
+      - openvpn_config_swarm_manager: {{ openvpn_config_swarm_manager | default('UNDEFINED') }}
+      - openvpn_config_container_name: {{ openvpn_config_container_name | default('UNDEFINED') }}
+      - openvpn_config_target_host: {{ openvpn_config_target_host | default('UNDEFINED') }}
+
+- name: Determine discovery mode - Direct container ID
   ansible.builtin.set_fact:
-    _openvpn_discovery_mode: >-
-      {%- if openvpn_config_container_id is defined and openvpn_config_container_id -%}
-        direct
-      {%- elif openvpn_config_service_name is defined and openvpn_config_swarm_manager is defined -%}
-        swarm
-      {%- elif openvpn_config_container_name is defined -%}
-        docker
-      {%- else -%}
-        unknown
-      {%- endif -%}
+    _openvpn_discovery_mode: "direct"
+  when:
+    - openvpn_config_container_id is defined
+    - openvpn_config_container_id | length > 0
+
+- name: Determine discovery mode - Docker Swarm
+  ansible.builtin.set_fact:
+    _openvpn_discovery_mode: "swarm"
+  when:
+    - _openvpn_discovery_mode is not defined
+    - openvpn_config_service_name is defined
+    - openvpn_config_swarm_manager is defined
+
+- name: Determine discovery mode - Standalone Docker
+  ansible.builtin.set_fact:
+    _openvpn_discovery_mode: "docker"
+  when:
+    - _openvpn_discovery_mode is not defined
+    - openvpn_config_container_name is defined
+
+- name: Determine discovery mode - Unknown
+  ansible.builtin.set_fact:
+    _openvpn_discovery_mode: "unknown"
+  when: _openvpn_discovery_mode is not defined
 
 - name: Display discovery mode
   ansible.builtin.debug:
@@ -35,7 +59,8 @@
 # ============================================================================
 - name: Use provided container ID directly
   ansible.builtin.set_fact:
-    openvpn_container_id: "{{ {'stdout': openvpn_config_container_id} }}"
+    _openvpn_direct_container_id:
+      stdout: "{{ openvpn_config_container_id }}"
   when: _openvpn_discovery_mode == 'direct'
 
 # ============================================================================
@@ -44,6 +69,14 @@
 - name: Docker Swarm discovery block
   when: _openvpn_discovery_mode == 'swarm'
   block:
+    - name: Debug - Swarm discovery starting
+      ansible.builtin.debug:
+        msg: |
+          Swarm Discovery Mode:
+          - Service: {{ openvpn_config_service_name }}
+          - Manager: {{ openvpn_config_swarm_manager }}
+          - Current host: {{ inventory_hostname }}
+
     - name: Get OpenVPN container node from Swarm service
       ansible.builtin.shell: |
         docker service ps {{ openvpn_config_service_name }} \
@@ -54,6 +87,10 @@
       changed_when: false
       failed_when: openvpn_container_node.stdout == ""
 
+    - name: Debug - Container node found
+      ansible.builtin.debug:
+        msg: "Container is running on Swarm node: {{ openvpn_container_node.stdout }}"
+
     - name: Get OpenVPN container ID from Swarm service
       ansible.builtin.shell: |
         TASK_ID=$(docker service ps {{ openvpn_config_service_name }} \
@@ -61,15 +98,42 @@
           --format '{% raw %}{{.ID}}{% endraw %}' --no-trunc | head -n 1)
         docker inspect "${TASK_ID}" \
           --format '{% raw %}{{.Status.ContainerStatus.ContainerID}}{% endraw %}' | head -c 12
-      register: openvpn_container_id
+      register: _openvpn_swarm_container_id
       delegate_to: "{{ openvpn_config_swarm_manager }}"
       changed_when: false
-      failed_when: openvpn_container_id.stdout == ""
+      failed_when: _openvpn_swarm_container_id.stdout == ""
+
+    - name: Debug - Container ID found
+      ansible.builtin.debug:
+        msg: |
+          Container ID discovered: {{ _openvpn_swarm_container_id.stdout }}
+          openvpn_container_id type: {{ _openvpn_swarm_container_id | type_debug }}
+          Has stdout: {{ _openvpn_swarm_container_id.stdout is defined }}
+
+    - name: Map Swarm node hostname to Ansible inventory hostname
+      ansible.builtin.set_fact:
+        _openvpn_mapped_host: >-
+          {%- set swarm_node = openvpn_container_node.stdout -%}
+          {%- set mapped = namespace(found=false, hostname='') -%}
+          {%- for host in groups['all'] -%}
+            {%- if hostvars[host].get('ansible_hostname', '') == swarm_node or 
+                   host.replace('_', '-') == swarm_node or
+                   swarm_node.replace('-', '_') == host -%}
+              {%- set mapped.found = true -%}
+              {%- set mapped.hostname = host -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ mapped.hostname if mapped.found else swarm_node }}
 
     - name: Update target host to physical node from Swarm
       ansible.builtin.set_fact:
-        openvpn_config_target_host: "{{ openvpn_container_node.stdout }}"
-      when: openvpn_config_target_host is not defined or not openvpn_config_target_host
+        openvpn_config_target_host: "{{ _openvpn_mapped_host }}"
+
+    - name: Debug - Target host mapping
+      ansible.builtin.debug:
+        msg: |
+          Swarm node: {{ openvpn_container_node.stdout }}
+          Mapped to Ansible host: {{ openvpn_config_target_host }}
 
 # ============================================================================
 # Standalone Docker Mode
@@ -82,14 +146,35 @@
         docker ps --filter "name={{ openvpn_config_container_name }}" \
           --filter "status=running" \
           --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
-      register: openvpn_container_id
+      register: _openvpn_docker_container_id
       delegate_to: "{{ openvpn_config_target_host }}"
       changed_when: false
-      failed_when: openvpn_container_id.stdout == ""
+      failed_when: _openvpn_docker_container_id.stdout == ""
+
+# ============================================================================
+# Normalize Container ID
+# ============================================================================
+- name: Set final container ID from discovery method
+  ansible.builtin.set_fact:
+    openvpn_container_id: >-
+      {{
+        _openvpn_direct_container_id if _openvpn_discovery_mode == 'direct'
+        else _openvpn_swarm_container_id if _openvpn_discovery_mode == 'swarm'
+        else _openvpn_docker_container_id
+      }}
 
 # ============================================================================
 # Validation and Summary
 # ============================================================================
+- name: Debug - Show openvpn_container_id before verification
+  ansible.builtin.debug:
+    msg: |
+      Pre-verification state:
+      - openvpn_container_id defined: {{ openvpn_container_id is defined }}
+      - openvpn_container_id type: {{ openvpn_container_id | type_debug }}
+      - openvpn_container_id.stdout defined: {{ openvpn_container_id.stdout is defined | default('N/A') }}
+      - openvpn_container_id value: {{ openvpn_container_id | default('UNDEFINED') }}
+
 - name: Verify container was discovered
   ansible.builtin.assert:
     that:

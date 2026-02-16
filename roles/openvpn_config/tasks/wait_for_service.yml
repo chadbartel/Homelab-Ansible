@@ -23,6 +23,7 @@
     delay: "{{ openvpn_config_readiness_delay }}"
     timeout: "{{ openvpn_config_readiness_timeout }}"
   delegate_to: localhost
+  become: false
 
 - name: Verify OpenVPN Access Server admin UI is responding
   ansible.builtin.uri:
@@ -36,6 +37,7 @@
   delay: "{{ openvpn_config_readiness_delay }}"
   until: openvpn_web_check is success
   delegate_to: localhost
+  become: false
   changed_when: false
 
 - name: Verify OpenVPN sacli command is available in container
