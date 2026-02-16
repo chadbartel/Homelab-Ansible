@@ -1,0 +1,119 @@
+---
+# Default variables for Pi-hole configuration role
+
+# Service discovery configuration
+pihole_config_service_name: "pihole-stack_pihole"
+pihole_config_swarm_manager: "pi4_01"
+pihole_config_target_node: "lenovo_server"  # Ansible inventory hostname where container runs
+
+# Service readiness configuration
+pihole_config_web_port: 8081
+pihole_config_readiness_retries: 20
+pihole_config_readiness_delay: 10
+pihole_config_readiness_timeout: 180
+pihole_config_ftl_retries: 12
+pihole_config_ftl_delay: 10
+
+# Adlist configuration - structured list of block lists
+pihole_config_adlists:
+  - url: "https://raw.githubusercontent.com/PolishFiltersTeam/KADhosts/master/KADhosts.txt"
+    comment: "KADhosts"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Spam/hosts"
+    comment: "Spam Hosts"
+    enabled: true
+  - url: "https://v.firebog.net/hosts/static/w3kbl.txt"
+    comment: "W3KBL"
+    enabled: true
+  - url: "https://adaway.org/hosts.txt"
+    comment: "AdAway"
+    enabled: true
+  - url: "https://v.firebog.net/hosts/AdguardDNS.txt"
+    comment: "AdGuard DNS"
+    enabled: true
+  - url: "https://v.firebog.net/hosts/Admiral.txt"
+    comment: "Admiral"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt"
+    comment: "Anudeep AdServers"
+    enabled: true
+  - url: "https://v.firebog.net/hosts/Easylist.txt"
+    comment: "EasyList"
+    enabled: true
+  - url: "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext"
+    comment: "Peter Lowe's List"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UncheckyAds/hosts"
+    comment: "UncheckyAds"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts"
+    comment: "HostsVN"
+    enabled: true
+  - url: "https://v.firebog.net/hosts/Easyprivacy.txt"
+    comment: "EasyPrivacy"
+    enabled: true
+  - url: "https://v.firebog.net/hosts/Prigent-Ads.txt"
+    comment: "Prigent Ads"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts"
+    comment: "2o7Net"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt"
+    comment: "WindowsSpyBlocker"
+    enabled: true
+  - url: "https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt"
+    comment: "Firstparty Trackers"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt"
+    comment: "Anti-Malware"
+    enabled: true
+  - url: "https://v.firebog.net/hosts/Prigent-Crypto.txt"
+    comment: "Prigent Crypto"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts"
+    comment: "Risk Hosts"
+    enabled: true
+  - url: "https://bitbucket.org/ethanr/dns-blacklists/raw/8575c9f96e5b4a1308f2f12394abd86d0927a4a0/bad_lists/Mandiant_APT1_Report_Appendix_D.txt"
+    comment: "Mandiant APT1"
+    enabled: true
+  - url: "https://phishing.army/download/phishing_army_blocklist_extended.txt"
+    comment: "Phishing Army"
+    enabled: true
+  - url: "https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-malware.txt"
+    comment: "NoTrack Malware"
+    enabled: true
+  - url: "https://v.firebog.net/hosts/RPiList-Malware.txt"
+    comment: "RPiList Malware"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt"
+    comment: "Spam404"
+    enabled: true
+  - url: "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts"
+    comment: "Stalkerware"
+    enabled: true
+  - url: "https://urlhaus.abuse.ch/downloads/hostfile/"
+    comment: "URLhaus"
+    enabled: true
+  - url: "https://lists.cyberhost.uk/malware.txt"
+    comment: "Cyberhost Malware"
+    enabled: true
+
+# Custom DNS entries (local domain resolution)
+pihole_config_custom_dns_entries: []
+# Example:
+# pihole_config_custom_dns_entries:
+#   - ip: "192.168.1.10"
+#     hostname: "pihole.local"
+#   - ip: "192.168.1.10"
+#     hostname: "portainer.local"
+
+# Dnsmasq configuration
+pihole_config_dnsmasq_settings:
+  - "dns-forward-max=300"
+# Additional dnsmasq settings can be added as list items
+
+# Gravity update configuration
+pihole_config_update_gravity: true
+
+# Display configuration output
+pihole_config_display_results: true

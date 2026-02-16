@@ -1,0 +1,43 @@
+---
+# Pi-hole service readiness check task
+#
+# Waits for Pi-hole web interface and FTL service to be fully initialized
+#
+# Usage:
+#   - include_tasks: wait_for_service.yml
+#     vars:
+#       target_host: "{{ ansible_host }}"  # Optional override
+
+- name: Wait for Pi-hole web interface to be accessible
+  ansible.builtin.wait_for:
+    port: "{{ pihole_config_web_port }}"
+    host: "{{ target_host | default(ansible_host) }}"
+    delay: 15
+    timeout: "{{ pihole_config_readiness_timeout }}"
+    msg: "Pi-hole web interface did not become accessible within {{ pihole_config_readiness_timeout }} seconds"
+
+- name: Display web interface ready status
+  ansible.builtin.debug:
+    msg: "✓ Pi-hole web interface is accessible on port {{ pihole_config_web_port }}"
+  when: pihole_config_display_results | default(true)
+
+- name: Ensure container facts are available
+  ansible.builtin.include_tasks: discover_container.yml
+  when: pihole_container_id is not defined
+
+- name: Wait for Pi-hole FTL to be fully initialized
+  ansible.builtin.shell: |
+    docker exec {{ pihole_container_id }} pihole status
+  register: pihole_status
+  until: >
+    'Pi-hole blocking is enabled' in pihole_status.stdout or
+    'enabled' in pihole_status.stdout
+  retries: "{{ pihole_config_ftl_retries }}"
+  delay: "{{ pihole_config_ftl_delay }}"
+  changed_when: false
+  delegate_to: "{{ pihole_config_target_node }}"
+
+- name: Display FTL ready status
+  ansible.builtin.debug:
+    msg: "✓ Pi-hole FTL service is fully initialized and running"
+  when: pihole_config_display_results | default(true)
