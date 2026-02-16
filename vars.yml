@@ -38,6 +38,31 @@ jellyfin_epg_image: "alpine:3.23"
 jellyfin_epg_url: "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz"
 jellyfin_epg_schedule: "0 1 * * *"  # Cron format: 1:00 AM daily
 
+# Jellyfin Config Role Variables
+jellyfin_config_service_name: "jellyfin-stack_jellyfin"
+jellyfin_config_swarm_manager: "pi4_01"
+jellyfin_config_target_node: "lenovo_server"
+jellyfin_config_web_port: 8096
+jellyfin_config_admin_user: "{{ admin_user }}"
+jellyfin_config_admin_password: "{{ vault_jellyfin_thatsmidnight_password }}"
+jellyfin_config_api_key_app_name: "ansible_automation"
+jellyfin_config_libraries:
+  - name: "Music"
+    type: "music"
+    paths:
+      - "/media/music"
+    refresh_on_create: true
+  - name: "Movies"
+    type: "movies"
+    paths:
+      - "/media/movies"
+    refresh_on_create: true
+  - name: "Concerts"
+    type: "movies"
+    paths:
+      - "/media/concerts"
+    refresh_on_create: true
+
 # Pi-hole configuration
 pihole_config_path: "/opt/pihole/etc-pihole"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
