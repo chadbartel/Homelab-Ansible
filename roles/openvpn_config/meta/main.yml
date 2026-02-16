@@ -43,16 +43,3 @@ galaxy_info:
     - infrastructure
 
 dependencies: []
-
-# Collection metadata (if converting to collection)
-collection_info:
-  namespace: homelab
-  name: docker_swarm
-  version: 1.0.0
-  authors:
-    - Homelab-Ansible
-  description: OpenVPN Access Server configuration for Docker Swarm environments
-  tags:
-    - openvpn
-    - docker
-    - swarm
