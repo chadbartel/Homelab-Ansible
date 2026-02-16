@@ -33,25 +33,59 @@
 
 - name: Authenticate to get access token
   ansible.builtin.uri:
-    url: "{{ jellyfin_target_url }}/User/AuthenticateByName"
+    url: "{{ jellyfin_target_url }}/Users/AuthenticateByName"
     method: POST
+    headers:
+      X-Emby-Authorization: 'MediaBrowser Client="Ansible", Device="Homelab-Ansible", DeviceId="ansible-{{ inventory_hostname }}", Version="1.0.0"'
+      Content-Type: "application/json"
     body_format: json
     body:
       Username: "{{ jellyfin_config_admin_user }}"
       Pw: "{{ jellyfin_config_admin_password }}"
-    status_code: [200]
+    status_code: [200, 400, 401, 404]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: jellyfin_auth
-  failed_when: false
+  retries: 5
+  delay: 3
+  until: jellyfin_auth.status == 200
+  failed_when: jellyfin_auth.status != 200  # Fail if not successful after retries
+
+- name: Display authentication debug info on failure
+  ansible.builtin.debug:
+    msg: |
+      🔍 Authentication Debug Info:
+      URL: {{ jellyfin_target_url }}/Users/AuthenticateByName
+      Status: {{ jellyfin_auth.status }}
+      Username: {{ jellyfin_config_admin_user }}
+      Response: {{ jellyfin_auth.msg | default('N/A') }}
+      {% if jellyfin_auth.json is defined %}
+      JSON Response: {{ jellyfin_auth.json }}
+      {% endif %}
+      
+      ❌ Authentication failed after {{ jellyfin_auth.attempts | default(0) }} attempts
+      
+      Possible causes:
+      - Status 404: User account '{{ jellyfin_config_admin_user }}' does not exist (wizard may have failed)
+      - Status 401: Incorrect password
+      - Status 400: Invalid request format
+      
+      Troubleshooting:
+      1. Check setup wizard output above - did it complete successfully?
+      2. Access Jellyfin web UI: {{ jellyfin_target_url }}/web/index.html
+      3. Verify user '{{ jellyfin_config_admin_user }}' exists in Dashboard → Users
+      4. If user doesn't exist, complete wizard manually:
+         URL: {{ jellyfin_target_url }}/web/index.html#!/wizardstart.html
+      5. Re-run deployment: make deploy
+  when:
+    - jellyfin_auth.status != 200
+    - jellyfin_config_display_results | default(true)
 
 - name: Check authentication result
   ansible.builtin.assert:
     that:
       - jellyfin_auth.status == 200
       - jellyfin_auth.json.AccessToken is defined
-    fail_msg: |
-      ❌ Authentication failed (status: {{ jellyfin_auth.status | default('N/A') }})
-      Verify username and password are correct
+    fail_msg: "Authentication failed - see debug info above"
     success_msg: "✅ Authentication successful"
 
 - name: Display authentication success
@@ -73,17 +107,31 @@
   register: existing_keys
   failed_when: false
 
+- name: Debug existing keys response
+  ansible.builtin.debug:
+    msg: |
+      Status: {{ existing_keys.status }}
+      {% if existing_keys.status == 200 %}
+      Items: {{ existing_keys.json.Items | default([]) }}
+      Items type: {{ existing_keys.json.Items | type_debug }}
+      {% endif %}
+  when: jellyfin_config_display_results | default(true)
+
 - name: Check if API key already exists
   ansible.builtin.set_fact:
-    existing_key: "{{ existing_keys.json.Items | selectattr('AppName', 'equalto', jellyfin_config_api_key_app_name) | list | first | default(None) }}"
-  when: existing_keys.status == 200
+    existing_key: "{{ matching_keys | first }}"
+  vars:
+    matching_keys: "{{ existing_keys.json.Items | default([]) | selectattr('AppName', 'equalto', jellyfin_config_api_key_app_name) | list }}"
+  when:
+    - existing_keys.status == 200
+    - matching_keys | length > 0
 
 - name: Display existing key status
   ansible.builtin.debug:
     msg: |
-      {% if existing_key is defined and existing_key is not none %}
+      {% if existing_key is defined and existing_key is mapping %}
       ✅ API key '{{ jellyfin_config_api_key_app_name }}' already exists
-      Created: {{ existing_key.DateCreated }}
+      Created: {{ existing_key.DateCreated | default('N/A') }}
       {% else %}
       ⚙️ API key '{{ jellyfin_config_api_key_app_name }}' not found, will create
       {% endif %}
@@ -91,19 +139,24 @@
 
 - name: Create new API key if it doesn't exist
   ansible.builtin.uri:
-    url: "{{ jellyfin_target_url }}/Auth/Keys"
+    url: "{{ jellyfin_target_url }}/Auth/Keys?app={{ jellyfin_config_api_key_app_name | urlencode }}"
     method: POST
     headers:
       X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
-      Content-Type: "application/json"
-    body_format: json
-    body:
-      App: "{{ jellyfin_config_api_key_app_name }}"
     status_code: [204]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: key_creation
-  when: existing_key is not defined or existing_key is none
-  failed_when: false
+  when: existing_key is not defined
+
+- name: Display key creation result
+  ansible.builtin.debug:
+    msg: |
+      Key creation attempted: {{ key_creation is defined }}
+      Key creation status: {{ key_creation.status | default('N/A') }}
+      Key creation changed: {{ key_creation is changed }}
+  when:
+    - existing_key is not defined
+    - jellyfin_config_display_results | default(true)
 
 - name: Retrieve updated API keys list after creation
   ansible.builtin.uri:
@@ -114,17 +167,47 @@
     status_code: [200]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: updated_keys
-  when: key_creation is changed
+  when:
+    - existing_key is not defined
+    - key_creation is defined
+    - key_creation.status == 204
 
 - name: Get the newly created API key
   ansible.builtin.set_fact:
-    new_key: "{{ updated_keys.json.Items | selectattr('AppName', 'equalto', jellyfin_config_api_key_app_name) | list | first }}"
-  when: key_creation is changed
+    new_key: "{{ matching_new_keys | first }}"
+  vars:
+    matching_new_keys: "{{ updated_keys.json.Items | default([]) | selectattr('AppName', 'equalto', jellyfin_config_api_key_app_name) | list }}"
+  when:
+    - updated_keys is defined
+    - updated_keys.status == 200
+    - matching_new_keys | length > 0
 
 - name: Set API token fact from existing or new key
   ansible.builtin.set_fact:
-    jellyfin_config_api_token: "{{ existing_key.AccessToken if (existing_key is defined and existing_key is not none) else new_key.AccessToken }}"
+    jellyfin_config_api_token: "{{ existing_key.AccessToken if (existing_key is defined and existing_key is mapping) else new_key.AccessToken }}"
     cacheable: true
+  when: (existing_key is defined and existing_key is mapping) or (new_key is defined and new_key is mapping)
+
+- name: Verify API token was obtained
+  ansible.builtin.assert:
+    that:
+      - jellyfin_config_api_token is defined
+      - jellyfin_config_api_token | length > 0
+    fail_msg: |
+      ❌ Failed to obtain API token
+      
+      Existing key defined: {{ existing_key is defined }}
+      New key defined: {{ new_key is defined }}
+      
+      Troubleshooting:
+      1. Check if API key creation succeeded (see debug output above)
+      2. Verify you have permission to create API keys
+      3. Try creating an API key manually via web UI:
+         - Go to {{ jellyfin_target_url }}/web/index.html
+         - Navigate to Dashboard → API Keys
+         - Create key named '{{ jellyfin_config_api_key_app_name }}'
+      4. Re-run deployment
+    success_msg: "✅ API token obtained successfully"
 
 - name: Display API token information
   ansible.builtin.debug:

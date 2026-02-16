@@ -273,11 +273,13 @@ jellyfin_config_libraries:
    # Add: vault_jellyfin_api_token: "your_token_here"
    ```
 
-2. **Configure Hardware Acceleration**: 
+2. **Configure Hardware Acceleration**:
+
    - Open Jellyfin Dashboard → Playback → Transcoding
    - Set to "Intel Quick Sync (QSV)" if using Intel GPU
 
 3. **Monitor Library Scans**:
+
    - Dashboard → Scheduled Tasks → Scan Media Library
    - Check progress of initial media scanning
 
