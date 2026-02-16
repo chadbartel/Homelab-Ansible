@@ -93,15 +93,50 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-### Task 1.3: Create `nginx_proxy_manager_config` Role
+### Task 1.3: Create `nginx_proxy_manager_config` Role ✅ COMPLETED
 
 **Objective**: Extract from `tasks/post_setup_npm.yml`.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Role created and integrated into project
 
-1. Create role for NPM API-based configuration
-2. Ensure proxy host creation is idempotent (check existence by domain name)
-3. Abstract SSL certificate management
+**Implementation Details**:
+
+1. ✅ Created role structure: `roles/nginx_proxy_manager_config/`
+2. ✅ Extracted into separate task files:
+   - `tasks/discover_container.yml` - NPM container discovery in Swarm
+   - `tasks/wait_for_service.yml` - NPM API readiness checks
+   - `tasks/proxy_hosts.yml` - Reverse proxy host management (idempotent)
+3. ✅ Implemented true idempotency:
+   - Queries existing proxy hosts via GET `/api/nginx/proxy-hosts`
+   - Creates only new hosts (checks by domain name)
+   - Updates existing hosts if configuration changed
+4. ✅ Abstracted SSL certificate management:
+   - Per-host SSL certificate ID configuration
+   - Default SSL settings with per-host overrides
+   - Automatic SSL/TLS settings (forced HTTPS, HSTS, HTTP/2)
+5. ✅ Variables in `defaults/main.yml`:
+   - Service discovery: `npm_config_service_name`, `npm_config_swarm_manager`, `npm_config_target_node`
+   - Authentication: `npm_config_admin_email`, `npm_config_admin_password`
+   - Proxy hosts: `npm_config_proxy_hosts` (structured list)
+   - SSL defaults: `npm_config_default_ssl_cert_id`, `npm_config_ssl_forced`, etc.
+6. ✅ Documentation created:
+   - `README.md` - Complete role documentation
+   - `QUICK_START.md` - Quick reference guide
+   - `meta/main.yml` - Galaxy metadata
+   - Example playbooks: basic_setup.yml, ssl_setup.yml, advanced_setup.yml, modular_usage.yml, complete_setup.yml
+7. ✅ Integrated into project:
+   - Updated `tasks/post_setup_npm.yml` to use role
+   - Added role variables to `vars.yml`
+   - Updated `.github/copilot-instructions.md`
+
+**Key Features**:
+
+- Fully idempotent (safe to re-run multiple times)
+- API-based configuration (NPM REST API)
+- Automatic container discovery in Docker Swarm
+- Modular task files (can be used individually)
+- Per-host SSL/TLS configuration
+- WebSocket support, exploit blocking, caching options
 
 ---
 

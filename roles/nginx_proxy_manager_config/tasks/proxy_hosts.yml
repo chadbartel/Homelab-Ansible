@@ -1,0 +1,119 @@
+---
+# Manage NPM proxy hosts with true idempotency
+# This checks if proxy hosts exist before creating them
+
+- name: Authenticate with NPM API
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/tokens"
+    method: POST
+    body_format: json
+    body:
+      identity: "{{ npm_config_admin_email }}"
+      secret: "{{ npm_config_admin_password }}"
+    return_content: yes
+    status_code: 200
+  register: npm_auth
+  retries: 3
+  delay: 5
+  no_log: true  # Don't log credentials
+
+- name: Set NPM auth token fact
+  ansible.builtin.set_fact:
+    npm_auth_token: "{{ npm_auth.json.token }}"
+  no_log: true
+
+- name: Get existing proxy hosts from NPM
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/proxy-hosts"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    return_content: yes
+    status_code: 200
+  register: existing_proxy_hosts
+
+- name: Extract existing domain names
+  ansible.builtin.set_fact:
+    existing_domains: "{{ existing_proxy_hosts.json | map(attribute='domain_names') | flatten | list }}"
+
+- name: Display existing proxy hosts
+  ansible.builtin.debug:
+    msg: "Existing proxy hosts: {{ existing_domains | join(', ') if existing_domains | length > 0 else 'None' }}"
+
+- name: Create new proxy hosts (skip if already exists)
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/proxy-hosts"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    body_format: json
+    body:
+      domain_names:
+        - "{{ item.domain }}"
+      forward_scheme: "{{ item.forward_scheme | default('http') }}"
+      forward_host: "{{ item.forward_host }}"
+      forward_port: "{{ item.forward_port }}"
+      access_list_id: "{{ item.access_list_id | default(npm_config_access_list_id) }}"
+      certificate_id: "{{ item.ssl_certificate_id | default(npm_config_default_ssl_cert_id) | int }}"
+      ssl_forced: "{{ item.ssl_forced | default(npm_config_ssl_forced) }}"
+      hsts_enabled: "{{ item.hsts_enabled | default(npm_config_hsts_enabled) }}"
+      hsts_subdomains: "{{ item.hsts_subdomains | default(npm_config_hsts_subdomains) }}"
+      http2_support: "{{ item.http2_support | default(npm_config_http2_support) }}"
+      block_exploits: "{{ item.block_exploits | default(npm_config_block_exploits) }}"
+      caching_enabled: "{{ item.caching_enabled | default(npm_config_caching_enabled) }}"
+      allow_websocket_upgrade: "{{ item.websocket_upgrade | default(npm_config_allow_websocket_upgrade) }}"
+      enabled: true
+    status_code: [200, 201]
+  loop: "{{ npm_config_proxy_hosts }}"
+  when: item.domain not in existing_domains
+  register: proxy_creation_results
+
+- name: Update existing proxy hosts (if configuration changed)
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/proxy-hosts/{{ proxy_host_id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    body_format: json
+    body:
+      domain_names:
+        - "{{ item.domain }}"
+      forward_scheme: "{{ item.forward_scheme | default('http') }}"
+      forward_host: "{{ item.forward_host }}"
+      forward_port: "{{ item.forward_port }}"
+      access_list_id: "{{ item.access_list_id | default(npm_config_access_list_id) }}"
+      certificate_id: "{{ item.ssl_certificate_id | default(npm_config_default_ssl_cert_id) | int }}"
+      ssl_forced: "{{ item.ssl_forced | default(npm_config_ssl_forced) }}"
+      hsts_enabled: "{{ item.hsts_enabled | default(npm_config_hsts_enabled) }}"
+      hsts_subdomains: "{{ item.hsts_subdomains | default(npm_config_hsts_subdomains) }}"
+      http2_support: "{{ item.http2_support | default(npm_config_http2_support) }}"
+      block_exploits: "{{ item.block_exploits | default(npm_config_block_exploits) }}"
+      caching_enabled: "{{ item.caching_enabled | default(npm_config_caching_enabled) }}"
+      allow_websocket_upgrade: "{{ item.websocket_upgrade | default(npm_config_allow_websocket_upgrade) }}"
+      enabled: true
+    status_code: [200]
+  vars:
+    matching_host: "{{ existing_proxy_hosts.json | selectattr('domain_names', 'contains', item.domain) | first | default({}) }}"
+    proxy_host_id: "{{ matching_host.id | default('') }}"
+  loop: "{{ npm_config_proxy_hosts }}"
+  when:
+    - item.domain in existing_domains
+    - matching_host | length > 0
+  register: proxy_update_results
+
+- name: Display proxy host configuration summary
+  ansible.builtin.debug:
+    msg: |
+      NPM Proxy Host Configuration Summary:
+      {% if proxy_creation_results.results is defined %}
+      Created: {{ proxy_creation_results.results | selectattr('changed', 'equalto', true) | list | length }}
+      {% endif %}
+      {% if proxy_update_results.results is defined %}
+      Updated: {{ proxy_update_results.results | selectattr('changed', 'equalto', true) | list | length }}
+      {% endif %}
+      Skipped (already exist): {{ npm_config_proxy_hosts | selectattr('domain', 'in', existing_domains) | list | length }}
+      
+      Configured domains:
+      {% for host in npm_config_proxy_hosts %}
+      - {{ host.domain }} → {{ host.forward_scheme | default('http') }}://{{ host.forward_host }}:{{ host.forward_port }}
+      {% endfor %}
