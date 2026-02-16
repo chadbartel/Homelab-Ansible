@@ -1,0 +1,39 @@
+---
+# User Management Tasks - Create and configure VPN users (Idempotent)
+
+- name: Get list of existing OpenVPN users
+  ansible.builtin.shell: |
+    docker exec {{ openvpn_container_id.stdout }} \
+      sacli UserPropGet 2>/dev/null | grep -E "^[a-zA-Z0-9_-]+$" || echo ""
+  register: existing_users
+  delegate_to: "{{ openvpn_config_target_host }}"
+  changed_when: false
+  failed_when: false
+
+- name: Display existing users
+  ansible.builtin.debug:
+    msg: "Existing OpenVPN users: {{ existing_users.stdout_lines }}"
+
+- name: Configure VPN users
+  ansible.builtin.include_tasks: user_configure.yml
+  loop: "{{ openvpn_config_users }}"
+  loop_control:
+    loop_var: user
+    label: "{{ user.username }}"
+
+- name: Get final list of OpenVPN users
+  ansible.builtin.shell: |
+    docker exec {{ openvpn_container_id.stdout }} \
+      sacli UserPropGet 2>/dev/null | grep -E "^[a-zA-Z0-9_-]+$" || echo ""
+  register: final_users
+  delegate_to: "{{ openvpn_config_target_host }}"
+  changed_when: false
+  failed_when: false
+
+- name: Display user management summary
+  ansible.builtin.debug:
+    msg: |
+      VPN User Management Complete:
+      - Total users configured: {{ openvpn_config_users | length }}
+      - Current users in system: {{ final_users.stdout_lines | length }}
+      - Users: {{ final_users.stdout_lines | join(', ') }}

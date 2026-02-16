@@ -140,60 +140,59 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-### Task 1.4: Create `openvpn_config` Role
+### Task 1.4: Create `openvpn_config` Role ✅ COMPLETED
 
-**Objective**: Extract from `tasks/post_setup_openvpn.yml`.
+**Objective**: Extract from `tasks/post_setup_openvpn.yml` into a reusable, idempotent role.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Role created and integrated into project
 
-1. Separate client certificate generation from server configuration
-2. Make certificate generation idempotent (check if cert exists with same CN)
+**Implementation Details**:
+
+1. ✅ Created role structure: `roles/openvpn_config/`
+2. ✅ Extracted into separate task files:
+   - `tasks/discover_container.yml` - Container discovery (Swarm/Docker/Direct)
+   - `tasks/wait_for_service.yml` - Service readiness and health checks
+   - `tasks/initial_setup.yml` - Initial server configuration (idempotent)
+   - `tasks/users.yml` - VPN user management (idempotent)
+3. ✅ Implemented deployment-agnostic design:
+   - Auto-detects deployment mode (Swarm, Docker, or Direct container ID)
+   - No hardcoded infrastructure values
+   - Works with any Docker environment
+4. ✅ Abstracted container discovery:
+   - Role variables: `openvpn_config_service_name`, `openvpn_config_swarm_manager`, `openvpn_config_target_host`
+   - Alternative: `openvpn_config_container_name` or `openvpn_config_container_id`
+   - Dynamic container discovery via multiple methods
+5. ✅ Variables in `defaults/main.yml`:
+   - Service discovery: Multiple deployment mode support
+   - Readiness: `openvpn_config_readiness_retries`, `openvpn_config_startup_wait`, etc.
+   - Initial setup: `openvpn_config_admin_user`, `openvpn_config_server_hostname`, etc.
+   - Users: `openvpn_config_users` (structured list with username, password, autologin)
+   - Advanced: `openvpn_config_server_settings` (key-value pairs for sacli ConfigPut)
+6. ✅ Documentation created:
+   - `README.md` - Complete role documentation with deployment mode examples
+   - `QUICK_START.md` - Fast reference guide with all deployment modes
+   - `meta/main.yml` - Galaxy metadata
+   - Example playbooks: basic_setup.yml, complete_setup.yml, modular_usage.yml, user_management.yml, advanced_configuration.yml
+7. ✅ Integrated into project:
+   - Updated `tasks/post_setup_openvpn.yml` to use role
+   - Added role variables to `vars.yml`
+   - Updated `.github/copilot-instructions.md`
+
+**Key Features**:
+
+- Fully idempotent (safe to re-run multiple times)
+- Modular task files (can be used individually)
+- Deployment-agnostic (Swarm, standalone Docker, or direct container)
+- Auto-detection of deployment mode
+- Separates deployment setup from ongoing management
+- No hardcoded infrastructure assumptions
+- Follows same pattern as other config roles
 
 ---
 
-## Phase 2: Create Generic Service Deployment Role
+## Phase 2: Improve Idempotency Issues
 
-### Task 2.1: Create `docker_swarm_service` Role
-
-**Objective**: Abstract common patterns from `tasks/deploy_stacks.yml` and post-setup tasks.
-
-**Issues Identified**:
-
-- Repeated pattern: wait for service → get container ID → execute commands
-- Tight coupling to Portainer API for deployment
-- No abstraction for service readiness checks
-
-**Instructions**:
-
-1. Create role structure: `roles/docker_swarm_service/`
-2. Task files:
-   - `tasks/deploy_stack.yml` - Deploys via Portainer API
-   - `tasks/wait_for_service.yml` - Generic service readiness check
-   - `tasks/get_container.yml` - Container discovery and facts gathering
-   - `tasks/execute_command.yml` - Execute command in container with retries
-3. Create custom module `library/docker_swarm_service_info.py`:
-
-   ```python
-   # Returns service info, container IDs, node placement
-   # Parameters: service_name, swarm_manager_host
-   # Returns: container_id, node, replicas, state
-   ```
-
-4. Variables to define:
-
-   ```yaml
-   docker_swarm_service_name: ""
-   docker_swarm_service_stack_file: ""
-   docker_swarm_service_wait_port: null
-   docker_swarm_service_readiness_command: "echo ready"
-   docker_swarm_service_readiness_pattern: "ready"
-   ```
-
----
-
-## Phase 3: Improve Idempotency Issues
-
-### Task 3.1: Fix Adlist Configuration Idempotency
+### Task 2.1: Fix Adlist Configuration Idempotency
 
 **Current Issue**: Script in `post_setup_pihole.yml` generates and copies bash script every run.
 
@@ -221,7 +220,7 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-### Task 3.2: Fix Custom DNS Configuration Idempotency
+### Task 2.2: Fix Custom DNS Configuration Idempotency
 
 **Current Issue**: Always writes `/etc/pihole/custom.list` and restarts DNS.
 
@@ -249,7 +248,7 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-### Task 3.3: Fix Dnsmasq Configuration Idempotency
+### Task 2.3: Fix Dnsmasq Configuration Idempotency
 
 **Current Issue**: Always appends to `misc.dnsmasq_lines`, creating duplicates.
 
@@ -271,9 +270,9 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-## Phase 4: Address Structural Coupling Issues
+## Phase 3: Address Structural Coupling Issues
 
-### Task 4.1: Decouple Portainer Dependency
+### Task 3.1: Decouple Portainer Dependency
 
 **Issue**: `tasks/deploy_stacks.yml` is tightly coupled to Portainer API.
 
@@ -293,7 +292,7 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-### Task 4.2: Decouple Node-Specific Logic
+### Task 3.2: Decouple Node-Specific Logic
 
 **Issue**: Tasks hardcoded to `pi4_01` as manager node.
 
@@ -312,9 +311,9 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-## Phase 5: Eliminate Redundant Steps
+## Phase 4: Eliminate Redundant Steps
 
-### Task 5.1: Consolidate Service Waiting Logic
+### Task 4.1: Consolidate Service Waiting Logic
 
 **Issue**: Each post-setup task repeats service waiting pattern.
 
@@ -342,7 +341,7 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-### Task 5.2: Remove Duplicate Docker Installation Logic
+### Task 4.2: Remove Duplicate Docker Installation Logic
 
 **Instructions**:
 
@@ -352,9 +351,9 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-## Phase 6: Create Reusable Modules
+## Phase 5: Create Reusable Modules
 
-### Task 6.1: Create `docker_swarm_container_exec` Module
+### Task 5.1: Create `docker_swarm_container_exec` Module
 
 **Objective**: Replace repeated shell commands with proper module.
 
@@ -377,7 +376,7 @@ Returns:
 
 ---
 
-### Task 6.2: Create `portainer_stack` Module
+### Task 5.2: Create `portainer_stack` Module
 
 **Objective**: Replace API calls in `deploy_stacks.yml` with declarative module.
 

@@ -1,0 +1,92 @@
+---
+# OpenVPN Access Server Configuration Role - Default Variables
+
+# ============================================================================
+# Container Discovery Configuration
+# ============================================================================
+# Deployment mode is auto-detected based on which variables are provided:
+# - If 'openvpn_config_container_id' is set → Use container directly
+# - If 'openvpn_config_service_name' + 'openvpn_config_swarm_manager' → Use Swarm discovery
+# - If 'openvpn_config_container_name' + 'openvpn_config_target_host' → Use standalone Docker
+
+# Direct container ID (if known) - highest priority
+# openvpn_config_container_id: ""
+
+# Docker Swarm service name (for Swarm deployments)
+# openvpn_config_service_name: "vpn-stack_openvpn-as"
+
+# Swarm manager node hostname (required for Swarm deployments)
+# openvpn_config_swarm_manager: "swarm-manager-01"
+
+# Container name (for standalone Docker deployments)
+# openvpn_config_container_name: "openvpn-as"
+
+# Target host where container runs (Ansible inventory hostname or 'localhost')
+# Required for command execution, defaults to first inventory host if not specified
+openvpn_config_target_host: "{{ inventory_hostname }}"
+
+# ============================================================================
+# Service Readiness Configuration
+# ============================================================================
+# Port on which OpenVPN Access Server web UI is accessible
+openvpn_config_web_port: 943
+
+# Maximum number of retries when waiting for service to be ready
+openvpn_config_readiness_retries: 20
+
+# Delay (in seconds) between readiness check retries
+openvpn_config_readiness_delay: 15
+
+# Initial wait time (in seconds) before starting readiness checks
+openvpn_config_startup_wait: 30
+
+# Timeout (in seconds) for service to become ready
+openvpn_config_readiness_timeout: 300
+
+# ============================================================================
+# Initial Setup Configuration
+# ============================================================================
+# Admin user name (typically 'openvpn' for OpenVPN AS)
+openvpn_config_admin_user: "openvpn"
+
+# Admin password (should be defined in vault)
+# openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
+
+# Server hostname/domain for VPN server
+# openvpn_config_server_hostname: "vpn.example.com"
+
+# Activation/license key for OpenVPN Access Server
+# openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
+
+# ============================================================================
+# VPN User Configuration
+# ============================================================================
+# List of VPN users to create
+# Each user should have: username, password, autologin (optional, default: false)
+openvpn_config_users: []
+  # - username: "user1"
+  #   password: "{{ vault_openvpn_user1_password }}"
+  #   autologin: true
+  # - username: "user2"
+  #   password: "{{ vault_openvpn_user2_password }}"
+  #   autologin: false
+
+# ============================================================================
+# Advanced Server Configuration (Optional)
+# ============================================================================
+# Additional server configuration settings (key-value pairs)
+# These will be applied using 'sacli ConfigPut' command
+openvpn_config_server_settings: []
+  # - key: "vpn.server.routing.private_network.0"
+  #   value: "192.168.1.0/24"
+  # - key: "vpn.client.routing.reroute_dns"
+  #   value: "true"
+
+# ============================================================================
+# Idempotency Control
+# ============================================================================
+# Marker file path inside container to track configuration status
+openvpn_config_marker_file: "/config/.ansible_configured"
+
+# Force reconfiguration even if marker file exists
+openvpn_config_force_reconfigure: false

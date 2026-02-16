@@ -27,6 +27,22 @@ openvpn_thatsmidnight_password: "{{ vault_openvpn_thatsmidnight_password }}"
 openvpn_tyramail_password: "{{ vault_openvpn_tyramail_password }}"
 openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
+# OpenVPN Config Role Variables
+openvpn_config_service_name: "vpn-stack_openvpn-as"
+openvpn_config_swarm_manager: "pi4_01"
+openvpn_config_target_host: "midnight-laptop"
+openvpn_config_admin_user: "{{ openvpn_container_name }}"
+openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
+openvpn_config_server_hostname: "{{ vault_openvpn_hostname }}"
+openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
+openvpn_config_users:
+  - username: "thatsmidnight"
+    password: "{{ vault_openvpn_thatsmidnight_password }}"
+    autologin: true
+  - username: "tyramail"
+    password: "{{ vault_openvpn_tyramail_password }}"
+    autologin: true
+
 # Jellyfin configuration
 jellyfin_thatsmidnight_password: "{{ vault_jellyfin_thatsmidnight_password }}"
 jellyfin_enable_hw_accel: false  # Hardware acceleration not supported in Docker Swarm (device cgroups limitation)
