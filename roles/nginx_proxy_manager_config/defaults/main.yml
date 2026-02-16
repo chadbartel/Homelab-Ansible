@@ -1,0 +1,44 @@
+---
+# defaults file for nginx_proxy_manager_config
+# These variables can be overridden in playbooks or host_vars
+
+# NPM service identification
+npm_config_service_name: "npm-stack_npm"
+npm_config_swarm_manager: "pi4_01"
+npm_config_target_node: "lenovo_server"
+
+# NPM connection settings
+npm_config_web_port: 8181
+npm_config_admin_email: "admin@example.com"
+npm_config_admin_password: ""  # Should be overridden with vault variable
+
+# Service readiness settings
+npm_config_readiness_retries: 20
+npm_config_readiness_delay: 10
+npm_config_readiness_timeout: 120
+
+# Proxy host configuration
+npm_config_proxy_hosts: []
+# Example structure:
+#   - domain: "example.com"
+#     forward_scheme: "http"  # http or https
+#     forward_host: "192.168.1.100"
+#     forward_port: 8080
+#     ssl_certificate_id: 0  # 0 for no SSL, >0 for specific cert
+#     ssl_forced: false
+#     websocket_upgrade: true
+#     block_exploits: true
+#     caching_enabled: false
+
+# SSL certificate settings
+npm_config_default_ssl_cert_id: 0  # Default SSL certificate ID (0 = no SSL)
+npm_config_ssl_forced: false
+npm_config_hsts_enabled: false
+npm_config_hsts_subdomains: false
+npm_config_http2_support: false
+
+# Advanced settings
+npm_config_allow_websocket_upgrade: true
+npm_config_block_exploits: true
+npm_config_caching_enabled: false
+npm_config_access_list_id: 0

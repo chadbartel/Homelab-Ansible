@@ -1,0 +1,43 @@
+---
+# Example: Advanced proxy host configuration
+# This demonstrates WebSocket support, caching, and security settings
+
+- name: Configure NPM with advanced settings
+  hosts: localhost
+  gather_facts: false
+  vars:
+    npm_config_admin_email: "admin@example.com"
+    npm_config_admin_password: "{{ vault_npm_admin_password }}"
+    
+    npm_config_proxy_hosts:
+      # WebSocket application (e.g., Home Assistant)
+      - domain: "homeassistant.home.local"
+        forward_host: "192.168.1.150"
+        forward_port: 8123
+        websocket_upgrade: true
+        ssl_certificate_id: 2
+        ssl_forced: true
+      
+      # Static content with caching
+      - domain: "static.example.com"
+        forward_host: "192.168.1.200"
+        forward_port: 80
+        caching_enabled: true
+        block_exploits: true
+      
+      # Internal service without exploit blocking
+      - domain: "internal-api.local"
+        forward_host: "192.168.1.100"
+        forward_port: 3000
+        block_exploits: false
+        websocket_upgrade: true
+      
+      # HTTPS backend
+      - domain: "secure-backend.example.com"
+        forward_scheme: "https"
+        forward_host: "192.168.1.250"
+        forward_port: 8443
+        ssl_certificate_id: 2
+
+  roles:
+    - nginx_proxy_manager_config
