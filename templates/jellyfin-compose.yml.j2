@@ -3,6 +3,7 @@ version: "3.8"
 
 services:
   jellyfin:
+    hostname: {{ jellyfin_container_name }}
     image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
     user: "1000:1000"  # Standard user (hardware accel not supported in Swarm)
     ports:
