@@ -26,13 +26,17 @@
 
 - name: Transform proxy hosts to role format
   ansible.builtin.set_fact:
-    npm_proxy_hosts_config: "{{ npm_proxy_hosts_config | default([]) + [transformed_host] }}"
+    npm_proxy_hosts_config: []
+
+- name: Build proxy hosts configuration list
+  ansible.builtin.set_fact:
+    npm_proxy_hosts_config: "{{ npm_proxy_hosts_config + [transformed_host] }}"
   vars:
     transformed_host:
       domain: "{{ item.domain }}"
       forward_scheme: "{{ item.scheme | default('http') }}"
       forward_host: "{{ item.host }}"
-      forward_port: "{{ item.port }}"
+      forward_port: "{{ item.port | int }}"
   loop: "{{ proxy_hosts }}"
 
 # ========================================

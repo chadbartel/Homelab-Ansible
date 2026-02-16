@@ -39,9 +39,44 @@
   ansible.builtin.set_fact:
     existing_domains: "{{ existing_proxy_hosts.json | map(attribute='domain_names') | flatten | list }}"
 
-- name: Display existing proxy hosts
+- name: Debug - Show existing vs new domains
   ansible.builtin.debug:
-    msg: "Existing proxy hosts: {{ existing_domains | join(', ') if existing_domains | length > 0 else 'None' }}"
+    msg: |
+      Idempotency Check:
+      Existing domains in NPM: {{ existing_domains }}
+      
+      New domains to configure:
+      {% for host in npm_config_proxy_hosts %}
+      - {{ host.domain }} (will {% if host.domain in existing_domains %}UPDATE - already exists{% else %}CREATE - new entry{% endif %})
+        Forward to: {{ host.forward_scheme }}://{{ host.forward_host }}:{{ host.forward_port }}
+      {% endfor %}
+
+- name: Debug - Show full existing proxy host details
+  ansible.builtin.debug:
+    var: existing_proxy_hosts.json
+    verbosity: 1
+
+- name: Create domain to ID mapping for updates
+  ansible.builtin.set_fact:
+    npm_domain_to_id: >-
+      {{
+        npm_domain_to_id | default({}) | combine({
+          domain_item: (existing_proxy_hosts.json |
+            selectattr('domain_names', 'defined') |
+            selectattr('domain_names', 'contains', domain_item) |
+            map(attribute='id') |
+            first | default(none))
+        })
+      }}
+  loop: "{{ existing_domains }}"
+  loop_control:
+    loop_var: domain_item
+  when: existing_domains | length > 0
+
+- name: Debug - Show domain to ID mapping
+  ansible.builtin.debug:
+    var: npm_domain_to_id
+    verbosity: 1
 
 - name: Create new proxy hosts (skip if already exists)
   ansible.builtin.uri:
@@ -55,7 +90,7 @@
         - "{{ item.domain }}"
       forward_scheme: "{{ item.forward_scheme | default('http') }}"
       forward_host: "{{ item.forward_host }}"
-      forward_port: "{{ item.forward_port }}"
+      forward_port: "{{ item.forward_port | int }}"
       access_list_id: "{{ item.access_list_id | default(npm_config_access_list_id) }}"
       certificate_id: "{{ item.ssl_certificate_id | default(npm_config_default_ssl_cert_id) | int }}"
       ssl_forced: "{{ item.ssl_forced | default(npm_config_ssl_forced) }}"
@@ -74,7 +109,7 @@
 
 - name: Update existing proxy hosts (if configuration changed)
   ansible.builtin.uri:
-    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/proxy-hosts/{{ proxy_host_id }}"
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/proxy-hosts/{{ npm_domain_to_id[item.domain] }}"
     method: PUT
     headers:
       Authorization: "Bearer {{ npm_auth_token }}"
@@ -84,7 +119,7 @@
         - "{{ item.domain }}"
       forward_scheme: "{{ item.forward_scheme | default('http') }}"
       forward_host: "{{ item.forward_host }}"
-      forward_port: "{{ item.forward_port }}"
+      forward_port: "{{ item.forward_port | int }}"
       access_list_id: "{{ item.access_list_id | default(npm_config_access_list_id) }}"
       certificate_id: "{{ item.ssl_certificate_id | default(npm_config_default_ssl_cert_id) | int }}"
       ssl_forced: "{{ item.ssl_forced | default(npm_config_ssl_forced) }}"
@@ -96,13 +131,12 @@
       allow_websocket_upgrade: "{{ item.websocket_upgrade | default(npm_config_allow_websocket_upgrade) }}"
       enabled: true
     status_code: [200]
-  vars:
-    matching_host: "{{ existing_proxy_hosts.json | selectattr('domain_names', 'contains', item.domain) | first | default({}) }}"
-    proxy_host_id: "{{ matching_host.id | default('') }}"
   loop: "{{ npm_config_proxy_hosts }}"
   when:
     - item.domain in existing_domains
-    - matching_host | length > 0
+    - npm_domain_to_id is defined
+    - npm_domain_to_id[item.domain] is defined
+    - npm_domain_to_id[item.domain] is not none
   become: false
   register: proxy_update_results
 

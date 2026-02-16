@@ -1,23 +1,29 @@
 ---
 # Host variables for pi4_01 (NPM runs here; these proxy hosts get SSL when certificate_id is set)
+# IMPORTANT: Docker Swarm overlay network DNS works with simple hostnames across nodes
+# The hostname field in compose files creates DNS entries on the overlay network
 proxy_hosts:
   - domain: "{{ pihole_container_name }}.{{ local_domain }}"
-    host: "{{ pihole_container_name }}"
-    port: "{{ pihole_dns_port | default(80) }}"
+    host: "{{ pihole_container_name }}"  # DNS works on overlay network
+    port: 80  # Internal Pi-hole web interface port
     scheme: "http"
+  
   - domain: "{{ openvpn_container_name }}.{{ local_domain }}"
-    host: "{{ openvpn_container_name }}"
-    port: "{{ vpn_host_port }}"
-    scheme: "https"
+    host: "{{ openvpn_container_name }}"  # VPN on manager - hostname works
+    port: 943  # Internal OpenVPN admin web UI port
+    scheme: "https"  # OpenVPN AS requires HTTPS on 943
+  
   - domain: "{{ portainer_container_name }}.{{ local_domain }}"
-    host: "{{ portainer_container_name }}"
-    port: "{{ portainer_host_port }}"
-    scheme: "https"  # doesn't work
-  - domain: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
-    host: "{{ nginx_proxy_container_name }}"
-    port: "{{ proxy_host_port }}"
+    host: "{{ portainer_container_name }}"  # Portainer on manager - hostname works
+    port: 9000  # Internal Portainer web UI port (HTTP)
     scheme: "http"
+  
+  - domain: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
+    host: "{{ nginx_proxy_container_name }}"  # NPM self-reference - hostname works
+    port: 81  # Internal NPM web interface port
+    scheme: "http"
+  
   - domain: "{{ jellyfin_container_name }}.{{ local_domain }}"
-    host: "{{ jellyfin_container_name }}"
-    port: "{{ jellyfin_host_port }}"
+    host: "{{ jellyfin_container_name }}"  # DNS works on overlay network
+    port: 8096  # Internal Jellyfin web interface port
     scheme: "http"
