@@ -4,11 +4,7 @@ version: "3.8"
 services:
   jellyfin:
     image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
-{% if jellyfin_enable_hw_accel | default(false) %}
-    user: "1000:226:44"  # uid:render_gid:video_gid - Multiple groups for Intel QSV/VAAPI
-{% else %}
-    user: "1000:1000"  # Standard user without hardware acceleration groups
-{% endif %}
+    user: "1000:1000"  # Standard user (hardware accel not supported in Swarm)
     ports:
       - "{{ jellyfin_host_port }}:8096"  # Publish port for direct access and API automation
     networks:
@@ -27,24 +23,12 @@ services:
         source: /mnt/ssd_media
         target: /media
         read_only: false
-{% if jellyfin_enable_hw_accel | default(false) %}
-      - /dev/dri:/dev/dri
-    devices:
-      - /dev/dri:/dev/dri
     cap_add:
       - SYS_NICE  # Allow FFmpeg to set process priority for smoother transcoding
     environment:
-      JELLYFIN_FFmpeg__VAAPI_DEVICE: '/dev/dri/renderD128'
-      LIBVA_DRIVER_NAME: 'iHD'  # Intel iHD driver for QSV (newer)
-      # Force native AAC encoder instead of libfdk_aac
+      # Optimize FFmpeg for better stream handling
       JELLYFIN_FFmpeg__probesize: '1G'
       JELLYFIN_FFmpeg__analyzeduration: '3000000'
-{% else %}
-    cap_add:
-      - SYS_NICE  # Still needed for CPU transcoding priority
-    environment:
-      LIBVA_DRIVER_NAME: ''
-{% endif %}
     deploy:
       replicas: 1
       placement:
