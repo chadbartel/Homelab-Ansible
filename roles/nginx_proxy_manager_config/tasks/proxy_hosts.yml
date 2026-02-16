@@ -13,8 +13,9 @@
     return_content: yes
     status_code: 200
   register: npm_auth
-  retries: 3
-  delay: 5
+  retries: 10
+  delay: 10
+  until: npm_auth.status == 200
   become: false
   no_log: true  # Don't log credentials
 
