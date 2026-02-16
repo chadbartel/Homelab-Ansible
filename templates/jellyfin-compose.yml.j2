@@ -4,30 +4,36 @@ version: "3.8"
 services:
   jellyfin:
     image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
-    user: "1000:993"
+    user: "1000:1000"  # Standard user (hardware accel not supported in Swarm)
     ports:
       - "{{ jellyfin_host_port }}:8096"  # Publish port for direct access and API automation
     networks:
       - proxy-network
+    dns:
+      - 192.168.1.10  # Pi-hole (primary for ad-blocking)
+      - 1.1.1.1  # Cloudflare DNS for reliable external stream resolution
+      - 8.8.8.8  # Google DNS fallback
+    dns_search:
+      - local  # Optional: for local domain resolution
     volumes:
       - jellyfin_config:/config
       - jellyfin_cache:/cache
+      - jellyfin_epg:/epg  # EPG data shared with updater service
       - type: bind
         source: /mnt/ssd_media
         target: /media
         read_only: false
-{% if jellyfin_enable_hw_accel | default(false) %}
-    devices:
-      - /dev/dri:/dev/dri
-    group_add:
-      - "{{ hostvars['lenovo_server'].render_group_gid | default('109') }}"  # Render group GID
-      - "{{ hostvars['lenovo_server'].video_group_gid | default('44') }}"   # Video group GID
-{% endif %}
+    cap_add:
+      - SYS_NICE  # Allow FFmpeg to set process priority for smoother transcoding
+    environment:
+      # Optimize FFmpeg for better stream handling
+      JELLYFIN_FFmpeg__probesize: '1G'
+      JELLYFIN_FFmpeg__analyzeduration: '3000000'
     deploy:
       replicas: 1
       placement:
         constraints:
-          - node.hostname == midnight-laptop
+          - node.hostname == {{ jellyfin_target_host | default('midnight-laptop') }}
       resources:
         limits:
           memory: 4G
@@ -42,6 +48,40 @@ services:
         order: start-first
         failure_action: rollback
 
+  epg-updater:
+    image: {{ jellyfin_epg_image | default('alpine:3.23') }}
+    networks:
+      - proxy-network
+    volumes:
+      - jellyfin_epg:/epg
+    environment:
+      - TZ={{ timezone | default('America/Los_Angeles') }}
+      - EPG_URL={{ jellyfin_epg_url | default('https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz') }}
+    command: >
+      sh -c "
+      apk add --no-cache curl tzdata &&
+      echo '{{ jellyfin_epg_schedule | default("0 1 * * *") }} /epg && curl -fsSL $$EPG_URL -o epg_ripper_US2.xml.gz && gunzip -f epg_ripper_US2.xml.gz && echo \"EPG updated at $$(date)\" >> /epg/update.log' > /etc/crontabs/root &&
+      echo \"EPG Updater started - scheduled for 1:00 AM PST daily\" &&
+      echo \"Initial download starting...\" &&
+      cd /epg && curl -fsSL $$EPG_URL -o epg_ripper_US2.xml.gz && gunzip -f epg_ripper_US2.xml.gz && echo \"Initial EPG downloaded at $$(date)\" > /epg/update.log &&
+      crond -f -l 2
+      "
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == {{ jellyfin_target_host | default('midnight-laptop') }}
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 16M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
 networks:
   proxy-network:
     external: true
@@ -50,4 +90,6 @@ volumes:
   jellyfin_config:
     driver: local
   jellyfin_cache:
+    driver: local
+  jellyfin_epg:
     driver: local

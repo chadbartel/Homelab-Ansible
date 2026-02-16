@@ -29,7 +29,14 @@ openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
 # Jellyfin configuration
 jellyfin_thatsmidnight_password: "{{ vault_jellyfin_thatsmidnight_password }}"
-jellyfin_enable_hw_accel: false  # Temporarily disabled until /dev/dri is available (NEEDS REBOOT OF lenovo_server)
+jellyfin_enable_hw_accel: false  # Hardware acceleration not supported in Docker Swarm (device cgroups limitation)
+jellyfin_target_host: "midnight-laptop"  # The specific host for Jellyfin (must match Swarm node hostname)
+jellyfin_image: "jellyfin/jellyfin:10"  # Official Jellyfin image
+jellyfin_container_name: "jellyfin"
+jellyfin_host_port: 8096
+jellyfin_epg_image: "alpine:3.23"
+jellyfin_epg_url: "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz"
+jellyfin_epg_schedule: "0 1 * * *"  # Cron format: 1:00 AM daily
 
 # Pi-hole configuration
 pihole_config_path: "/opt/pihole/etc-pihole"
@@ -50,11 +57,6 @@ portainer_stacks:
     compose_template: openvpn-compose.yml.j2
   - name: jellyfin-stack
     compose_template: jellyfin-compose.yml.j2
-
-# Jellyfin (media server)
-jellyfin_image: "jellyfin/jellyfin:latest"
-jellyfin_container_name: "jellyfin"
-jellyfin_host_port: 8096
 
 # NFS: Storage Host 192.168.1.12 (lenovo_server) exports /mnt/ssd_media to other nodes
 nfs_storage_host_ip: "192.168.1.12"
