@@ -1,0 +1,51 @@
+---
+# Default variables for Jellyfin configuration role
+
+# Service discovery configuration
+jellyfin_config_service_name: "jellyfin-stack_jellyfin"
+jellyfin_config_swarm_manager: "pi4_01"
+jellyfin_config_target_node: "lenovo_server"  # Ansible inventory hostname where container runs
+
+# Service readiness configuration
+jellyfin_config_web_port: 8096
+jellyfin_config_readiness_retries: 24
+jellyfin_config_readiness_delay: 10
+jellyfin_config_readiness_timeout: 180
+jellyfin_config_startup_wait: 45
+
+# Setup wizard configuration
+jellyfin_config_server_name: "jellyfin"
+jellyfin_config_ui_culture: "en-US"
+jellyfin_config_metadata_country: "US"
+jellyfin_config_preferred_metadata_language: "en"
+jellyfin_config_disable_remote_access: false
+
+# Admin user configuration (should be set via vars.yml or vault.yml)
+jellyfin_config_admin_user: "{{ admin_user | default('admin') }}"
+jellyfin_config_admin_password: "{{ jellyfin_thatsmidnight_password | default('') }}"
+
+# API key configuration
+jellyfin_config_api_key_app_name: "ansible_automation"
+jellyfin_config_api_token: ""  # Will be generated if not provided
+
+# Library configuration - structured list of media libraries
+jellyfin_config_libraries:
+  - name: "Music"
+    type: "music"
+    paths:
+      - "/media/music"
+    refresh_on_create: true
+  - name: "Movies"
+    type: "movies"
+    paths:
+      - "/media/movies"
+    refresh_on_create: true
+  - name: "Concerts"
+    type: "movies"
+    paths:
+      - "/media/concerts"
+    refresh_on_create: true
+
+# Display control
+jellyfin_config_display_results: true
+jellyfin_config_validate_certs: false

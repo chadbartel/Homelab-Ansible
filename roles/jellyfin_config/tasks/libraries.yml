@@ -1,0 +1,73 @@
+---
+# Jellyfin library management task
+#
+# Creates and manages Jellyfin media libraries using the jellyfin role.
+# Uses the jellyfin_config_libraries variable to define libraries to create.
+#
+# Required variables:
+#   - jellyfin_config_api_token: API token for authentication
+#   - jellyfin_config_libraries: List of libraries to create
+#
+# Library structure:
+#   - name: Library display name
+#     type: Library type (music, movies, tvshows, etc.)
+#     paths: List of media paths
+#     refresh_on_create: Boolean to trigger scan after creation
+#
+# Usage:
+#   - include_tasks: libraries.yml
+#     vars:
+#       target_url: "http://127.0.0.1:8096"  # Optional override
+
+- name: Set target Jellyfin URL
+  ansible.builtin.set_fact:
+    jellyfin_target_url: "{{ target_url | default('http://127.0.0.1:' + (jellyfin_config_web_port | string)) }}"
+
+- name: Ensure API token is available
+  ansible.builtin.assert:
+    that:
+      - jellyfin_config_api_token is defined
+      - jellyfin_config_api_token | length > 0
+    fail_msg: "API token not available. Run api_keys.yml task first or provide jellyfin_config_api_token"
+    success_msg: "API token available for library operations"
+
+- name: Display libraries to configure
+  ansible.builtin.debug:
+    msg: |
+      📚 Configuring {{ jellyfin_config_libraries | length }} Jellyfin libraries:
+      {% for library in jellyfin_config_libraries %}
+      - {{ library.name }} ({{ library.type }})
+        Paths: {{ library.paths | join(', ') }}
+      {% endfor %}
+  when: jellyfin_config_display_results | default(true)
+
+- name: Create each media library
+  ansible.builtin.include_role:
+    name: jellyfin
+    tasks_from: libraries
+  vars:
+    jellyfin_url: "{{ jellyfin_target_url }}"
+    jellyfin_api_token: "{{ jellyfin_config_api_token }}"
+    jellyfin_action: create
+    jellyfin_library_name: "{{ item.name }}"
+    jellyfin_library_type: "{{ item.type }}"
+    jellyfin_library_refresh_on_create: "{{ item.refresh_on_create | default(true) }}"
+    jellyfin_library_paths: "{{ item.paths | map('regex_replace', '^(.*)$', '{\"Path\": \"\\1\"}') | map('from_json') | list }}"
+    jellyfin_validate_certs: "{{ jellyfin_config_validate_certs }}"
+  loop: "{{ jellyfin_config_libraries }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Display library configuration completion
+  ansible.builtin.debug:
+    msg: |
+      ✅ Library configuration completed
+      
+      📚 Configured Libraries:
+      {% for library in jellyfin_config_libraries %}
+      - {{ library.name }}
+      {% endfor %}
+      
+      💡 Libraries are now scanning media files. Check progress in:
+      Dashboard → Libraries → Scan All Libraries
+  when: jellyfin_config_display_results | default(true)

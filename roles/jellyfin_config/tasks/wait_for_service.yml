@@ -1,0 +1,78 @@
+---
+# Jellyfin service readiness check task
+#
+# Waits for Jellyfin web interface to be fully initialized and ready for configuration
+#
+# Usage:
+#   - include_tasks: wait_for_service.yml
+#     vars:
+#       target_host: "{{ ansible_host }}"  # Optional override
+
+- name: Initial wait for Jellyfin service to stabilize
+  ansible.builtin.pause:
+    seconds: "{{ jellyfin_config_startup_wait }}"
+    prompt: "Waiting for Jellyfin service to fully deploy and initialize database..."
+  when: jellyfin_config_display_results | default(true)
+
+- name: Verify Jellyfin service exists in Swarm
+  ansible.builtin.shell: |
+    docker service ls --filter "name={{ jellyfin_config_service_name }}" --format '{%raw%}{{.Name}}{%endraw%}'
+  register: jellyfin_service_check
+  changed_when: false
+  failed_when: jellyfin_service_check.stdout == ""
+  delegate_to: "{{ jellyfin_config_swarm_manager }}"
+
+- name: Get Jellyfin service status
+  ansible.builtin.shell: |
+    docker service ps {{ jellyfin_config_service_name }} --format '{%raw%}{{.Name}}\t{{.Node}}\t{{.CurrentState}}\t{{.Error}}{%endraw%}'
+  register: jellyfin_service_status
+  changed_when: false
+  delegate_to: "{{ jellyfin_config_swarm_manager }}"
+
+- name: Display Jellyfin service status
+  ansible.builtin.debug:
+    msg: |
+      📊 Jellyfin Service Status:
+      {{ jellyfin_service_status.stdout_lines | join('\n      ') }}
+  when: jellyfin_config_display_results | default(true)
+
+- name: Verify Jellyfin is running on correct node
+  ansible.builtin.shell: |
+    docker service ps {{ jellyfin_config_service_name }} --filter "desired-state=running" --format '{%raw%}{{.Node}}{%endraw%}'
+  register: jellyfin_node_check
+  changed_when: false
+  delegate_to: "{{ jellyfin_config_swarm_manager }}"
+
+- name: Wait for Jellyfin web interface to be accessible
+  ansible.builtin.wait_for:
+    port: "{{ jellyfin_config_web_port }}"
+    host: "{{ target_host | default(ansible_host) }}"
+    delay: 10
+    timeout: "{{ jellyfin_config_readiness_timeout }}"
+    msg: "Jellyfin web interface did not become accessible within {{ jellyfin_config_readiness_timeout }} seconds"
+
+- name: Display web interface ready status
+  ansible.builtin.debug:
+    msg: "✅ Jellyfin web interface is accessible on port {{ jellyfin_config_web_port }}"
+  when: jellyfin_config_display_results | default(true)
+
+- name: Ensure container facts are available
+  ansible.builtin.include_tasks: discover_container.yml
+  when: jellyfin_container_id is not defined
+
+- name: Check Jellyfin container logs for errors
+  ansible.builtin.shell: |
+    docker logs --tail 50 {{ jellyfin_container_id }} 2>&1
+  register: jellyfin_logs
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ jellyfin_config_target_node }}"
+
+- name: Validate no fatal errors in logs
+  ansible.builtin.assert:
+    that:
+      - "'readonly database' not in jellyfin_logs.stdout"
+    fail_msg: "❌ Jellyfin has fatal errors - check logs"
+    success_msg: "✅ No fatal errors detected in Jellyfin logs"
+  failed_when: false
+  when: jellyfin_config_display_results | default(true)

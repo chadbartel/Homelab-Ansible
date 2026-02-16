@@ -45,15 +45,51 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-### Task 1.2: Create `jellyfin_config` Role
+### Task 1.2: Create `jellyfin_config` Role ✅ COMPLETED
 
-**Objective**: Extract from `tasks/post_setup_jellyfin.yml` (if exists, pattern suggests it should).
+**Objective**: Extract from `tasks/post_setup_jellyfin.yml` into a reusable, idempotent role.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Role created and integrated into project
 
-1. Consolidate with existing `roles/jellyfin/` or create `roles/jellyfin_deployment_config/`
-2. Separate deployment setup from ongoing management
-3. Ensure initial API key creation is idempotent (check if key exists before creating)
+**Implementation Details**:
+
+1. ✅ Created role structure: `roles/jellyfin_config/`
+2. ✅ Extracted into separate task files:
+   - `tasks/discover_container.yml` - Jellyfin container discovery in Swarm
+   - `tasks/wait_for_service.yml` - Service readiness and health checks
+   - `tasks/setup_wizard.yml` - Initial setup wizard completion (idempotent)
+   - `tasks/api_keys.yml` - API key creation/retrieval (idempotent)
+   - `tasks/libraries.yml` - Media library configuration
+3. ✅ Implemented idempotent operations:
+   - Setup wizard checks `/Startup/Configuration` endpoint (200 = needs setup, 404 = already done)
+   - API key creation queries existing keys and returns existing if found
+   - Uses `jellyfin` role for library management (inherits its idempotency)
+4. ✅ Abstracted container discovery:
+   - Role variables: `jellyfin_config_service_name`, `jellyfin_config_target_node`, `jellyfin_config_swarm_manager`
+   - Dynamic container discovery via `docker service ps` and `docker inspect`
+5. ✅ Variables in `defaults/main.yml`:
+   - Service discovery: `jellyfin_config_service_name`, `jellyfin_config_swarm_manager`, `jellyfin_config_target_node`
+   - Readiness: `jellyfin_config_readiness_retries`, `jellyfin_config_startup_wait`, etc.
+   - Setup wizard: `jellyfin_config_server_name`, `jellyfin_config_ui_culture`, etc.
+   - Admin user: `jellyfin_config_admin_user`, `jellyfin_config_admin_password`
+   - Libraries: `jellyfin_config_libraries` (structured list with name, type, paths)
+6. ✅ Documentation created:
+   - `README.md` - Complete role documentation with usage examples
+   - `QUICK_START.md` - Quick reference guide
+   - `meta/main.yml` - Galaxy metadata
+   - Example playbooks in `examples/` directory
+7. ✅ Integrated into project:
+   - Updated `tasks/post_setup_jellyfin.yml` to use role
+   - Added role variables to `vars.yml`
+   - Updated `.github/copilot-instructions.md`
+
+**Key Features**:
+
+- Fully idempotent (safe to re-run multiple times)
+- Modular task files (can be used individually)
+- Automatic container discovery in Docker Swarm
+- Separates deployment setup from ongoing management
+- Follows same pattern as `pihole_config` role
 
 ---
 
@@ -341,9 +377,10 @@ Idempotency: Check if stack exists, compare compose content hash
 
 ### Medium Priority (Structural Improvements)
 
-1. **Task 1.1** - Extract `pihole_config` role
-2. **Task 2.1** - Create `docker_swarm_service` role
-3. **Task 6.1** - Create container exec module
+1. **Task 1.1** - ✅ Extract `pihole_config` role (COMPLETED)
+2. **Task 1.2** - ✅ Extract `jellyfin_config` role (COMPLETED)
+3. **Task 2.1** - Create `docker_swarm_service` role
+4. **Task 6.1** - Create container exec module
 
 ### Low Priority (Nice to Have)
 
