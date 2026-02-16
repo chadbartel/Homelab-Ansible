@@ -1,0 +1,102 @@
+---
+# Complete OpenVPN Access Server Setup with Advanced Configuration
+# This example shows all features of the openvpn_config role using Docker Swarm
+
+- name: Complete OpenVPN Configuration (Docker Swarm)
+  hosts: localhost
+  gather_facts: no
+  
+  vars:
+    # Docker Swarm discovery
+    openvpn_config_service_name: "my-vpn-service"
+    openvpn_config_swarm_manager: "swarm-manager-node"
+    
+    # Readiness configuration (optional - using defaults)
+    openvpn_config_web_port: 943
+    openvpn_config_readiness_retries: 25
+    openvpn_config_readiness_delay: 10
+    openvpn_config_startup_wait: 30
+    
+    # Initial setup
+    openvpn_config_admin_user: "openvpn"
+    openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
+    openvpn_config_server_hostname: "vpn.example.com"
+    openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
+    
+    # Create multiple users with different permissions
+    openvpn_config_users:
+      - username: "admin"
+        password: "{{ vault_openvpn_admin_user_password }}"
+        autologin: false  # Require password for admin user
+      
+      - username: "alice"
+        password: "{{ vault_openvpn_alice_password }}"
+        autologin: true  # Auto-connect for mobile users
+      
+      - username: "bob"
+        password: "{{ vault_openvpn_bob_password }}"
+        autologin: false
+      
+      - username: "charlie"
+        password: "{{ vault_openvpn_charlie_password }}"
+        autologin: true
+    
+    # Advanced server settings
+    openvpn_config_server_settings:
+      # Route private network through VPN
+      - key: "vpn.server.routing.private_network.0"
+        value: "192.168.1.0/24"
+      
+      # Enable DNS rerouting
+      - key: "vpn.client.routing.reroute_dns"
+        value: "true"
+      
+      # Use TCP port 443 for better firewall compatibility
+      - key: "vpn.server.daemon.tcp.port"
+        value: "443"
+      
+      # Enable LZ4 compression for better performance
+      - key: "vpn.server.compressor"
+        value: "lz4"
+      
+      # Set maximum concurrent connections
+      - key: "vpn.server.max_clients"
+        value: "10"
+      
+      # Enable web-based client
+      - key: "vpn.server.web_service"
+        value: "true"
+  
+  tasks:
+    - name: Configure OpenVPN Access Server with all features
+      ansible.builtin.include_role:
+        name: openvpn_config
+    
+    - name: Display complete setup information
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          OpenVPN Access Server - Complete Configuration Summary
+          ═══════════════════════════════════════════════════════════
+          
+          Server Information:
+          - Hostname: {{ openvpn_config_server_hostname }}
+          - Container ID: {{ openvpn_container_id.stdout[:12] }}
+          - Admin UI: https://{{ _openvpn_target_ip }}:{{ openvpn_config_web_port }}/admin
+          - Client UI: https://{{ _openvpn_target_ip }}:{{ openvpn_config_web_port }}/
+          
+          Configured Users ({{ openvpn_config_users | length }}):
+          {% for user in openvpn_config_users %}
+          - {{ user.username }} (auto-login: {{ user.autologin | default(false) }})
+          {% endfor %}
+          
+          Advanced Settings Applied ({{ openvpn_config_server_settings | length }}):
+          {% for setting in openvpn_config_server_settings %}
+          - {{ setting.key }}: {{ setting.value }}
+          {% endfor %}
+          
+          Next Steps:
+          1. Login to Admin UI with admin user credentials
+          2. Users can download VPN profiles from Client UI
+          3. Configure additional settings via Admin UI if needed
+          ═══════════════════════════════════════════════════════════

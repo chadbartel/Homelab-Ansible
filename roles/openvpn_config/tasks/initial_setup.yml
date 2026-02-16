@@ -1,0 +1,119 @@
+---
+# Initial Setup Tasks - Configure OpenVPN Access Server (Idempotent)
+
+- name: Check if OpenVPN has been previously configured
+  ansible.builtin.shell: |
+    docker exec {{ openvpn_container_id.stdout }} \
+      test -f {{ openvpn_config_marker_file }} && echo "configured" || echo "not_configured"
+  register: openvpn_already_configured
+  delegate_to: "{{ openvpn_config_target_host }}"
+  changed_when: false
+  failed_when: false
+
+- name: Display configuration status
+  ansible.builtin.debug:
+    msg: |
+      Configuration status: {{ openvpn_already_configured.stdout }}
+      Force reconfigure: {{ openvpn_config_force_reconfigure }}
+      Will configure: {{ openvpn_already_configured.stdout == 'not_configured' or openvpn_config_force_reconfigure }}
+
+- name: Initial server configuration block
+  when: openvpn_already_configured.stdout == 'not_configured' or openvpn_config_force_reconfigure
+  delegate_to: "{{ openvpn_config_target_host }}"
+  block:
+    - name: Set OpenVPN admin password
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} \
+          sacli --user "{{ openvpn_config_admin_user }}" \
+          --new_pass "{{ openvpn_config_admin_password }}" SetLocalPassword
+      register: admin_password_result
+      retries: 3
+      delay: 10
+      until: admin_password_result.rc == 0
+      no_log: true  # Don't log password
+      changed_when: true
+
+    - name: Grant admin privileges to admin user
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} \
+          sacli --user "{{ openvpn_config_admin_user }}" \
+          --key "prop_superuser" --value "true" UserPropPut
+      register: admin_privileges_result
+      retries: 3
+      delay: 10
+      until: admin_privileges_result.rc == 0
+      changed_when: true
+
+    - name: Set OpenVPN server hostname
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} \
+          sacli --key "host.name" --value "{{ openvpn_config_server_hostname }}" ConfigPut
+      register: hostname_result
+      retries: 3
+      delay: 10
+      until: hostname_result.rc == 0
+      when: openvpn_config_server_hostname is defined
+      changed_when: true
+
+    - name: Activate OpenVPN Access Server with license key
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} \
+          sacli --value "{{ openvpn_config_activation_key }}" LoadSubscription
+      register: activation_result
+      retries: 3
+      delay: 10
+      until: activation_result.rc == 0
+      when: openvpn_config_activation_key is defined
+      no_log: true  # Don't log activation key
+      changed_when: true
+
+    - name: Apply additional server configuration settings
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} \
+          sacli --key "{{ item.key }}" --value "{{ item.value }}" ConfigPut
+      loop: "{{ openvpn_config_server_settings }}"
+      register: config_settings_result
+      retries: 2
+      delay: 5
+      until: config_settings_result.rc == 0
+      when: openvpn_config_server_settings | length > 0
+      changed_when: true
+
+    - name: Restart OpenVPN Access Server to apply initial settings
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} sacli start
+      register: openvpn_restart_result
+      retries: 2
+      delay: 10
+      until: openvpn_restart_result.rc == 0
+      changed_when: true
+
+    - name: Wait for OpenVPN to restart and be ready
+      ansible.builtin.wait_for:
+        port: "{{ openvpn_config_web_port }}"
+        host: "{{ _openvpn_target_ip }}"
+        delay: 15
+        timeout: 120
+      delegate_to: localhost
+
+    - name: Mark OpenVPN as configured
+      ansible.builtin.shell: |
+        docker exec {{ openvpn_container_id.stdout }} \
+          touch {{ openvpn_config_marker_file }}
+      changed_when: true
+
+    - name: Display initial setup completion message
+      ansible.builtin.debug:
+        msg: |
+          ✓ Initial server configuration completed
+          - Admin user configured: {{ openvpn_config_admin_user }}
+          - Server hostname: {{ openvpn_config_server_hostname | default('Not configured') }}
+          - Activation: {{ 'Applied' if openvpn_config_activation_key is defined else 'Skipped' }}
+          - Custom settings: {{ openvpn_config_server_settings | length }} applied
+
+- name: Display idempotency message when already configured
+  ansible.builtin.debug:
+    msg: "OpenVPN Access Server already configured - skipping initial setup (idempotent)"
+  when: 
+    - openvpn_already_configured.stdout == 'configured'
+    - not openvpn_config_force_reconfigure

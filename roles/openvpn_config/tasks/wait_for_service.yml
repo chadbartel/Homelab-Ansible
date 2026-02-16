@@ -1,0 +1,58 @@
+---
+# Service Readiness Tasks - Wait for OpenVPN Access Server to be fully ready
+
+- name: Initial wait for OpenVPN Access Server startup
+  ansible.builtin.pause:
+    seconds: "{{ openvpn_config_startup_wait }}"
+
+- name: Determine target IP for readiness checks
+  ansible.builtin.set_fact:
+    _openvpn_target_ip: >-
+      {%- if openvpn_config_target_host == 'localhost' -%}
+        127.0.0.1
+      {%- elif hostvars[openvpn_config_target_host] is defined and hostvars[openvpn_config_target_host]['ansible_host'] is defined -%}
+        {{ hostvars[openvpn_config_target_host]['ansible_host'] }}
+      {%- else -%}
+        {{ openvpn_config_target_host }}
+      {%- endif -%}
+
+- name: Wait for OpenVPN Access Server web UI port to be accessible
+  ansible.builtin.wait_for:
+    port: "{{ openvpn_config_web_port }}"
+    host: "{{ _openvpn_target_ip }}"
+    delay: "{{ openvpn_config_readiness_delay }}"
+    timeout: "{{ openvpn_config_readiness_timeout }}"
+  delegate_to: localhost
+
+- name: Verify OpenVPN Access Server admin UI is responding
+  ansible.builtin.uri:
+    url: "https://{{ _openvpn_target_ip }}:{{ openvpn_config_web_port }}/admin"
+    method: GET
+    validate_certs: no
+    status_code: [200, 302, 401]  # 401 is expected before login
+    timeout: 10
+  register: openvpn_web_check
+  retries: "{{ openvpn_config_readiness_retries }}"
+  delay: "{{ openvpn_config_readiness_delay }}"
+  until: openvpn_web_check is success
+  delegate_to: localhost
+  changed_when: false
+
+- name: Verify OpenVPN sacli command is available in container
+  ansible.builtin.shell: |
+    docker exec {{ openvpn_container_id.stdout }} which sacli
+  register: sacli_check
+  delegate_to: "{{ openvpn_config_target_host }}"
+  changed_when: false
+  failed_when: sacli_check.rc != 0
+  retries: 5
+  delay: 5
+  until: sacli_check.rc == 0
+
+- name: Display OpenVPN readiness status
+  ansible.builtin.debug:
+    msg: |
+      OpenVPN Access Server is ready:
+      - Web UI: Responding ({{ openvpn_web_check.status }})
+      - sacli: Available
+      - Container: {{ openvpn_container_id.stdout }}

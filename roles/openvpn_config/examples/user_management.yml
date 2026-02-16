@@ -1,0 +1,57 @@
+---
+# User Management Only
+# This example shows how to manage VPN users on an already-configured OpenVPN server
+# Works with any deployment mode
+
+- name: Manage OpenVPN Users
+  hosts: localhost
+  gather_facts: no
+  
+  vars:
+    # Discovery (choose your method)
+    openvpn_config_container_name: "openvpn-as"  # Standalone Docker
+    openvpn_config_target_host: "docker-host"
+    
+    # Define users to create/update
+    openvpn_config_users:
+      # New employee
+      - username: "david"
+        password: "{{ vault_openvpn_david_password }}"
+        autologin: true
+      
+      # Contractor (no auto-login for security)
+      - username: "contractor1"
+        password: "{{ vault_openvpn_contractor1_password }}"
+        autologin: false
+      
+      # Update existing user password
+      - username: "alice"
+        password: "{{ vault_openvpn_alice_new_password }}"
+        autologin: true
+  
+  tasks:
+    # Step 1: Find the container
+    - name: Discover OpenVPN container
+      ansible.builtin.include_role:
+        name: openvpn_config
+        tasks_from: discover_container
+    
+    # Step 2: Create/update users (idempotent)
+    - name: Manage VPN users
+      ansible.builtin.include_role:
+        name: openvpn_config
+        tasks_from: users
+    
+    - name: User management complete
+      ansible.builtin.debug:
+        msg: |
+          User Management Summary:
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          {% for user in openvpn_config_users %}
+          ✓ {{ user.username }} - Auto-login: {{ user.autologin | default(false) }}
+          {% endfor %}
+          
+          Users can download VPN profiles from:
+          https://{{ _openvpn_target_ip }}:943/
+          
+          Note: Passwords are always updated for existing users
