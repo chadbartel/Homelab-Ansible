@@ -29,6 +29,7 @@
     src: custom_dns.list.j2
     dest: /tmp/pihole_custom.list
   delegate_to: localhost
+  become: false
   when: pihole_config_custom_dns_entries | default([]) | length > 0
   register: dns_template
 
@@ -36,6 +37,7 @@
   ansible.builtin.slurp:
     src: /tmp/pihole_custom.list
   delegate_to: localhost
+  become: false
   register: dns_content_encoded
   when: pihole_config_custom_dns_entries | default([]) | length > 0
 
@@ -76,6 +78,7 @@
     path: /tmp/pihole_custom.list
     state: absent
   delegate_to: localhost
+  become: false
   when: pihole_config_custom_dns_entries | default([]) | length > 0
 
 - name: Display custom DNS configuration status
