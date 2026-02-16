@@ -1,0 +1,44 @@
+---
+# Example: SSL/TLS enabled proxy hosts
+# This configures proxy hosts with SSL certificates
+
+- name: Configure NPM with SSL-enabled proxy hosts
+  hosts: localhost
+  gather_facts: false
+  vars:
+    npm_config_service_name: "npm-stack_npm"
+    npm_config_swarm_manager: "pi4_01"
+    npm_config_target_node: "lenovo_server"
+    npm_config_web_port: 8181
+    npm_config_admin_email: "admin@example.com"
+    npm_config_admin_password: "{{ vault_npm_admin_password }}"
+    
+    # SSL defaults
+    npm_config_default_ssl_cert_id: 2
+    npm_config_ssl_forced: true
+    npm_config_hsts_enabled: true
+    npm_config_hsts_subdomains: true
+    npm_config_http2_support: true
+    
+    npm_config_proxy_hosts:
+      # Proxy host using default SSL settings
+      - domain: "jellyfin.example.com"
+        forward_host: "192.168.1.12"
+        forward_port: 8096
+      
+      # Proxy host with custom SSL certificate
+      - domain: "secure.example.com"
+        forward_host: "192.168.1.50"
+        forward_port: 3000
+        ssl_certificate_id: 3
+        ssl_forced: true
+      
+      # Proxy host without SSL (override defaults)
+      - domain: "internal.local"
+        forward_host: "192.168.1.100"
+        forward_port: 8080
+        ssl_certificate_id: 0
+        ssl_forced: false
+
+  roles:
+    - nginx_proxy_manager_config

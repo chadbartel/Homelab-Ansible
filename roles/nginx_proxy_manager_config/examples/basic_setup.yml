@@ -1,0 +1,30 @@
+---
+# Example: Basic proxy host setup
+# This creates simple HTTP proxy hosts without SSL
+
+- name: Configure NPM with basic proxy hosts
+  hosts: localhost
+  gather_facts: false
+  vars:
+    npm_config_service_name: "npm-stack_npm"
+    npm_config_swarm_manager: "pi4_01"
+    npm_config_target_node: "lenovo_server"
+    npm_config_web_port: 8181
+    npm_config_admin_email: "admin@example.com"
+    npm_config_admin_password: "{{ vault_npm_admin_password }}"
+    
+    npm_config_proxy_hosts:
+      - domain: "jellyfin.home.local"
+        forward_host: "192.168.1.12"
+        forward_port: 8096
+      
+      - domain: "pihole.home.local"
+        forward_host: "192.168.1.12"
+        forward_port: 8081
+      
+      - domain: "portainer.home.local"
+        forward_host: "192.168.1.10"
+        forward_port: 9000
+
+  roles:
+    - nginx_proxy_manager_config

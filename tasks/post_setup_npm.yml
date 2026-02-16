@@ -1,5 +1,21 @@
 ---
-# NGINX Proxy Manager post-setup tasks - Simple idempotent version
+# NGINX Proxy Manager post-deployment configuration
+# Using the nginx_proxy_manager_config role for idempotent reverse proxy configuration
+#
+# This file has been refactored to use the nginx_proxy_manager_config role
+# instead of inline API calls.
+#
+# The nginx_proxy_manager_config role provides:
+# - Automatic container discovery in Docker Swarm
+# - Idempotent proxy host creation (checks existing before creating)
+# - Automatic updates when configuration changes
+# - SSL/TLS certificate management per proxy host
+#
+# See roles/nginx_proxy_manager_config/README.md for more information
+
+# ========================================
+# PHASE 0: Validation & Transformation
+# ========================================
 - name: Ensure proxy_hosts variable is defined
   ansible.builtin.assert:
     that:
@@ -8,80 +24,64 @@
     fail_msg: "proxy_hosts must be defined in host_vars for this host ({{ inventory_hostname }})"
     success_msg: "Found {{ proxy_hosts | length }} proxy host(s) to configure"
 
-- name: Display proxy hosts that will be created
-  ansible.builtin.debug:
-    msg: |
-      Will create NPM proxy hosts:
-      {% for item in proxy_hosts %}
-      - {{ item.domain }} → {{ item.scheme | default('http') }}://{{ item.host }}:{{ item.port }}
-      {% endfor %}
-
-- name: Wait for Nginx Proxy Manager to be ready
-  ansible.builtin.wait_for:
-    port: "{{ proxy_host_port }}"
-    host: "{{ manager_node_ip }}"
-    delay: 10
-    timeout: 120
-
-- name: Authenticate with Nginx Proxy Manager to get session token
-  ansible.builtin.uri:
-    url: "http://{{ manager_node_ip }}:{{ proxy_host_port }}/api/tokens"
-    method: POST
-    body_format: json
-    body:
-      identity: "{{ admin_email }}"
-      secret: "{{ npm_admin_password }}"
-    return_content: yes
-  register: npm_auth
-  retries: 3
-  delay: 5
-
-- name: Create reverse proxy hosts (ignore if they already exist)
-  ansible.builtin.uri:
-    url: "http://{{ manager_node_ip }}:{{ proxy_host_port }}/api/nginx/proxy-hosts"
-    method: POST
-    headers:
-      Authorization: "Bearer {{ npm_auth.json.token }}"
-    body_format: json
-    body:
-      domain_names:
-        - "{{ item.domain }}"
+- name: Transform proxy hosts to role format
+  ansible.builtin.set_fact:
+    npm_proxy_hosts_config: "{{ npm_proxy_hosts_config | default([]) + [transformed_host] }}"
+  vars:
+    transformed_host:
+      domain: "{{ item.domain }}"
       forward_scheme: "{{ item.scheme | default('http') }}"
       forward_host: "{{ item.host }}"
       forward_port: "{{ item.port }}"
-      access_list_id: 0
-      certificate_id: "{{ ssl_certificate_id | int }}"
-      ssl_forced: "{{ true if ssl_certificate_id | int > 0 else false }}"
-      hsts_enabled: "{{ true if ssl_certificate_id | int > 0 else false }}"
-      hsts_subdomains: "{{ true if ssl_certificate_id | int > 0 else false }}"
-      http2_support: "{{ true if ssl_certificate_id | int > 0 else false }}"
-      block_exploits: true
-      caching_enabled: false
-      allow_websocket_upgrade: true
-      enabled: true
-    status_code: [200, 201, 400]  # Accept 400 for "already exists"
   loop: "{{ proxy_hosts }}"
-  register: proxy_creation_result
-  failed_when: 
-    - proxy_creation_result.status not in [200, 201, 400]
-    - '"already in use" not in (proxy_creation_result.json.error.message | default(""))'
 
-- name: Display proxy host creation results
+# ========================================
+# PHASE 1: Service Verification & Readiness
+# ========================================
+- name: Wait for NPM service to be ready
+  ansible.builtin.include_role:
+    name: nginx_proxy_manager_config
+    tasks_from: wait_for_service
+
+# ========================================
+# PHASE 2: Proxy Host Configuration
+# ========================================
+- name: Configure reverse proxy hosts (idempotent)
+  ansible.builtin.include_role:
+    name: nginx_proxy_manager_config
+    tasks_from: proxy_hosts
+  vars:
+    npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
+    npm_config_swarm_manager: "{{ npm_swarm_manager | default('pi4_01') }}"
+    npm_config_target_node: "{{ npm_target_node | default('lenovo_server') }}"
+    npm_config_web_port: "{{ proxy_host_port }}"
+    npm_config_admin_email: "{{ admin_email }}"
+    npm_config_admin_password: "{{ npm_admin_password }}"
+    npm_config_default_ssl_cert_id: "{{ ssl_certificate_id | int }}"
+    npm_config_ssl_forced: "{{ true if ssl_certificate_id | int > 0 else false }}"
+    npm_config_hsts_enabled: "{{ true if ssl_certificate_id | int > 0 else false }}"
+    npm_config_http2_support: "{{ true if ssl_certificate_id | int > 0 else false }}"
+    npm_config_proxy_hosts: "{{ npm_proxy_hosts_config }}"
+
+# ========================================
+# PHASE 3: Display Summary
+# ========================================
+- name: Display NPM configuration summary
   ansible.builtin.debug:
     msg: |
-      Proxy host: {{ item.item.domain }}
-      Status: {{ 'Created' if item.status in [200, 201] else 'Already exists' }}
-  loop: "{{ proxy_creation_result.results }}"
-  when: proxy_creation_result.results is defined
-
-- name: Display final NPM summary
-  ansible.builtin.debug:
-    msg: |
-      ✅ Nginx Proxy Manager configuration completed!
+      ✅ NGINX Proxy Manager configuration completed!
       
-      Configured domains:
+      🌐 Access Information:
+      Web Interface: http://{{ manager_node_ip }}:{{ proxy_host_port }}
+      Admin Email: {{ admin_email }}
+      
+      📋 Configured Proxy Hosts:
       {% for item in proxy_hosts %}
       - {{ item.domain }} → {{ item.scheme | default('http') }}://{{ item.host }}:{{ item.port }}
       {% endfor %}
       
-      Access NPM: http://{{ manager_node_ip }}:{{ proxy_host_port }}
+      🔒 SSL Configuration:
+      - Certificate ID: {{ ssl_certificate_id }}
+      - SSL Forced: {{ 'Yes' if ssl_certificate_id | int > 0 else 'No' }}
+      - HSTS Enabled: {{ 'Yes' if ssl_certificate_id | int > 0 else 'No' }}
+      - HTTP/2 Support: {{ 'Yes' if ssl_certificate_id | int > 0 else 'No' }}

@@ -1,0 +1,22 @@
+---
+# Wait for NPM service to be ready
+# This ensures the web interface is accessible before attempting configuration
+
+- name: Wait for NPM web interface to be accessible
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[npm_config_target_node]['ansible_host'] }}"
+    port: "{{ npm_config_web_port }}"
+    delay: "{{ npm_config_readiness_delay }}"
+    timeout: "{{ npm_config_readiness_timeout }}"
+    msg: "NPM web interface did not become accessible within {{ npm_config_readiness_timeout }} seconds"
+  delegate_to: localhost
+  become: false
+
+- name: Additional wait for NPM API to initialize
+  ansible.builtin.pause:
+    seconds: 15
+    prompt: "Waiting for NPM API to fully initialize after port becomes available..."
+
+- name: Display NPM service status
+  ansible.builtin.debug:
+    msg: "✓ NPM web interface is accessible at http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}"
