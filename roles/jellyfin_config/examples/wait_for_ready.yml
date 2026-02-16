@@ -1,0 +1,58 @@
+---
+# Service readiness check example
+#
+# This playbook waits for Jellyfin to be fully ready and verifies service health.
+# Useful as a pre-task before other operations.
+#
+# Usage:
+#   ansible-playbook -i ../../inventory.yml examples/wait_for_ready.yml
+
+- name: Wait for Jellyfin Service
+  hosts: lenovo_server
+  gather_facts: true
+  vars_files:
+    - ../../vars.yml
+  
+  vars:
+    jellyfin_config_service_name: "jellyfin-stack_jellyfin"
+    jellyfin_config_swarm_manager: "pi4_01"
+    jellyfin_config_target_node: "lenovo_server"
+    jellyfin_config_web_port: 8096
+    jellyfin_config_startup_wait: 30
+  
+  tasks:
+    - name: Wait for Jellyfin service to be ready
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: wait_for_service
+      tags:
+        - wait
+        - health
+    
+    - name: Verify web interface accessibility
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ jellyfin_config_web_port }}/health"
+        method: GET
+        status_code: [200]
+        validate_certs: false
+      register: health_check
+      failed_when: false
+      tags:
+        - health
+    
+    - name: Display service health status
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          ✅ Jellyfin Service Ready
+          ========================================
+          
+          🌐 Web Interface: http://{{ ansible_host }}:{{ jellyfin_config_web_port }}
+          📊 Service Status: Running
+          🏥 Health Check: {{ 'Passed' if health_check.status == 200 else 'Not Available' }}
+          🐳 Container ID: {{ jellyfin_container_id }}
+          🖥️  Running on: {{ jellyfin_node_name }}
+          
+          ========================================
+      tags:
+        - always

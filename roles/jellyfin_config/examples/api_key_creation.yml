@@ -1,0 +1,60 @@
+---
+# API Key creation/retrieval example
+#
+# This playbook creates or retrieves an API key for Jellyfin automation.
+# It's idempotent - will not create duplicates if key already exists.
+#
+# Usage:
+#   ansible-playbook -i ../../inventory.yml examples/api_key_creation.yml
+
+- name: Jellyfin API Key Management
+  hosts: lenovo_server
+  gather_facts: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  
+  vars:
+    jellyfin_config_service_name: "jellyfin-stack_jellyfin"
+    jellyfin_config_web_port: 8096
+    jellyfin_config_admin_user: "{{ admin_user }}"
+    jellyfin_config_admin_password: "{{ vault_jellyfin_admin_password }}"
+    jellyfin_config_api_key_app_name: "ansible_automation"
+  
+  tasks:
+    - name: Ensure Jellyfin is accessible
+      ansible.builtin.wait_for:
+        host: "127.0.0.1"
+        port: "{{ jellyfin_config_web_port }}"
+        timeout: 30
+      tags:
+        - always
+    
+    - name: Create or retrieve API key
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: api_keys
+      tags:
+        - api
+        - keys
+    
+    - name: Display API token
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          🔑 Jellyfin API Key
+          ========================================
+          
+          App Name: {{ jellyfin_config_api_key_app_name }}
+          Token: {{ jellyfin_config_api_token }}
+          
+          💾 Save to vault.yml:
+          
+          ansible-vault edit ../../vault.yml
+          
+          # Add this line:
+          vault_jellyfin_api_token: "{{ jellyfin_config_api_token }}"
+          
+          ========================================
+      tags:
+        - always

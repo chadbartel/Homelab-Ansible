@@ -1,0 +1,92 @@
+---
+# Library management example
+#
+# This playbook configures Jellyfin media libraries.
+# Requires an existing API token.
+#
+# Usage:
+#   ansible-playbook -i ../../inventory.yml examples/library_management.yml
+
+- name: Configure Jellyfin Libraries
+  hosts: lenovo_server
+  gather_facts: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  
+  vars:
+    jellyfin_config_service_name: "jellyfin-stack_jellyfin"
+    jellyfin_config_web_port: 8096
+    jellyfin_config_api_token: "{{ vault_jellyfin_api_token }}"
+    
+    # Define libraries to configure
+    jellyfin_config_libraries:
+      - name: "Music"
+        type: "music"
+        paths:
+          - "/media/music"
+        refresh_on_create: true
+      
+      - name: "Movies"
+        type: "movies"
+        paths:
+          - "/media/movies"
+        refresh_on_create: true
+      
+      - name: "TV Shows"
+        type: "tvshows"
+        paths:
+          - "/media/tvshows"
+        refresh_on_create: true
+      
+      - name: "Concerts"
+        type: "movies"
+        paths:
+          - "/media/concerts"
+        refresh_on_create: true
+  
+  pre_tasks:
+    - name: Validate API token is provided
+      ansible.builtin.assert:
+        that:
+          - vault_jellyfin_api_token is defined
+          - vault_jellyfin_api_token | length > 0
+        fail_msg: |
+          ❌ API token not found in vault.yml
+          
+          Run the api_key_creation.yml playbook first:
+          ansible-playbook -i ../../inventory.yml examples/api_key_creation.yml
+          
+          Then save the token to vault.yml
+        success_msg: "✅ API token validated"
+  
+  tasks:
+    - name: Configure media libraries
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: libraries
+      tags:
+        - libraries
+    
+    - name: Display library summary
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          📚 Library Configuration Complete
+          ========================================
+          
+          Configured {{ jellyfin_config_libraries | length }} libraries:
+          {% for lib in jellyfin_config_libraries %}
+          
+          {{ loop.index }}. {{ lib.name }} ({{ lib.type }})
+             Paths: {{ lib.paths | join(', ') }}
+             Refresh: {{ 'Yes' if lib.refresh_on_create else 'No' }}
+          {% endfor %}
+          
+          💡 Monitor scanning progress:
+          http://{{ ansible_host }}:{{ jellyfin_config_web_port }}/web/index.html#!/dashboard
+          → Scheduled Tasks → Scan Media Library
+          
+          ========================================
+      tags:
+        - always

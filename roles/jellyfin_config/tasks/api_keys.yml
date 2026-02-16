@@ -1,0 +1,137 @@
+---
+# Jellyfin API key management task
+#
+# Creates or retrieves API keys for Jellyfin automation in an idempotent way.
+# Checks if an API key already exists before creating a new one.
+#
+# Required variables:
+#   - jellyfin_config_admin_user: Admin username
+#   - jellyfin_config_admin_password: Admin password
+#   - jellyfin_config_api_key_app_name: Application name for the API key
+#
+# Sets fact:
+#   - jellyfin_config_api_token: The API token (either existing or newly created)
+#
+# Usage:
+#   - include_tasks: api_keys.yml
+#     vars:
+#       target_url: "http://127.0.0.1:8096"  # Optional override
+
+- name: Set target Jellyfin URL
+  ansible.builtin.set_fact:
+    jellyfin_target_url: "{{ target_url | default('http://127.0.0.1:' + (jellyfin_config_web_port | string)) }}"
+
+- name: Validate admin credentials are provided
+  ansible.builtin.assert:
+    that:
+      - jellyfin_config_admin_user is defined
+      - jellyfin_config_admin_user | length > 0
+      - jellyfin_config_admin_password is defined
+      - jellyfin_config_admin_password | length > 0
+    fail_msg: "Admin credentials not provided. Set jellyfin_config_admin_user and jellyfin_config_admin_password"
+    success_msg: "Admin credentials validated"
+
+- name: Authenticate to get access token
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/User/AuthenticateByName"
+    method: POST
+    body_format: json
+    body:
+      Username: "{{ jellyfin_config_admin_user }}"
+      Pw: "{{ jellyfin_config_admin_password }}"
+    status_code: [200]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  register: jellyfin_auth
+  failed_when: false
+
+- name: Check authentication result
+  ansible.builtin.assert:
+    that:
+      - jellyfin_auth.status == 200
+      - jellyfin_auth.json.AccessToken is defined
+    fail_msg: |
+      ❌ Authentication failed (status: {{ jellyfin_auth.status | default('N/A') }})
+      Verify username and password are correct
+    success_msg: "✅ Authentication successful"
+
+- name: Display authentication success
+  ansible.builtin.debug:
+    msg: |
+      🎉 Authentication successful!
+      User ID: {{ jellyfin_auth.json.User.Id }}
+      Username: {{ jellyfin_auth.json.User.Name }}
+  when: jellyfin_config_display_results | default(true)
+
+- name: Get existing API keys
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Auth/Keys"
+    method: GET
+    headers:
+      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+    status_code: [200]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  register: existing_keys
+  failed_when: false
+
+- name: Check if API key already exists
+  ansible.builtin.set_fact:
+    existing_key: "{{ existing_keys.json.Items | selectattr('AppName', 'equalto', jellyfin_config_api_key_app_name) | list | first | default(None) }}"
+  when: existing_keys.status == 200
+
+- name: Display existing key status
+  ansible.builtin.debug:
+    msg: |
+      {% if existing_key is defined and existing_key is not none %}
+      ✅ API key '{{ jellyfin_config_api_key_app_name }}' already exists
+      Created: {{ existing_key.DateCreated }}
+      {% else %}
+      ⚙️ API key '{{ jellyfin_config_api_key_app_name }}' not found, will create
+      {% endif %}
+  when: jellyfin_config_display_results | default(true)
+
+- name: Create new API key if it doesn't exist
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Auth/Keys"
+    method: POST
+    headers:
+      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      App: "{{ jellyfin_config_api_key_app_name }}"
+    status_code: [204]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  register: key_creation
+  when: existing_key is not defined or existing_key is none
+  failed_when: false
+
+- name: Retrieve updated API keys list after creation
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Auth/Keys"
+    method: GET
+    headers:
+      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+    status_code: [200]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  register: updated_keys
+  when: key_creation is changed
+
+- name: Get the newly created API key
+  ansible.builtin.set_fact:
+    new_key: "{{ updated_keys.json.Items | selectattr('AppName', 'equalto', jellyfin_config_api_key_app_name) | list | first }}"
+  when: key_creation is changed
+
+- name: Set API token fact from existing or new key
+  ansible.builtin.set_fact:
+    jellyfin_config_api_token: "{{ existing_key.AccessToken if (existing_key is defined and existing_key is not none) else new_key.AccessToken }}"
+    cacheable: true
+
+- name: Display API token information
+  ansible.builtin.debug:
+    msg: |
+      🔑 API Token for '{{ jellyfin_config_api_key_app_name }}':
+      Token: {{ jellyfin_config_api_token }}
+      
+      ⚠️ Store this token securely in vault.yml as:
+      vault_jellyfin_api_token: "{{ jellyfin_config_api_token }}"
+  when: jellyfin_config_display_results | default(true)

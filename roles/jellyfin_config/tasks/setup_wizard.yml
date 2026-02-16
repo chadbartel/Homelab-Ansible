@@ -1,0 +1,123 @@
+---
+# Jellyfin startup wizard completion task
+#
+# Completes the initial Jellyfin setup wizard in an idempotent way.
+# Only runs if the wizard has not been completed.
+#
+# Required variables:
+#   - jellyfin_config_admin_user: Admin username
+#   - jellyfin_config_admin_password: Admin password
+#
+# Usage:
+#   - include_tasks: setup_wizard.yml
+#     vars:
+#       target_url: "http://127.0.0.1:8096"  # Optional override
+
+- name: Set target Jellyfin URL
+  ansible.builtin.set_fact:
+    jellyfin_target_url: "{{ target_url | default('http://127.0.0.1:' + (jellyfin_config_web_port | string)) }}"
+
+- name: Check if setup wizard has been completed
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Startup/Configuration"
+    method: GET
+    status_code: [200, 404]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  register: jellyfin_startup_check
+  failed_when: false
+
+- name: Display setup wizard status
+  ansible.builtin.debug:
+    msg: |
+      {% if jellyfin_startup_check.status == 404 %}
+      ✅ Setup wizard already completed
+      {% else %}
+      ⚙️ Setup wizard needs completion (status: {{ jellyfin_startup_check.status }})
+      {% endif %}
+  when: jellyfin_config_display_results | default(true)
+
+- name: Complete Jellyfin startup wizard - Set UI culture
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Startup/Configuration"
+    method: POST
+    body_format: json
+    body:
+      ServerName: "{{ jellyfin_config_server_name }}"
+      UICulture: "{{ jellyfin_config_ui_culture }}"
+      MetadataCountryCode: "{{ jellyfin_config_metadata_country }}"
+      PreferredMetadataLanguage: "{{ jellyfin_config_preferred_metadata_language }}"
+    status_code: [200, 204]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  when: jellyfin_startup_check.status == 200
+  failed_when: false
+  register: wizard_config
+
+- name: Complete Jellyfin startup wizard - Configure remote access
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Startup/RemoteAccess"
+    method: POST
+    body_format: json
+    body:
+      EnableRemoteAccess: "{{ jellyfin_config_disable_remote_access | bool }}"
+    status_code: [200, 204]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  when: jellyfin_startup_check.status == 200
+  failed_when: false
+  register: wizard_remote
+
+- name: Validate admin credentials are provided
+  ansible.builtin.assert:
+    that:
+      - jellyfin_config_admin_user is defined
+      - jellyfin_config_admin_user | length > 0
+      - jellyfin_config_admin_password is defined
+      - jellyfin_config_admin_password | length > 0
+    fail_msg: "Admin credentials not provided. Set jellyfin_config_admin_user and jellyfin_config_admin_password"
+    success_msg: "Admin credentials validated"
+  when: jellyfin_startup_check.status == 200
+
+- name: Complete Jellyfin startup wizard - Create admin user
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Startup/User"
+    method: POST
+    body_format: json
+    body:
+      Name: "{{ jellyfin_config_admin_user }}"
+      Password: "{{ jellyfin_config_admin_password }}"
+    status_code: [200, 204]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  when: jellyfin_startup_check.status == 200
+  failed_when: false
+  register: wizard_user
+
+- name: Complete Jellyfin startup wizard - Finalize setup
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/Startup/Complete"
+    method: POST
+    body_format: json
+    body: {}
+    status_code: [200, 204]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  when: jellyfin_startup_check.status == 200
+  failed_when: false
+  register: wizard_complete
+
+- name: Wait for wizard completion to settle
+  ansible.builtin.pause:
+    seconds: 10
+    prompt: "Waiting for setup wizard completion to settle..."
+  when:
+    - jellyfin_startup_check.status == 200
+    - wizard_complete is changed
+
+- name: Display wizard completion status
+  ansible.builtin.debug:
+    msg: |
+      {% if jellyfin_startup_check.status == 200 %}
+      ✅ Jellyfin setup wizard completed successfully
+      Server Name: {{ jellyfin_config_server_name }}
+      Admin User: {{ jellyfin_config_admin_user }}
+      {% else %}
+      ℹ️ Wizard was already completed, skipping
+      {% endif %}
+  when: jellyfin_config_display_results | default(true)

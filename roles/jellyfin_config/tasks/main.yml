@@ -1,0 +1,85 @@
+---
+# Main tasks file for Jellyfin configuration role
+#
+# This role provides modular Jellyfin post-deployment configuration for Docker Swarm environments.
+# It handles service verification, setup wizard completion, API key creation, and library configuration.
+#
+# Usage:
+#   - import_role:
+#       name: jellyfin_config
+#       tasks_from: wait_for_service
+#     vars:
+#       jellyfin_config_service_name: "jellyfin-stack_jellyfin"
+#
+# Or run complete setup:
+#   - import_role:
+#       name: jellyfin_config
+
+- name: Display Jellyfin config role information
+  ansible.builtin.debug:
+    msg: |
+      Jellyfin Configuration Role loaded.
+      
+      Available task files:
+        - discover_container.yml: Discover Jellyfin container in Swarm
+        - wait_for_service.yml: Wait for Jellyfin service to be ready
+        - setup_wizard.yml: Complete initial setup wizard (idempotent)
+        - api_keys.yml: Create/retrieve API keys (idempotent)
+        - libraries.yml: Configure media libraries
+      
+      Service: {{ jellyfin_config_service_name }}
+      Swarm Manager: {{ jellyfin_config_swarm_manager }}
+      Target Node: {{ jellyfin_config_target_node }}
+      Web Port: {{ jellyfin_config_web_port }}
+  when: jellyfin_config_display_results | default(true)
+
+- name: Ensure required variables are defined
+  ansible.builtin.assert:
+    that:
+      - jellyfin_config_service_name is defined
+      - jellyfin_config_swarm_manager is defined
+      - jellyfin_config_target_node is defined
+      - jellyfin_config_web_port is defined
+    fail_msg: "Required variables not defined. Please check defaults/main.yml"
+    success_msg: "All required variables are defined"
+
+- name: Complete Jellyfin post-deployment configuration
+  when: jellyfin_config_run_complete_setup | default(false)
+  block:
+    - name: Wait for Jellyfin service to be ready
+      ansible.builtin.include_tasks: wait_for_service.yml
+
+    - name: Complete setup wizard
+      ansible.builtin.include_tasks: setup_wizard.yml
+
+    - name: Create or retrieve API keys
+      ansible.builtin.include_tasks: api_keys.yml
+
+    - name: Configure media libraries
+      ansible.builtin.include_tasks: libraries.yml
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ Jellyfin Configuration Complete!
+          
+          🌐 Access Information:
+          URL: http://{{ jellyfin_config_target_node }}:{{ jellyfin_config_web_port }}
+          
+          👤 Admin Credentials:
+          Username: {{ jellyfin_config_admin_user }}
+          
+          🔑 API Token:
+          App Name: {{ jellyfin_config_api_key_app_name }}
+          Token: {{ jellyfin_config_api_token | default('Not generated yet') }}
+          
+          📚 Configured Libraries:
+          {% for library in jellyfin_config_libraries %}
+          - {{ library.name }} ({{ library.type }})
+          {% endfor %}
+          
+          💡 Next Steps:
+          1. Store API token in vault.yml
+          2. Configure hardware acceleration in Dashboard
+          3. Monitor library scanning progress
+      when: jellyfin_config_display_results | default(true)
