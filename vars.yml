@@ -50,6 +50,10 @@ jellyfin_target_host: "midnight-laptop"  # The specific host for Jellyfin (must 
 jellyfin_image: "jellyfin/jellyfin:10"  # Official Jellyfin image
 jellyfin_container_name: "jellyfin"
 jellyfin_host_port: 8096
+jellyfin_memory_limit: "4GB"  # Container memory limit
+jellyfin_media_mount_path: "/mnt/ssd_media"  # Host path where media is stored
+jellyfin_container_media_path: "/media"  # Path inside container where media is mounted
+jellyfin_external_url: "http://{{ jellyfin_container_name }}.{{ local_domain }}"  # External URL via proxy
 jellyfin_epg_image: "alpine:3.23"
 jellyfin_epg_url: "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz"
 jellyfin_epg_schedule: "0 1 * * *"  # Cron format: 1:00 AM daily

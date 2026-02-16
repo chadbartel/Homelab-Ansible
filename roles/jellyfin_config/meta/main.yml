@@ -30,6 +30,4 @@ galaxy_info:
     - automation
     - configuration
 
-dependencies:
-  - role: jellyfin
-    when: jellyfin_config_libraries is defined and jellyfin_config_libraries | length > 0
+dependencies: []
