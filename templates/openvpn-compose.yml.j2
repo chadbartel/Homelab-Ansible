@@ -14,7 +14,7 @@ services:
       - "1194:1194/udp"
       - "444:443"
     volumes:
-      - openvpn_config:/config
+      - openvpn_data:/usr/local/openvpn_as
     environment:
       TZ: '{{ timezone }}'
       OPENVPN_AS_HOST: '{{ openvpn_hostname }}'
@@ -36,7 +36,7 @@ services:
         max_attempts: 3
 
 volumes:
-  openvpn_config:
+  openvpn_data:
     driver: local
 
 networks:

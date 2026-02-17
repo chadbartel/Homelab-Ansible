@@ -1,14 +1,22 @@
 ---
 # User Management Tasks - Create and configure VPN users (Idempotent)
 
-- name: Get list of existing OpenVPN users
+- name: Check which users already exist  
   ansible.builtin.shell: |
     docker exec {{ openvpn_container_id.stdout }} \
-      sacli UserPropGet 2>/dev/null | grep -E "^[a-zA-Z0-9_-]+$" || echo ""
-  register: existing_users
+      sacli --user "{{ item.username }}" UserPropGet 2>&1 | \
+      grep -q '"type".*:.*"user_connect"' && echo "{{ item.username }}" || echo ""
+  loop: "{{ openvpn_config_users }}"
+  register: user_checks
   delegate_to: "{{ openvpn_config_target_host }}"
   changed_when: false
   failed_when: false
+  no_log: true
+
+- name: Build list of existing users
+  ansible.builtin.set_fact:
+    existing_users:
+      stdout_lines: "{{ user_checks.results | map(attribute='stdout') | select() | list }}"
 
 - name: Display existing users
   ansible.builtin.debug:
@@ -21,14 +29,35 @@
     loop_var: user
     label: "{{ user.username }}"
 
-- name: Get final list of OpenVPN users
+- name: Restart OpenVPN to persist user changes
+  ansible.builtin.shell: |
+    docker exec {{ openvpn_container_id.stdout }} sacli start
+  register: openvpn_user_restart
+  delegate_to: "{{ openvpn_config_target_host }}"
+  changed_when: true
+  when: openvpn_config_users | length > 0
+
+- name: Wait for OpenVPN to reload after user changes
+  ansible.builtin.pause:
+    seconds: 10
+  when: openvpn_config_users | length > 0
+
+- name: Verify users were created successfully
   ansible.builtin.shell: |
     docker exec {{ openvpn_container_id.stdout }} \
-      sacli UserPropGet 2>/dev/null | grep -E "^[a-zA-Z0-9_-]+$" || echo ""
-  register: final_users
+      sacli --user "{{ item.username }}" UserPropGet 2>&1 | \
+      grep -q '"type".*:.*"user_connect"' && echo "EXISTS" || echo "MISSING"
+  loop: "{{ openvpn_config_users }}"
+  register: user_verification
   delegate_to: "{{ openvpn_config_target_host }}"
   changed_when: false
   failed_when: false
+  no_log: true
+
+- name: Build list of successfully created users
+  ansible.builtin.set_fact:
+    final_users:
+      stdout_lines: "{{ openvpn_config_users | zip(user_verification.results) | selectattr('1.stdout', 'equalto', 'EXISTS') | map(attribute='0.username') | list }}"
 
 - name: Display user management summary
   ansible.builtin.debug:
@@ -36,4 +65,4 @@
       VPN User Management Complete:
       - Total users configured: {{ openvpn_config_users | length }}
       - Current users in system: {{ final_users.stdout_lines | length }}
-      - Users: {{ final_users.stdout_lines | join(', ') }}
+      - Users: {{ final_users.stdout_lines | join(', ') if final_users.stdout_lines else 'None' }}
