@@ -11,14 +11,14 @@
     # Options: 'direct', 'portainer', 'kompose'
     stack_deployer_backend: "{{ deployment_backend | default('direct') }}"
     
-    # Swarm manager node for delegation
-    stack_deployer_swarm_manager: "pi4_01"
+    # Swarm manager node for delegation (dynamically determined)
+    stack_deployer_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
     
     # Stacks configuration (reuses existing portainer_stacks variable)
     stack_deployer_stacks: "{{ portainer_stacks }}"
     
     # Portainer backend configuration (used only when backend=portainer)
-    stack_deployer_portainer_url: "https://{{ hostvars['pi4_01'].ansible_host }}:{{ portainer_host_port }}"
+    stack_deployer_portainer_url: "https://{{ hostvars[swarm_manager_node | default(groups['swarm_managers'][0])].ansible_host }}:{{ portainer_host_port }}"
     stack_deployer_portainer_admin_password: "{{ portainer_admin_password }}"
     stack_deployer_portainer_endpoint_id: 1
     stack_deployer_portainer_validate_certs: false

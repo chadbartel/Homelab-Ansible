@@ -3,7 +3,7 @@
 
 # Service discovery configuration
 jellyfin_config_service_name: "jellyfin-stack_jellyfin"
-jellyfin_config_swarm_manager: "pi4_01"
+jellyfin_config_swarm_manager: "{{ groups['swarm_managers'][0] | default('pi4_01') }}"
 jellyfin_config_target_node: "lenovo_server"  # Ansible inventory hostname where container runs
 
 # Service readiness configuration
