@@ -30,7 +30,7 @@ openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
 # OpenVPN Config Role Variables
 openvpn_config_service_name: "vpn-stack_openvpn-as"
-openvpn_config_swarm_manager: "pi4_01"
+openvpn_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
 openvpn_config_target_host: "midnight-laptop"
 openvpn_config_admin_user: "{{ openvpn_container_name }}"
 openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
@@ -61,7 +61,7 @@ jellyfin_epg_schedule: "0 1 * * *"  # Cron format: 1:00 AM daily
 
 # Jellyfin Config Role Variables
 jellyfin_config_service_name: "jellyfin-stack_jellyfin"
-jellyfin_config_swarm_manager: "pi4_01"
+jellyfin_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
 jellyfin_config_target_node: "lenovo_server"
 jellyfin_config_web_port: 8096
 jellyfin_config_admin_user: "{{ admin_user }}"
@@ -86,7 +86,7 @@ jellyfin_config_libraries:
 
 # NGINX Proxy Manager Config Role Variables
 npm_service_name: "npm-stack_npm"
-npm_swarm_manager: "pi4_01"
+npm_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
 npm_target_node: "lenovo_server"
 
 # Pi-hole configuration
@@ -100,7 +100,7 @@ pihole_target_host: "midnight-laptop"  # The specific host for Pi-hole (must mat
 
 # Pi-hole Config Role Variables
 pihole_config_service_name: "pihole-stack_pihole"
-pihole_config_swarm_manager: "pi4_01"
+pihole_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
 pihole_config_target_node: "lenovo_server"
 
 # Custom DNS entries for local services

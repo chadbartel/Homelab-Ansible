@@ -52,6 +52,11 @@ all:
       hosts:
         pi4_01:
 
+    # Swarm managers group (alias for manager_nodes)
+    swarm_managers:
+      hosts:
+        pi4_01:
+
     worker_nodes:
       hosts:
         lenovo_server:

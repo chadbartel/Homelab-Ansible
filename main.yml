@@ -1,5 +1,16 @@
 ---
 # Main playbook for homelab deployment
+
+# Set dynamic facts for Swarm manager (decouples hardcoded node references)
+- name: Initialize dynamic infrastructure facts
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Load dynamic Swarm manager fact
+      ansible.builtin.include_tasks: tasks/common/set_swarm_manager.yml
+      tags: ["always"]
+
 - name: Apply common configuration and install Docker on all servers
   hosts: homelab_servers
   become: true
