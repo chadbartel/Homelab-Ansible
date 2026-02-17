@@ -1,0 +1,66 @@
+---
+# Stack Deployer - Direct Backend (docker stack deploy)
+# Deploys stacks directly using Docker CLI
+
+- name: Create temporary directory for stack compose files
+  ansible.builtin.file:
+    path: "{{ stack_deployer_compose_dir }}"
+    state: directory
+    mode: '0755'
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Template stack compose files
+  ansible.builtin.template:
+    src: "{{ item.compose_template }}"
+    dest: "{{ stack_deployer_compose_dir }}/{{ item.name }}.yml"
+    mode: '0644'
+  loop: "{{ stack_deployer_stacks }}"
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Ensure Jellyfin volumes exist on midnight-laptop
+  ansible.builtin.shell: |
+    docker volume inspect jellyfin_config >/dev/null 2>&1 || docker volume create jellyfin_config
+    docker volume inspect jellyfin_cache >/dev/null 2>&1 || docker volume create jellyfin_cache
+  delegate_to: lenovo_server
+  register: jellyfin_volume_check
+  changed_when: "'jellyfin_config' in jellyfin_volume_check.stdout or 'jellyfin_cache' in jellyfin_volume_check.stdout"
+
+- name: Deploy stacks to Docker Swarm
+  ansible.builtin.shell:
+    cmd: "docker stack deploy -c {{ stack_deployer_compose_dir }}/{{ item.name }}.yml {{ item.name }}"
+  loop: "{{ stack_deployer_stacks }}"
+  register: stack_deployment_result
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Display stack deployment results (direct backend)
+  ansible.builtin.debug:
+    msg: |
+      Stack: {{ item.item.name }}
+      Status: {{ 'Deployed' if item.changed else 'Already up to date' }}
+      Output: {{ item.stdout }}
+  loop: "{{ stack_deployment_result.results }}"
+
+- name: Check if GPU device exists for Jellyfin
+  ansible.builtin.stat:
+    path: /dev/dri
+  register: dri_device_check
+  delegate_to: lenovo_server
+
+- name: Display GPU acceleration status note
+  ansible.builtin.debug:
+    msg: |
+      {% if dri_device_check.stat.exists %}
+      ✅ /dev/dri exists on lenovo_server - GPU acceleration can be enabled!
+      
+      To enable GPU hardware acceleration for Jellyfin:
+      1. Set in vars.yml: jellyfin_enable_hw_accel: true
+      2. Run: make deploy
+      {% else %}
+      ⚠️ GPU Hardware Acceleration: DISABLED
+      
+      /dev/dri does not exist on lenovo_server. Possible fixes:
+      1. Reboot lenovo_server to load GPU kernel modules: ssh lenovo_server sudo reboot
+      2. Or manually load i915 module: ssh lenovo_server sudo modprobe i915
+      3. After device appears, set jellyfin_enable_hw_accel: true in vars.yml
+      4. Redeploy with: make deploy
+      {% endif %}
