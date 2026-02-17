@@ -114,11 +114,13 @@ deployment_backend: "direct"
 ## Troubleshooting Quick Checks
 
 ### Issue: "Swarm not initialized"
+
 ```bash
 docker swarm init
 ```
 
 ### Issue: "Portainer authentication failed"
+
 ```bash
 # Test connection
 curl -k https://your-portainer:9443/api/status
@@ -128,6 +130,7 @@ ansible-vault view vault.yml | grep portainer
 ```
 
 ### Issue: "Template not found"
+
 ```bash
 # List templates
 ls -la templates/

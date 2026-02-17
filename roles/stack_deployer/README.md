@@ -15,7 +15,9 @@ This role decouples stack deployment from specific orchestration tools, allowing
 ## Supported Backends
 
 ### 1. **Portainer** (`stack_deployer_backend: portainer`)
+
 Deploys stacks via Portainer API v2.33.7. Best for:
+
 - Centralized management UI
 - Multi-endpoint environments
 - RBAC and access control
@@ -24,7 +26,9 @@ Deploys stacks via Portainer API v2.33.7. Best for:
 **Requirements**: Portainer CE/EE deployed and accessible
 
 ### 2. **Direct** (`stack_deployer_backend: direct`) ⭐ Default
+
 Deploys stacks using `docker stack deploy` CLI. Best for:
+
 - Simple deployments
 - CI/CD pipelines
 - Minimal dependencies
@@ -33,7 +37,9 @@ Deploys stacks using `docker stack deploy` CLI. Best for:
 **Requirements**: Docker Swarm initialized, manager node accessible
 
 ### 3. **Kompose** (`stack_deployer_backend: kompose`) 🚧 Future
+
 Converts Docker Compose to Kubernetes manifests. Best for:
+
 - Kubernetes migration path
 - Hybrid Swarm/K8s environments
 
@@ -78,13 +84,14 @@ Converts Docker Compose to Kubernetes manifests. Best for:
 ### Common Variables (All Backends)
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| ---------- | --------- | ------------- |
 | `stack_deployer_backend` | `direct` | Backend to use: `portainer`, `direct`, `kompose` |
 | `stack_deployer_swarm_manager` | `pi4_01` | Swarm manager node hostname |
 | `stack_deployer_stacks` | `[]` | List of stacks to deploy (see structure below) |
 | `stack_deployer_compose_dir` | `/tmp/docker-stacks` | Directory for compose files |
 
 **Stack Structure**:
+
 ```yaml
 stack_deployer_stacks:
   - name: "stack-name"           # Stack name in Swarm
@@ -94,7 +101,7 @@ stack_deployer_stacks:
 ### Portainer Backend Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| ---------- | --------- | ------------- |
 | `stack_deployer_portainer_url` | `https://{{ ansible_host }}:9443` | Portainer API URL |
 | `stack_deployer_portainer_admin_user` | `admin` | Portainer username |
 | `stack_deployer_portainer_admin_password` | Required | Portainer password |
@@ -105,7 +112,7 @@ stack_deployer_stacks:
 ### Direct Backend Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| ---------- | --------- | ------------- |
 | `stack_deployer_direct_prune` | `false` | Prune old services |
 | `stack_deployer_direct_compose_version` | `3.8` | Compose file version |
 
@@ -122,7 +129,7 @@ See the `examples/` directory for complete playbooks:
 
 ### Backend Dispatch Flow
 
-```
+```text
 main.yml
    ├─ Validate backend parameter
    ├─ Create proxy network
@@ -134,7 +141,7 @@ main.yml
 
 ### Portainer Backend Flow
 
-```
+```text
 portainer.yml
    ├─ Authenticate (POST /api/auth)
    ├─ Verify endpoint (GET /api/endpoints/{id})
@@ -150,6 +157,7 @@ portainer.yml
 This role is designed to replace the `tasks/deploy_stacks.yml` task file:
 
 **Before** (tightly coupled):
+
 ```yaml
 # tasks/deploy_stacks.yml
 - name: Deploy stacks to Docker Swarm
@@ -159,6 +167,7 @@ This role is designed to replace the `tasks/deploy_stacks.yml` task file:
 ```
 
 **After** (abstracted):
+
 ```yaml
 # tasks/deploy_stacks.yml
 - name: Deploy stacks using stack_deployer role
@@ -174,6 +183,7 @@ This role is designed to replace the `tasks/deploy_stacks.yml` task file:
 ### Portainer Backend Issues
 
 **Authentication Failures**:
+
 ```bash
 # Verify Portainer is accessible
 curl -k https://192.168.1.10:9443/api/status
@@ -185,6 +195,7 @@ curl -k -X POST https://192.168.1.10:9443/api/auth \
 ```
 
 **Stack Already Exists**:
+
 - The role automatically updates existing stacks
 - Check Portainer UI to verify stack status
 - Use `GET /api/stacks` to see all stacks
@@ -192,6 +203,7 @@ curl -k -X POST https://192.168.1.10:9443/api/auth \
 ### Direct Backend Issues
 
 **Swarm Not Initialized**:
+
 ```bash
 # Check Swarm status
 docker info | grep Swarm
@@ -201,6 +213,7 @@ docker swarm init
 ```
 
 **Network Already Exists**:
+
 - Role creates `proxy-network` if missing
 - Uses existing network if already present
 
@@ -211,7 +224,7 @@ docker swarm init
 Based on [Portainer API v2.33.7](https://app.swaggerhub.com/apis-docs/portainer/portainer-ce/2.33.7):
 
 | Endpoint | Method | Purpose |
-|----------|--------|---------|
+| ---------- | --------- | ------------- |
 | `/api/auth` | POST | Authenticate and get JWT token |
 | `/api/endpoints/{id}` | GET | Verify Swarm endpoint |
 | `/api/stacks` | GET | List existing stacks |
