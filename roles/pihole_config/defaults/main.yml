@@ -3,7 +3,7 @@
 
 # Service discovery configuration
 pihole_config_service_name: "pihole-stack_pihole"
-pihole_config_swarm_manager: "pi4_01"
+pihole_config_swarm_manager: "{{ groups['swarm_managers'][0] | default('pi4_01') }}"
 pihole_config_target_node: "lenovo_server"  # Ansible inventory hostname where container runs
 
 # Service readiness configuration

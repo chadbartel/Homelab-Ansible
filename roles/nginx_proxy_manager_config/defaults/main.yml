@@ -4,7 +4,7 @@
 
 # NPM service identification
 npm_config_service_name: "npm-stack_npm"
-npm_config_swarm_manager: "pi4_01"
+npm_config_swarm_manager: "{{ groups['swarm_managers'][0] | default('pi4_01') }}"
 npm_config_target_node: "lenovo_server"
 
 # NPM connection settings
