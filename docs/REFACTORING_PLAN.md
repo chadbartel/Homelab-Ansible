@@ -257,53 +257,72 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ---
 
-### Task 2.2: Fix Custom DNS Configuration Idempotency
+### Task 2.2: Fix Custom DNS Configuration Idempotency ✅ COMPLETED
 
-**Current Issue**: Always writes `/etc/pihole/custom.list` and restarts DNS.
+**Objective**: Make custom DNS configuration idempotent to avoid unnecessary DNS restarts.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Implemented in `pihole_config` role
 
-1. Use `ansible.builtin.lineinfile` or `ansible.builtin.blockinfile` instead of shell script
-2. Template-based approach:
+**Implementation Details**:
 
-   ```yaml
-   - name: Configure Pi-hole custom DNS entries
-     ansible.builtin.template:
-       src: pihole_custom_dns.list.j2
-       dest: /tmp/custom.list
-     delegate_to: localhost
-     
-   - name: Copy custom DNS to container
-     ansible.builtin.copy:
-       src: /tmp/custom.list
-       dest: /etc/pihole/custom.list
-     delegate_to: "{{ pihole_container_id }}"
-     notify: restart pihole dns
-   ```
+1. ✅ Implemented template-based approach:
+   - Task file: `roles/pihole_config/tasks/custom_dns.yml`
+   - Template: `roles/pihole_config/templates/custom_dns.list.j2`
+   - Compares existing file content before updating
+   - Only restarts DNS when content actually changed
 
-3. Only restart DNS when file actually changes
+2. ✅ Idempotent workflow:
+   - Generate DNS entries file from template
+   - Read existing content from container
+   - Compare new vs existing content
+   - Only update and restart if different
+
+3. ✅ Proper cleanup:
+   - Temporary files removed after use
+   - DNS only restarted when necessary
+
+**Key Features**:
+
+- Fully idempotent (safe to re-run multiple times)
+- Content-based change detection
+- Template-driven configuration
+- Automatic cleanup
 
 ---
 
-### Task 2.3: Fix Dnsmasq Configuration Idempotency
+### Task 2.3: Fix Dnsmasq Configuration Idempotency ✅ COMPLETED
 
-**Current Issue**: Always appends to `misc.dnsmasq_lines`, creating duplicates.
+**Objective**: Prevent duplicate entries in dnsmasq configuration file.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Custom module created and integrated
 
-1. Use `ansible.builtin.lineinfile`:
+**Implementation Details**:
 
-   ```yaml
-   - name: Configure dnsmasq max concurrent queries
-     ansible.builtin.lineinfile:
-       path: /etc/dnsmasq.d/misc.dnsmasq_lines
-       line: "dns-forward-max=300"
-       state: present
-       create: yes
-     # Execute via docker exec wrapper or create module
-   ```
+1. ✅ Created custom Ansible module: `roles/pihole_config/library/docker_exec_lineinfile.py`
+   - Module name: `docker_exec_lineinfile`
+   - Parameters: `container_id`, `path`, `line`, `regexp`, `state`, `create`, `backup`
+   - Similar to `ansible.builtin.lineinfile` but works inside Docker containers
 
-2. Create helper module `library/docker_exec_lineinfile.py` that wraps lineinfile for container files
+2. ✅ Implemented all required functionality:
+   - Checks if line exists before adding (proper idempotency)
+   - Executes via `docker exec` under the hood
+   - Supports check mode (dry-run)
+   - Returns `changed: false` when line already present
+   - Supports regexp-based replacement
+   - Optional backup creation
+
+3. ✅ Integration completed:
+   - Task file: `roles/pihole_config/tasks/dnsmasq.yml` uses the module
+   - Replaces shell script approach
+   - Only restarts DNS when settings actually changed
+
+**Key Features**:
+
+- Fully idempotent (safe to re-run multiple times)
+- No duplicate entries created
+- Proper file line management inside containers
+- Check mode support
+- Backup support for safety
 
 ---
 
@@ -442,8 +461,8 @@ Idempotency: Check if stack exists, compare compose content hash
 ### High Priority (Immediate Impact)
 
 1. **Task 2.1** - ✅ Fix adlist idempotency (COMPLETED - pihole_adlist module created)
-2. **Task 2.2** - Fix custom DNS idempotency
-3. **Task 2.3** - Fix dnsmasq configuration idempotency
+2. **Task 2.2** - ✅ Fix custom DNS idempotency (COMPLETED - template-based approach)
+3. **Task 2.3** - ✅ Fix dnsmasq configuration idempotency (COMPLETED - docker_exec_lineinfile module)
 4. **Task 3.2** - Decouple node-specific logic (portability)
 
 ### Medium Priority (Structural Improvements)
@@ -457,8 +476,8 @@ Idempotency: Check if stack exists, compare compose content hash
 
 ### Low Priority (Nice to Have)
 
-1. **Task 4.1** - Decouple Portainer dependency
-2. **Task 1.2-1.4** - Extract other service config roles
+1. **Task 3.1** - Decouple Portainer dependency
+2. **Task 5.2** - Create Portainer stack module
 3. **Task 6.2** - Create Portainer stack module
 
 ---

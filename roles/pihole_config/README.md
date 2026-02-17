@@ -159,11 +159,13 @@ Configures local domain resolution.
 
 Manages dnsmasq configuration options.
 
-## Custom Module
+## Custom Modules
+
+The role includes two custom Ansible modules for idempotent Pi-hole management.
 
 ### pihole_adlist
 
-The role includes a custom Ansible module for idempotent adlist management.
+Manages Pi-hole adlists (block lists) with true SQLite-based idempotency.
 
 **Parameters:**
 
@@ -183,6 +185,32 @@ The role includes a custom Ansible module for idempotent adlist management.
     comment: "AdGuard DNS"
     enabled: true
     state: present
+```
+
+### docker_exec_lineinfile
+
+Manages lines in files inside Docker containers, similar to `ansible.builtin.lineinfile` but executes via `docker exec`.
+
+**Parameters:**
+
+- `container_id` (required) - Docker container ID or name
+- `path` (required) - Path to file inside container
+- `line` (required for state=present) - Line to insert/ensure present
+- `regexp` (optional) - Regular expression to match and replace
+- `state` (optional, default: present) - `present` or `absent`
+- `create` (optional, default: false) - Create file if it doesn't exist
+- `backup` (optional, default: false) - Create timestamped backup before changes
+
+**Example:**
+
+```yaml
+- name: Configure dnsmasq max forwarding queries
+  docker_exec_lineinfile:
+    container_id: "{{ pihole_container_id }}"
+    path: /etc/dnsmasq.d/misc.dnsmasq_lines
+    line: "dns-forward-max=300"
+    state: present
+    create: true
 ```
 
 ## Example Playbooks
@@ -273,12 +301,12 @@ This role follows Ansible best practices for modularity and reusability:
 
 | Aspect | Old Implementation | New Role |
 | -------- | ------------------- | ---------- |
-| Idempotency | ❌ Bash scripts regenerated every run | ✅ Custom module with SQLite queries |
+| Idempotency | ❌ Bash scripts regenerated every run | ✅ Custom modules with proper state checking |
 | Coupling | ❌ Hardcoded node names | ✅ Configurable via variables |
 | Reusability | ❌ Monolithic task file | ✅ Modular task files |
 | Container Discovery | ❌ Repeated in each task | ✅ Centralized discover_container.yml |
 | Custom DNS | ❌ Always restarts DNS | ✅ Only restarts on actual changes |
-| Dnsmasq | ❌ Appends causing duplicates | ✅ Checks existence before adding |
+| Dnsmasq | ❌ Shell script with grep | ✅ docker_exec_lineinfile module |
 
 ## Integration with Homelab-Ansible
 
