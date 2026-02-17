@@ -86,7 +86,7 @@ openvpn_config_server_settings: []
 # Idempotency Control
 # ============================================================================
 # Marker file path inside container to track configuration status
-openvpn_config_marker_file: "/config/.ansible_configured"
+openvpn_config_marker_file: "/usr/local/openvpn_as/.ansible_configured"
 
 # Force reconfiguration even if marker file exists
 openvpn_config_force_reconfigure: false

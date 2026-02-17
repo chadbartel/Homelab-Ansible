@@ -95,6 +95,7 @@
         delay: 15
         timeout: 120
       delegate_to: localhost
+      become: false
 
     - name: Mark OpenVPN as configured
       ansible.builtin.shell: |
