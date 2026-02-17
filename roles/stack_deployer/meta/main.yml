@@ -23,6 +23,4 @@ galaxy_info:
     - deployment
     - orchestration
 
-dependencies:
-  - role: community.docker
-    when: stack_deployer_backend in ['direct', 'portainer']
+dependencies: []
