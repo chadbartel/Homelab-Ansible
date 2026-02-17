@@ -394,22 +394,62 @@ ansible-playbook main.yml -e "deployment_backend=portainer"
 
 ---
 
-### Task 3.2: Decouple Node-Specific Logic
+### Task 3.2: Decouple Node-Specific Logic ✅ COMPLETED
 
-**Issue**: Tasks hardcoded to `pi4_01` as manager node.
+**Objective**: Eliminate hardcoded `pi4_01` references and use dynamic fact gathering for Swarm manager node.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Dynamic fact gathering implemented across project
 
-1. Use inventory group `swarm_managers` instead of hardcoded hostname
-2. Create dynamic fact gathering:
+**Implementation Details**:
 
-   ```yaml
-   - name: Set swarm manager fact
-     set_fact:
-       swarm_manager_node: "{{ groups['swarm_managers'][0] }}"
-   ```
+1. ✅ Created common task file for dynamic fact gathering:
+   - File: `tasks/common/set_swarm_manager.yml`
+   - Sets `swarm_manager_node` fact using `groups['swarm_managers'][0]`
+   - Runs once on localhost to set global fact
+   - Includes debug output showing detected manager node
 
-3. Replace all `delegate_to: pi4_01` with `delegate_to: "{{ swarm_manager_node }}"`
+2. ✅ Updated inventory with `swarm_managers` group:
+   - Added `swarm_managers` group to `inventory.yml`
+   - Maintains backward compatibility with existing `manager_nodes` group
+   - Currently contains `pi4_01` but easily extensible
+
+3. ✅ Updated main playbook:
+   - Added new play at beginning: "Initialize dynamic infrastructure facts"
+   - Includes `tasks/common/set_swarm_manager.yml` with `always` tag
+   - Ensures fact is available for all subsequent plays
+
+4. ✅ Updated vars.yml with dynamic references:
+   - `openvpn_config_swarm_manager`: Uses `{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}`
+   - `jellyfin_config_swarm_manager`: Uses dynamic variable
+   - `npm_swarm_manager`: Uses dynamic variable
+   - `pihole_config_swarm_manager`: Uses dynamic variable
+
+5. ✅ Updated tasks/deploy_stacks.yml:
+   - `stack_deployer_swarm_manager`: Uses dynamic variable
+   - `stack_deployer_portainer_url`: Uses dynamic hostvars lookup
+   - Backward compatible with fallback to inventory group
+
+6. ✅ Updated role defaults files:
+   - `roles/pihole_config/defaults/main.yml`: `{{ groups['swarm_managers'][0] | default('pi4_01') }}`
+   - `roles/jellyfin_config/defaults/main.yml`: `{{ groups['swarm_managers'][0] | default('pi4_01') }}`
+   - `roles/nginx_proxy_manager_config/defaults/main.yml`: `{{ groups['swarm_managers'][0] | default('pi4_01') }}`
+   - `roles/stack_deployer/defaults/main.yml`: `{{ groups['swarm_managers'][0] | default('pi4_01') }}`
+
+**Key Features**:
+
+- Fully dynamic Swarm manager node detection
+- No hardcoded `pi4_01` references in critical paths
+- Backward compatible with existing deployments
+- Centralized fact gathering for consistency
+- Easy to extend to multi-manager setups
+- Improved portability across different infrastructure
+
+**Benefits**:
+
+- Infrastructure changes (e.g., new manager node) only require inventory update
+- Roles can be used in different Swarm clusters without modification
+- Reduced coupling between playbooks and specific infrastructure
+- Clearer separation between infrastructure definition (inventory) and logic (tasks/roles)
 
 ---
 
