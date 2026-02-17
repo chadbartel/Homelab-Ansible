@@ -8,40 +8,60 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ## Phase 1: Extract Post-Deployment Configuration into Dedicated Roles
 
-### Task 1.1: Create `pihole_config` Role
+### Task 1.1: Create `pihole_config` Role ✅ COMPLETED
 
 **Objective**: Extract Pi-hole post-deployment configuration from `tasks/post_setup_pihole.yml` into a reusable, idempotent role.
 
-**Issues Identified**:
+**Status**: ✅ **COMPLETED** - Role created and integrated into project
 
-- Deep coupling to Docker Swarm and specific node (`pi4_01`)
-- Non-idempotent bash script creating SQLite entries (uses `COUNT(*)` check but regenerates script every time)
-- Hardcoded container name patterns and service discovery logic
-- Mixed concerns: container readiness, adlist management, DNS configuration
+**Implementation Details**:
 
-**Instructions**:
-
-1. Create role structure: `roles/pihole_config/`
-2. Move the following into separate task files:
-   - `tasks/wait_for_service.yml` - Container readiness checks (make abstract for any service)
-   - `tasks/adlists.yml` - Adlist management (use pihole-FTL API if available)
-   - `tasks/custom_dns.yml` - Custom DNS entries
+1. ✅ Created role structure: `roles/pihole_config/`
+2. ✅ Extracted into separate task files:
+   - `tasks/discover_container.yml` - Pi-hole container discovery in Swarm
+   - `tasks/wait_for_service.yml` - Container readiness checks (web interface + FTL)
+   - `tasks/adlists.yml` - Adlist management using custom module
+   - `tasks/custom_dns.yml` - Custom DNS entries via template
    - `tasks/dnsmasq.yml` - Dnsmasq configuration
-3. Replace bash script with Ansible SQLite module or create custom `pihole_adlist` module:
+3. ✅ Created custom `pihole_adlist` module:
+   - Location: `library/pihole_adlist.py`
+   - Supports: `state=present/absent`, `url`, `comment`, `enabled`
+   - Uses `pihole-FTL sqlite3` for idempotent SQLite operations
+   - Properly checks existence before inserting
+   - Supports check mode and proper changed status
+4. ✅ Abstracted container discovery:
+   - Role variables: `pihole_config_service_name`, `pihole_config_target_node`, `pihole_config_swarm_manager`
+   - Dynamic discovery via `docker service ps` and `docker inspect`
+   - Deployed in `tasks/discover_container.yml`
+5. ✅ Variables in `defaults/main.yml`:
+   - Service discovery: `pihole_config_service_name`, `pihole_config_swarm_manager`, `pihole_config_target_node`
+   - Readiness: `pihole_config_web_port: 8081`, `pihole_config_readiness_retries: 20`, etc.
+   - Configuration: `pihole_config_adlists`, `pihole_config_custom_dns_entries`, `pihole_config_dnsmasq_settings`
+6. ✅ Documentation created:
+   - `README.md` - Complete role documentation with usage examples
+   - `QUICK_START.md` - Quick reference guide
+   - `meta/main.yml` - Galaxy metadata
+   - Example playbooks in `examples/` directory
+7. ✅ Integrated into project:
+   - Updated `tasks/post_setup_pihole.yml` to use role
+   - Added role variables to `vars.yml`
+   - Updated `.github/copilot-instructions.md`
 
-   ```python
-   # library/pihole_adlist.py
-   # Should support: state=present/absent, url, comment, enabled
-   # Uses pihole-FTL sqlite3 command for idempotent operations
-   ```
+**Key Features**:
 
-4. Abstract container discovery:
-   - Use role variables: `pihole_config_service_name`, `pihole_config_target_node`
-   - Create `tasks/discover_container.yml` that can be reused
-5. Variables to extract to `defaults/main.yml`:
-   - `pihole_config_web_port: 8081`
-   - `pihole_config_readiness_retries: 20`
-   - `pihole_config_adlists: []` (structured list)
+- Fully idempotent (safe to re-run multiple times)
+- Modular task files (can be used individually)
+- Automatic container discovery in Docker Swarm
+- Custom Ansible module for adlist management (proper SQLite idempotency)
+- Template-based DNS and dnsmasq configuration
+- Follows same pattern as other config roles
+
+**Issues Resolved**:
+
+- ✅ Eliminated deep coupling to Docker Swarm (abstracted)
+- ✅ Fixed non-idempotent bash script (replaced with custom module)
+- ✅ Removed hardcoded container patterns (dynamic discovery)
+- ✅ Separated concerns (modular task files)
 
 ---
 
@@ -192,31 +212,48 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ## Phase 2: Improve Idempotency Issues
 
-### Task 2.1: Fix Adlist Configuration Idempotency
+### Task 2.1: Fix Adlist Configuration Idempotency ✅ COMPLETED
 
-**Current Issue**: Script in `post_setup_pihole.yml` generates and copies bash script every run.
+**Objective**: Fix idempotency issue where bash script is regenerated on every run.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Custom Ansible module created with full idempotency support
 
-1. Create Ansible module `library/pihole_gravity_adlist.py`:
+**Implementation Details**:
 
-   ```python
-   # Module interface:
-   # - name: Manage Pi-hole adlist
-   #   pihole_gravity_adlist:
-   #     url: "https://example.com/list.txt"
-   #     comment: "Example List"
-   #     enabled: true
-   #     state: present
-   #     container_id: "{{ container_id }}"
-   #     delegate_host: "pi4_01"
-   ```
+1. ✅ Created custom Ansible module: `roles/pihole_config/library/pihole_adlist.py`
+   - Module name: `pihole_adlist` (simplified from `pihole_gravity_adlist`)
+   - Parameters: `container_id`, `url`, `comment`, `enabled`, `state`
+   - Integrated into `pihole_config` role for better organization
 
-2. Module should:
-   - Query SQLite via `docker exec` to check existence
-   - Only insert if not present (proper idempotency)
-   - Support check mode
-   - Return `changed: false` when adlist exists
+2. ✅ Implemented all required functionality:
+   - Queries SQLite via `docker exec` using `pihole-FTL sqlite3` command
+   - Checks if adlist exists before inserting (proper idempotency)
+   - Only inserts when adlist is not present
+   - Updates existing adlist if enabled/comment changes
+   - Supports check mode (dry-run)
+   - Returns `changed: false` when adlist exists and is unchanged
+
+3. ✅ Additional features beyond requirements:
+   - Proper SQL escaping to prevent injection
+   - Support for `state: absent` to remove adlists
+   - Update logic when configuration changes
+   - Comprehensive error handling
+   - Ansible module documentation (DOCUMENTATION, EXAMPLES, RETURN)
+
+4. ✅ Integration completed:
+   - Task file: `roles/pihole_config/tasks/adlists.yml` uses the module
+   - Automatic gravity database update after changes
+   - Used by `tasks/post_setup_pihole.yml`
+
+**Verification**: Verified using `tests/verify_pihole_adlist_module.py` - all requirements met ✅
+
+**Key Features**:
+
+- Fully idempotent (safe to re-run multiple times without side effects)
+- True SQLite-based state checking (not COUNT-based approximations)
+- No unnecessary bash script generation
+- Check mode support for dry-run testing
+- Proper changed/unchanged status reporting
 
 ---
 
@@ -404,17 +441,19 @@ Idempotency: Check if stack exists, compare compose content hash
 
 ### High Priority (Immediate Impact)
 
-1. **Task 3.1** - Fix adlist idempotency (most obvious issue)
-2. **Task 3.2** - Fix custom DNS idempotency
-3. **Task 5.1** - Consolidate service waiting (reduce duplication)
-4. **Task 4.2** - Decouple node-specific logic (portability)
+1. **Task 2.1** - ✅ Fix adlist idempotency (COMPLETED - pihole_adlist module created)
+2. **Task 2.2** - Fix custom DNS idempotency
+3. **Task 2.3** - Fix dnsmasq configuration idempotency
+4. **Task 3.2** - Decouple node-specific logic (portability)
 
 ### Medium Priority (Structural Improvements)
 
 1. **Task 1.1** - ✅ Extract `pihole_config` role (COMPLETED)
 2. **Task 1.2** - ✅ Extract `jellyfin_config` role (COMPLETED)
-3. **Task 2.1** - Create `docker_swarm_service` role
-4. **Task 6.1** - Create container exec module
+3. **Task 1.3** - ✅ Extract `nginx_proxy_manager_config` role (COMPLETED)
+4. **Task 1.4** - ✅ Extract `openvpn_config` role (COMPLETED)
+5. **Task 4.1** - Consolidate service waiting (reduce duplication)
+6. **Task 5.1** - Create container exec module
 
 ### Low Priority (Nice to Have)
 
