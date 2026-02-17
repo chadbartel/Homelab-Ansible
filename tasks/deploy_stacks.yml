@@ -1,86 +1,24 @@
 ---
-# Deploy Docker Compose stacks
-- name: Create proxy network for services (Swarm overlay)
-  community.docker.docker_network:
-    name: proxy-network
-    state: present
-    driver: overlay
-    attachable: true
-    scope: swarm
-    ipam_config:
-      - subnet: "172.20.0.0/16"
-        gateway: "172.20.0.1"
+# Deploy Docker Compose stacks using stack_deployer role
+# This task file provides a decoupled abstraction layer for stack deployment
+# Backend can be switched between 'direct', 'portainer', or 'kompose'
 
-- name: Verify proxy network exists
-  ansible.builtin.command:
-    cmd: docker network inspect proxy-network
-  register: network_check
-  changed_when: false
-
-- name: Display network information
-  ansible.builtin.debug:
-    msg: |
-      ✅ proxy-network created successfully
-      Network ID: {{ (network_check.stdout | from_json)[0].Id[:12] }}
-      Driver: {{ (network_check.stdout | from_json)[0].Driver }}
-      Subnet: {{ (network_check.stdout | from_json)[0].IPAM.Config[0].Subnet }}
-
-- name: Create temporary directory for stack compose files
-  ansible.builtin.file:
-    path: /tmp/docker-stacks
-    state: directory
-    mode: '0755'
-
-- name: Template stack compose files
-  ansible.builtin.template:
-    src: "{{ item.compose_template }}"
-    dest: "/tmp/docker-stacks/{{ item.name }}.yml"
-    mode: '0644'
-  loop: "{{ portainer_stacks }}"
-
-- name: Ensure Jellyfin volumes exist on midnight-laptop
-  ansible.builtin.shell: |
-    docker volume inspect jellyfin_config >/dev/null 2>&1 || docker volume create jellyfin_config
-    docker volume inspect jellyfin_cache >/dev/null 2>&1 || docker volume create jellyfin_cache
-  delegate_to: lenovo_server
-  register: jellyfin_volume_check
-  changed_when: "'jellyfin_config' in jellyfin_volume_check.stdout or 'jellyfin_cache' in jellyfin_volume_check.stdout"
-
-- name: Deploy stacks to Docker Swarm
-  ansible.builtin.shell:
-    cmd: "docker stack deploy -c /tmp/docker-stacks/{{ item.name }}.yml {{ item.name }}"
-  loop: "{{ portainer_stacks }}"
-  register: stack_deployment_result
-
-- name: Display stack deployment results
-  ansible.builtin.debug:
-    msg: |
-      Stack: {{ item.item.name }}
-      Status: {{ 'Deployed' if item.changed else 'Already up to date' }}
-      Output: {{ item.stdout }}
-  loop: "{{ stack_deployment_result.results }}"
-
-- name: Check if GPU device exists for Jellyfin
-  ansible.builtin.stat:
-    path: /dev/dri
-  register: dri_device_check
-  delegate_to: lenovo_server
-
-- name: Display GPU acceleration status note
-  ansible.builtin.debug:
-    msg: |
-      {% if dri_device_check.stat.exists %}
-      ✅ /dev/dri exists on lenovo_server - GPU acceleration can be enabled!
-      
-      To enable GPU hardware acceleration for Jellyfin:
-      1. Set in vars.yml: jellyfin_enable_hw_accel: true
-      2. Run: make deploy
-      {% else %}
-      ⚠️ GPU Hardware Acceleration: DISABLED
-      
-      /dev/dri does not exist on lenovo_server. Possible fixes:
-      1. Reboot lenovo_server to load GPU kernel modules: ssh lenovo_server sudo reboot
-      2. Or manually load i915 module: ssh lenovo_server sudo modprobe i915
-      3. After device appears, set jellyfin_enable_hw_accel: true in vars.yml
-      4. Redeploy with: make deploy
-      {% endif %}
+- name: Deploy stacks using stack_deployer role
+  ansible.builtin.include_role:
+    name: stack_deployer
+  vars:
+    # Backend selection (can be overridden via command line)
+    # Options: 'direct', 'portainer', 'kompose'
+    stack_deployer_backend: "{{ deployment_backend | default('direct') }}"
+    
+    # Swarm manager node for delegation
+    stack_deployer_swarm_manager: "pi4_01"
+    
+    # Stacks configuration (reuses existing portainer_stacks variable)
+    stack_deployer_stacks: "{{ portainer_stacks }}"
+    
+    # Portainer backend configuration (used only when backend=portainer)
+    stack_deployer_portainer_url: "https://{{ hostvars['pi4_01'].ansible_host }}:{{ portainer_host_port }}"
+    stack_deployer_portainer_admin_password: "{{ portainer_admin_password }}"
+    stack_deployer_portainer_endpoint_id: 1
+    stack_deployer_portainer_validate_certs: false

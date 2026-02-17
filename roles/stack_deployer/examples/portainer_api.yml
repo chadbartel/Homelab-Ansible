@@ -1,0 +1,64 @@
+---
+# Stack Deployer Role - Portainer API Backend Example
+# This example shows deployment via Portainer API v2.33.7
+
+- name: Deploy stacks via Portainer API
+  hosts: servers
+  gather_facts: true
+  
+  vars_files:
+    - ../../../vars.yml
+    - ../../../vault.yml
+  
+  vars:
+    # Use Portainer backend
+    stack_deployer_backend: "portainer"
+    
+    # Swarm manager node (where Portainer is accessible)
+    stack_deployer_swarm_manager: "pi4_01"
+    
+    # Portainer configuration
+    stack_deployer_portainer_url: "https://{{ hostvars[stack_deployer_swarm_manager].ansible_host }}:9443"
+    stack_deployer_portainer_admin_user: "admin"
+    stack_deployer_portainer_admin_password: "{{ vault_portainer_admin_password }}"
+    stack_deployer_portainer_endpoint_id: 1
+    stack_deployer_portainer_validate_certs: false
+    
+    # Stacks to deploy
+    stack_deployer_stacks:
+      - name: "pihole-stack"
+        compose_template: "templates/pihole-compose.yml.j2"
+      
+      - name: "jellyfin-stack"
+        compose_template: "templates/jellyfin-compose.yml.j2"
+      
+      - name: "npm-stack"
+        compose_template: "templates/npm-compose.yml.j2"
+  
+  tasks:
+    - name: Deploy all stacks via Portainer API
+      ansible.builtin.include_role:
+        name: stack_deployer
+
+    - name: Wait for stacks to stabilize
+      ansible.builtin.pause:
+        seconds: 10
+
+    - name: Verify stacks via Portainer API
+      ansible.builtin.uri:
+        url: "{{ stack_deployer_portainer_url }}/api/stacks"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ portainer_jwt_token }}"
+        validate_certs: false
+        status_code: [200]
+      register: deployed_stacks
+      delegate_to: "{{ stack_deployer_swarm_manager }}"
+    
+    - name: Display deployed stacks from Portainer
+      ansible.builtin.debug:
+        msg: |
+          Deployed Stacks via Portainer:
+          {% for stack in deployed_stacks.json %}
+          - {{ stack.Name }} (ID: {{ stack.Id }}, Status: {{ stack.Status }})
+          {% endfor %}

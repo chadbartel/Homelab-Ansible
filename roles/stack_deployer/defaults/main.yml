@@ -1,0 +1,63 @@
+---
+# Stack Deployer Role - Default Variables
+# This role abstracts Docker Swarm stack deployment across multiple backends
+
+# Deployment backend selection
+# Options: 'portainer', 'direct', 'kompose' (future)
+stack_deployer_backend: "direct"
+
+# =============================================================================
+# Common Configuration (all backends)
+# =============================================================================
+
+# Swarm manager node (for delegation)
+stack_deployer_swarm_manager: "pi4_01"
+
+# List of stacks to deploy
+# Each stack should have: name, compose_template, [compose_content]
+stack_deployer_stacks: []
+
+# Directory where compose files are templated (for direct/kompose backends)
+stack_deployer_compose_dir: "/tmp/docker-stacks"
+
+# =============================================================================
+# Portainer Backend Configuration
+# =============================================================================
+
+# Portainer API endpoint
+stack_deployer_portainer_url: "https://{{ stack_deployer_portainer_host }}:{{ stack_deployer_portainer_port }}"
+stack_deployer_portainer_host: "{{ ansible_host }}"
+stack_deployer_portainer_port: 9443
+
+# Portainer authentication
+stack_deployer_portainer_admin_user: "admin"
+stack_deployer_portainer_admin_password: "{{ portainer_admin_password }}"
+
+# Portainer Swarm endpoint ID (usually 1 for primary Swarm)
+stack_deployer_portainer_endpoint_id: 1
+
+# SSL certificate validation
+stack_deployer_portainer_validate_certs: false
+
+# API timeout settings
+stack_deployer_portainer_api_timeout: 60
+
+# =============================================================================
+# Direct Backend Configuration (docker stack deploy)
+# =============================================================================
+
+# Whether to prune old services when deploying
+stack_deployer_direct_prune: false
+
+# Compose file compatibility mode
+stack_deployer_direct_compose_version: "3.8"
+
+# =============================================================================
+# Kompose Backend Configuration (future)
+# =============================================================================
+
+# Kompose binary path
+stack_deployer_kompose_bin: "/usr/local/bin/kompose"
+
+# Whether to deploy via kubectl after conversion
+stack_deployer_kompose_deploy: true

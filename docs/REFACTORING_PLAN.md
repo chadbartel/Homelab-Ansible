@@ -328,23 +328,69 @@ After analyzing the Homelab-Ansible project, I've identified several areas for i
 
 ## Phase 3: Address Structural Coupling Issues
 
-### Task 3.1: Decouple Portainer Dependency
+### Task 3.1: Decouple Portainer Dependency ✅ COMPLETED
 
-**Issue**: `tasks/deploy_stacks.yml` is tightly coupled to Portainer API.
+**Objective**: Decouple `tasks/deploy_stacks.yml` from Portainer API by creating abstraction layer.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Role created and integrated into project
 
-1. Create abstraction layer: `roles/stack_deployer/`
-2. Support multiple backends:
-   - `stack_deployer_backend: portainer` (current)
-   - `stack_deployer_backend: docker_cli` (alternative)
-   - `stack_deployer_backend: kompose` (future)
-3. Task dispatch based on backend:
+**Implementation Details**:
 
-   ```yaml
-   - name: Deploy stack via selected backend
-     include_tasks: "backends/{{ stack_deployer_backend }}.yml"
-   ```
+1. ✅ Created role structure: `roles/stack_deployer/`
+2. ✅ Supported multiple backends:
+   - `portainer` - Portainer API v2.33.7 (centralized management)
+   - `direct` - `docker stack deploy` CLI (default, backwards compatible)
+   - `kompose` - Kubernetes conversion (placeholder for future)
+3. ✅ Task dispatch based on backend:
+   - `tasks/main.yml` - Backend validation and dispatcher
+   - `tasks/portainer.yml` - Portainer API backend
+   - `tasks/direct.yml` - Direct Docker CLI backend
+   - `tasks/kompose.yml` - Kompose backend (future)
+4. ✅ Portainer API integration:
+   - POST `/api/auth` - JWT authentication
+   - GET `/api/endpoints/{id}` - Verify Swarm endpoint
+   - GET `/api/stacks` - List existing stacks
+   - POST `/api/stacks/create/swarm/string` - Create new stack
+   - PUT `/api/stacks/{id}` - Update existing stack
+5. ✅ Variables in `defaults/main.yml`:
+   - Backend selection: `stack_deployer_backend` (`portainer`, `direct`, `kompose`)
+   - Common: `stack_deployer_swarm_manager`, `stack_deployer_stacks`
+   - Portainer: `stack_deployer_portainer_url`, `stack_deployer_portainer_admin_password`, etc.
+   - Direct: `stack_deployer_direct_prune`, `stack_deployer_direct_compose_version`
+6. ✅ Documentation created:
+   - `README.md` - Complete role documentation with API reference
+   - `QUICK_START.md` - Quick start guide with examples
+   - Example playbooks: basic_direct.yml, portainer_api.yml, backend_switching.yml, complete_setup.yml
+7. ✅ Integrated into project:
+   - Updated `tasks/deploy_stacks.yml` to use role (backwards compatible)
+   - Updated `.github/copilot-instructions.md`
+   - Supports runtime backend switching via `deployment_backend` variable
+
+**Key Features**:
+
+- Backend switching with a single variable
+- True idempotency (Portainer API checks existing stacks)
+- Consistent interface across backends
+- Automatic network creation (`proxy-network`)
+- JWT-based Portainer authentication
+- Backwards compatible with existing deployments
+
+**Backend Switching**:
+
+```bash
+# Deploy with direct backend (default)
+make deploy
+
+# Deploy with Portainer API backend
+ansible-playbook main.yml -e "deployment_backend=portainer"
+```
+
+**Issues Resolved**:
+
+- ✅ Eliminated tight coupling to specific deployment method
+- ✅ Enabled centralized Portainer management (optional)
+- ✅ Maintained backwards compatibility with direct deployment
+- ✅ Created extensible pattern for future backends (Kompose/Kubernetes)
 
 ---
 
