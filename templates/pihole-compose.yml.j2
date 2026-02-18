@@ -4,7 +4,7 @@ version: "3.8"
 services:
   pihole:
     hostname: {{ pihole_container_name }}
-    image: pihole/pihole:2025.11.1
+    image: {{ pihole_image }}
     ports:
       - "445:443/tcp"
       - "53:53/tcp"

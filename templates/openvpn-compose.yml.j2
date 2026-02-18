@@ -3,7 +3,7 @@ version: "3.8"
 
 services:
   openvpn-as:
-    image: openvpn/openvpn-as:2.14.3-5936bcd7-Ubuntu24
+    image: {{ openvpn_image }}
     hostname: {{ openvpn_container_name }}
     cap_add:
       - NET_ADMIN

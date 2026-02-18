@@ -3,7 +3,7 @@ version: "3.8"
 
 services:
   npm:
-    image: jc21/nginx-proxy-manager:2
+    image: {{ npm_image }}
     hostname: {{ nginx_proxy_container_name }}
     ports:
       - "{{ pihole_host_port }}:80"
