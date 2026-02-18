@@ -1,0 +1,38 @@
+---
+galaxy_info:
+  role_name: nginx_proxy_manager_api
+  namespace: homelab
+  author: Homelab-Ansible
+  description: Manage NGINX Proxy Manager via REST API (SSL certificates & reverse proxy hosts)
+  license: MIT
+  
+  min_ansible_version: "2.12"
+  
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+  
+  galaxy_tags:
+    - nginx
+    - proxy
+    - ssl
+    - letsencrypt
+    - dns-01
+    - reverse-proxy
+    - homelab
+    - docker
+
+dependencies: []
+
+# Role allows overlapping execution (no lock needed)
+allow_duplicates: false

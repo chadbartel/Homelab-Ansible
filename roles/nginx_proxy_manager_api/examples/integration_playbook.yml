@@ -1,0 +1,96 @@
+---
+# Integration Example - Adding NPM API Role to Main Playbook
+# ===========================================================
+# Shows how to integrate nginx_proxy_manager_api with existing infrastructure
+
+# This play can be added to main.yml after NPM stack deployment
+
+- name: Configure NGINX Proxy Manager with SSL Certificates
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  
+  vars_files:
+    - vars.yml
+    - vault.yml
+  
+  vars:
+    # NPM API connection (uses manager node from inventory)
+    npm_api_url: "http://{{ hostvars[groups['manager_nodes'][0]].ansible_host }}:{{ proxy_host_port }}"
+    npm_user: "{{ admin_email }}"
+    npm_password: "{{ vault_npm_admin_password }}"
+    
+    # Domain configuration from vault
+    npm_domain: "{{ vault_domain_name }}"
+    duckdns_token: "{{ vault_duckdns_token }}"
+    letsencrypt_email: "{{ admin_email }}"
+    
+    # Build proxy hosts from host_vars dynamically
+    proxy_hosts:
+      # Jellyfin on lenovo_server
+      - domain: "jellyfin.{{ npm_domain }}"
+        forward_host: "{{ hostvars['lenovo_server'].ansible_host }}"
+        forward_port: 8096
+        scheme: "http"
+        websockets_enabled: true
+      
+      # OpenVPN on pi4_01
+      - domain: "vpn.{{ npm_domain }}"
+        forward_host: "{{ hostvars['pi4_01'].ansible_host }}"
+        forward_port: 943
+        scheme: "https"  # CRITICAL for OpenVPN Admin UI
+        websockets_enabled: true
+        hsts_enabled: true
+      
+      # Portainer on manager node
+      - domain: "portainer.{{ npm_domain }}"
+        forward_host: "{{ hostvars[groups['manager_nodes'][0]].ansible_host }}"
+        forward_port: 9000
+        scheme: "http"
+        websockets_enabled: true
+      
+      # Pi-hole on pi4_01
+      - domain: "pihole.{{ npm_domain }}"
+        forward_host: "{{ hostvars['pi4_01'].ansible_host }}"
+        forward_port: "{{ pihole_host_port }}"
+        scheme: "http"
+        websockets_enabled: false
+  
+  pre_tasks:
+    - name: Wait for NPM API to be accessible
+      ansible.builtin.uri:
+        url: "{{ npm_api_url }}/api/schema"
+        status_code: 200
+        validate_certs: false
+        timeout: 5
+      register: npm_api_check
+      retries: 30
+      delay: 10
+      until: npm_api_check.status == 200
+      
+    - name: Display NPM readiness
+      ansible.builtin.debug:
+        msg: "✅ NPM API ready at {{ npm_api_url }}"
+  
+  roles:
+    - role: nginx_proxy_manager_api
+      tags: ["npm", "ssl", "https"]
+  
+  post_tasks:
+    - name: Display configuration summary
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════════════╗
+          ║  ✅ HTTPS Configuration Complete!                            ║
+          ╚══════════════════════════════════════════════════════════════╝
+          
+          🌐 Access your services via HTTPS:
+          {% for host in proxy_hosts %}
+          - https://{{ host.domain }}
+          {% endfor %}
+          
+          ⚠️  Important Next Steps:
+          1. Configure DNS A records to point to your public IP
+          2. Port forward 80/443 to NPM host ({{ hostvars[groups['manager_nodes'][0]].ansible_host }})
+          3. Test certificate: curl -I https://jellyfin.{{ npm_domain }}
+          4. For OpenVPN: Access Admin UI at https://vpn.{{ npm_domain }}

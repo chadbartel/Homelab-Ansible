@@ -1,0 +1,35 @@
+---
+# Basic NPM API Configuration Example
+# =====================================
+# Minimal setup with default SSL settings
+
+- name: Configure NGINX Proxy Manager - Basic Setup
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    # NPM API connection
+    npm_api_url: "http://192.168.1.10:81"
+    npm_user: "{{ vault_npm_admin_email }}"
+    npm_password: "{{ vault_npm_admin_password }}"
+    
+    # Domain configuration
+    npm_domain: "chadbartel.duckdns.org"
+    duckdns_token: "{{ vault_duckdns_token }}"
+    
+    # Simple proxy host list
+    proxy_hosts:
+      - domain: "jellyfin.{{ npm_domain }}"
+        forward_host: "192.168.1.12"
+        forward_port: 8096
+        scheme: "http"
+        
+      - domain: "portainer.{{ npm_domain }}"
+        forward_host: "192.168.1.10"
+        forward_port: 9000
+        scheme: "http"
+  
+  tasks:
+    - name: Import nginx_proxy_manager_api role
+      ansible.builtin.import_role:
+        name: nginx_proxy_manager_api

@@ -1,0 +1,41 @@
+---
+# ========================================
+# NPM API Authentication
+# ========================================
+# Obtains a Bearer token for NPM REST API access
+# Token is cached for the duration of the playbook run
+
+- name: Authenticate with NPM API and retrieve token
+  ansible.builtin.uri:
+    url: "{{ npm_api_url }}/api/tokens"
+    method: POST
+    body_format: json
+    body:
+      identity: "{{ npm_user }}"
+      secret: "{{ npm_password }}"
+    validate_certs: "{{ npm_validate_certs }}"
+    status_code: 200
+    timeout: "{{ npm_api_timeout }}"
+  register: npm_auth_response
+  no_log: true  # Don't log credentials
+  retries: "{{ npm_api_retries }}"
+  delay: "{{ npm_api_retry_delay }}"
+  until: npm_auth_response.status == 200
+
+- name: Extract authentication token
+  ansible.builtin.set_fact:
+    npm_auth_token: "{{ npm_auth_response.json.token }}"
+  no_log: true
+
+- name: Verify token was retrieved successfully
+  ansible.builtin.assert:
+    that:
+      - npm_auth_token is defined
+      - npm_auth_token | length > 0
+    fail_msg: "Failed to retrieve NPM authentication token"
+    success_msg: "✅ Successfully authenticated with NPM API"
+
+- name: Debug authentication status (token masked)
+  ansible.builtin.debug:
+    msg: "Authenticated as {{ npm_user }} - Token: {{ npm_auth_token[:10] }}..."
+  when: ansible_verbosity >= 1

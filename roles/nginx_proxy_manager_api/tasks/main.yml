@@ -1,0 +1,133 @@
+---
+# ========================================
+# NGINX Proxy Manager API Automation Role
+# ========================================
+# Manages NPM configuration via REST API:
+# - Let's Encrypt wildcard certificates (DNS-01 challenge)
+# - Reverse proxy hosts with SSL termination
+# - Support for HTTP and HTTPS backend schemes
+#
+# Usage:
+#   - import_role:
+#       name: nginx_proxy_manager_api
+#
+# See defaults/main.yml for configuration variables
+# See README.md for complete documentation
+
+- name: Display NPM API automation banner
+  ansible.builtin.debug:
+    msg: |
+      ╔══════════════════════════════════════════════════════════════╗
+      ║  NGINX Proxy Manager API Automation                         ║
+      ║  Configuring SSL certificates and reverse proxy hosts       ║
+      ╚══════════════════════════════════════════════════════════════╝
+      
+      🌐 NPM URL: {{ npm_api_url }}
+      📧 Admin: {{ npm_user }}
+      🔒 Domain: {{ npm_domain }}
+      📋 Proxy Hosts: {{ proxy_hosts | length }}
+
+# ========================================
+# PHASE 0: Validation
+# ========================================
+- name: Validate required variables are defined
+  ansible.builtin.assert:
+    that:
+      - npm_api_url is defined
+      - npm_user is defined
+      - npm_password is defined
+      - npm_domain is defined
+      - duckdns_token is defined
+      - duckdns_token | length > 0
+      - proxy_hosts is defined
+      - proxy_hosts | length > 0
+    fail_msg: |
+      ❌ Missing required variables! Ensure the following are defined:
+      - npm_api_url
+      - npm_user
+      - npm_password
+      - npm_domain
+      - duckdns_token (must not be empty)
+      - proxy_hosts (must be a non-empty list)
+    success_msg: "✅ All required variables validated"
+
+- name: Validate proxy host definitions
+  ansible.builtin.assert:
+    that:
+      - item.domain is defined
+      - item.forward_host is defined
+      - item.forward_port is defined
+      - item.scheme is defined
+      - item.scheme in ['http', 'https']
+    fail_msg: |
+      ❌ Invalid proxy host configuration: {{ item }}
+      Required fields: domain, forward_host, forward_port, scheme
+      Valid schemes: http, https
+    success_msg: "✅ Proxy host {{ item.domain }} validated"
+  loop: "{{ proxy_hosts }}"
+  loop_control:
+    label: "{{ item.domain }}"
+
+# ========================================
+# PHASE 1: Authentication
+# ========================================
+- name: "PHASE 1: Authenticate with NPM API"
+  ansible.builtin.debug:
+    msg: "🔐 Authenticating with NPM API..."
+
+- name: Include authentication tasks
+  ansible.builtin.include_tasks: authenticate.yml
+
+# ========================================
+# PHASE 2: Certificate Management
+# ========================================
+- name: "PHASE 2: Manage Let's Encrypt wildcard certificate"
+  ansible.builtin.debug:
+    msg: "🔒 Managing SSL certificate for *.{{ npm_domain }}..."
+
+- name: Include certificate management tasks
+  ansible.builtin.include_tasks: manage_certificate.yml
+
+# ========================================
+# PHASE 3: Proxy Host Configuration
+# ========================================
+- name: "PHASE 3: Configure reverse proxy hosts"
+  ansible.builtin.debug:
+    msg: "🌐 Configuring {{ proxy_hosts | length }} proxy host(s)..."
+
+- name: Include proxy host management tasks
+  ansible.builtin.include_tasks: manage_proxy_hosts.yml
+
+# ========================================
+# PHASE 4: Summary
+# ========================================
+- name: Display configuration summary
+  ansible.builtin.debug:
+    msg: |
+      ╔══════════════════════════════════════════════════════════════╗
+      ║  ✅ NPM Configuration Complete!                              ║
+      ╚══════════════════════════════════════════════════════════════╝
+      
+      📋 Summary:
+      - SSL Certificate ID: {{ npm_cert_id }}
+      - Wildcard Domain: *.{{ npm_domain }}
+      - Configured Hosts: {{ proxy_hosts | length }}
+      
+      🌐 Configured Services:
+      {% for host in proxy_hosts %}
+      {% if host.scheme == 'https' %}
+      - {{ host.domain }} → {{ host.scheme }}://{{ host.forward_host }}:{{ host.forward_port }} ⚠️  HTTPS backend
+      {% else %}
+      - {{ host.domain }} → {{ host.scheme }}://{{ host.forward_host }}:{{ host.forward_port }}
+      {% endif %}
+      {% endfor %}
+      
+      🔒 SSL Settings:
+      - HTTPS Forced: {{ npm_ssl_forced }}
+      - HTTP/2 Enabled: {{ npm_http2_support }}
+      - HSTS Enabled: {{ npm_hsts_enabled }}
+      
+      📝 Next Steps:
+      1. Ensure DNS A/AAAA records point to {{ npm_api_url | regex_replace('http://|https://|:\\d+', '') }}
+      2. Test services via HTTPS URLs
+      3. For OpenVPN: Use https://vpn.{{ npm_domain }}:943 (Admin UI)

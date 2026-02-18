@@ -1,0 +1,42 @@
+---
+# ========================================
+# NPM Proxy Host Management
+# ========================================
+# Idempotently manages reverse proxy hosts with SSL termination
+# Supports both HTTP and HTTPS backend schemes (critical for OpenVPN Admin UI)
+
+- name: Retrieve existing proxy hosts from NPM
+  ansible.builtin.uri:
+    url: "{{ npm_api_url }}/api/nginx/proxy-hosts"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    validate_certs: "{{ npm_validate_certs }}"
+    status_code: 200
+    timeout: "{{ npm_api_timeout }}"
+  register: npm_existing_proxy_hosts
+  retries: "{{ npm_api_retries }}"
+  delay: "{{ npm_api_retry_delay }}"
+  until: npm_existing_proxy_hosts.status == 200
+
+- name: Debug existing proxy hosts
+  ansible.builtin.debug:
+    msg: "Found {{ npm_existing_proxy_hosts.json | length }} existing proxy host(s)"
+  when: ansible_verbosity >= 1
+
+- name: Display existing proxy host domains
+  ansible.builtin.debug:
+    msg: "Existing domains: {{ npm_existing_proxy_hosts.json | map(attribute='domain_names') | flatten | unique | list }}"
+  when:
+    - ansible_verbosity >= 1
+    - npm_existing_proxy_hosts.json | length > 0
+
+# ========================================
+# Process each proxy host configuration
+# ========================================
+- name: Configure proxy hosts (idempotent)
+  include_tasks: process_proxy_host.yml
+  loop: "{{ proxy_hosts }}"
+  loop_control:
+    loop_var: proxy_host_item
+    label: "{{ proxy_host_item.domain }}"

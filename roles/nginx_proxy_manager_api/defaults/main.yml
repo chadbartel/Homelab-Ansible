@@ -1,0 +1,91 @@
+---
+# NGINX Proxy Manager API Role - Default Variables
+# =================================================
+# This role manages NPM configurations via REST API, including:
+# - Let's Encrypt wildcard certificates (DNS-01 challenge)
+# - Reverse proxy hosts with SSL termination
+# - Support for both HTTP and HTTPS backend schemes
+
+# ========================================
+# NPM API Connection Settings
+# ========================================
+npm_api_url: "http://192.168.1.10:81"
+npm_user: "admin@example.com"
+npm_password: "changeme"
+npm_validate_certs: false
+
+# ========================================
+# Domain & DNS Configuration
+# ========================================
+npm_domain: "chadbartel.duckdns.org"
+duckdns_token: ""  # Override in vars.yml or vault.yml
+letsencrypt_email: "{{ npm_user }}"
+
+# ========================================
+# Certificate Configuration
+# ========================================
+npm_cert_dns_provider: "duckdns"
+npm_cert_agree_tos: true
+
+# Certificate domain names (wildcard + apex domain)
+npm_cert_domain_names:
+  - "*.{{ npm_domain }}"
+  - "{{ npm_domain }}"
+
+# ========================================
+# Proxy Host Definitions
+# ========================================
+# List of reverse proxy hosts to configure
+# Each host requires: domain, forward_host, forward_port, scheme
+proxy_hosts:
+  - domain: "jellyfin.{{ npm_domain }}"
+    forward_host: "192.168.1.12"
+    forward_port: 8096
+    scheme: "http"
+    websockets_enabled: true
+    block_exploits: true
+    caching_enabled: false
+    allow_websocket_upgrade: true
+    
+  - domain: "vpn.{{ npm_domain }}"
+    forward_host: "192.168.1.10"  # Override with actual OpenVPN host IP
+    forward_port: 943
+    scheme: "https"  # CRITICAL: OpenVPN Admin UI requires HTTPS backend
+    websockets_enabled: true
+    block_exploits: true
+    caching_enabled: false
+    allow_websocket_upgrade: true
+    # OpenVPN requires special handling
+    hsts_enabled: true
+    hsts_subdomains: false
+
+# ========================================
+# SSL/TLS Settings (Applied to all proxy hosts)
+# ========================================
+npm_ssl_forced: true  # Redirect HTTP to HTTPS
+npm_http2_support: true  # Enable HTTP/2
+npm_hsts_enabled: true  # HTTP Strict Transport Security
+npm_hsts_subdomains: false  # Don't enforce on subdomains
+
+# ========================================
+# Advanced Settings
+# ========================================
+npm_websockets_support: true  # Enable WebSocket proxying (required for Jellyfin/OpenVPN)
+npm_block_exploits: true  # Block common exploit attempts
+npm_caching_enabled: false  # Disable caching for dynamic content
+
+# ========================================
+# API Retry Settings
+# ========================================
+npm_api_retries: 5
+npm_api_retry_delay: 10  # seconds
+npm_api_timeout: 30  # seconds
+
+# ========================================
+# Idempotency Settings
+# ========================================
+# Skip certificate creation if one already exists for the domain
+npm_cert_skip_if_exists: true
+
+# Update existing proxy hosts if configuration changes
+npm_proxy_update_existing: true

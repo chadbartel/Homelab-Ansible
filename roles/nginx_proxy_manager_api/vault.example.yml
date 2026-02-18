@@ -1,0 +1,34 @@
+---
+# NGINX Proxy Manager API Role - Vault Variables Template
+# =========================================================
+# Create this file and encrypt with: ansible-vault create vault.yml
+# Edit encrypted file with: ansible-vault edit vault.yml
+
+# ========================================
+# NPM Authentication
+# ========================================
+vault_npm_admin_email: "admin@example.com"
+vault_npm_admin_password: "changeme"  # Change this!
+
+# ========================================
+# DNS Provider Credentials
+# ========================================
+vault_duckdns_token: "your-duckdns-token-here"  # From https://www.duckdns.org/
+
+# ========================================
+# Domain Configuration
+# ========================================
+vault_domain_name: "yourname.duckdns.org"
+
+# ========================================
+# Let's Encrypt
+# ========================================
+vault_letsencrypt_email: "{{ vault_npm_admin_email }}"
+
+# ========================================
+# Optional: Service-Specific Credentials
+# ========================================
+# Add any service-specific credentials here as needed
+# vault_jellyfin_admin_password: "changeme"
+# vault_openvpn_admin_password: "changeme"
+# vault_portainer_admin_password: "changeme"

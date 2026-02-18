@@ -1,0 +1,114 @@
+---
+# ========================================
+# NPM Let's Encrypt Wildcard Certificate Management
+# ========================================
+# Manages wildcard SSL certificates using DNS-01 challenge
+# Idempotent: Checks for existing certificates before creating new ones
+
+- name: Check for existing SSL certificates
+  ansible.builtin.uri:
+    url: "{{ npm_api_url }}/api/nginx/certificates"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    validate_certs: "{{ npm_validate_certs }}"
+    status_code: 200
+    timeout: "{{ npm_api_timeout }}"
+  register: npm_existing_certs
+  retries: "{{ npm_api_retries }}"
+  delay: "{{ npm_api_retry_delay }}"
+  until: npm_existing_certs.status == 200
+
+- name: Debug existing certificates
+  ansible.builtin.debug:
+    msg: "Found {{ npm_existing_certs.json | length }} existing certificate(s)"
+  when: ansible_verbosity >= 1
+
+- name: Search for wildcard certificate matching our domain
+  ansible.builtin.set_fact:
+    npm_existing_wildcard_cert: "{{ npm_existing_certs.json | selectattr('name', 'search', '\\*\\.' + npm_domain) | list | first | default({}) }}"
+
+- name: Display existing wildcard certificate if found
+  ansible.builtin.debug:
+    msg: |
+      ✅ Found existing wildcard certificate:
+      - ID: {{ npm_existing_wildcard_cert.id }}
+      - Name: {{ npm_existing_wildcard_cert.name }}
+      - Domains: {{ npm_existing_wildcard_cert.domain_names | join(', ') }}
+      - Expires: {{ npm_existing_wildcard_cert.expires_on }}
+  when:
+    - npm_existing_wildcard_cert | length > 0
+    - npm_cert_skip_if_exists | bool
+
+- name: Set certificate ID from existing certificate
+  ansible.builtin.set_fact:
+    npm_cert_id: "{{ npm_existing_wildcard_cert.id }}"
+  when:
+    - npm_existing_wildcard_cert | length > 0
+    - npm_cert_skip_if_exists | bool
+
+- name: Create new wildcard certificate via Let's Encrypt DNS-01 challenge
+  ansible.builtin.uri:
+    url: "{{ npm_api_url }}/api/nginx/certificates"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      provider: "letsencrypt"
+      nice_name: "Wildcard - {{ npm_domain }}"
+      domain_names: "{{ npm_cert_domain_names }}"
+      meta:
+        letsencrypt_email: "{{ letsencrypt_email }}"
+        letsencrypt_agree: "{{ npm_cert_agree_tos }}"
+        dns_challenge: true
+        dns_provider: "{{ npm_cert_dns_provider }}"
+        dns_provider_credentials: "token={{ duckdns_token }}"
+        propagation_seconds: 120
+    validate_certs: "{{ npm_validate_certs }}"
+    status_code: 201
+    timeout: 300  # Certificate creation takes longer (DNS propagation + validation)
+  register: npm_new_cert_response
+  when:
+    - npm_existing_wildcard_cert | length == 0 or not npm_cert_skip_if_exists
+  retries: 3
+  delay: 30
+  until: npm_new_cert_response.status == 201
+
+- name: Set certificate ID from newly created certificate
+  ansible.builtin.set_fact:
+    npm_cert_id: "{{ npm_new_cert_response.json.id }}"
+  when:
+    - npm_existing_wildcard_cert | length == 0 or not npm_cert_skip_if_exists
+    - npm_new_cert_response is defined
+    - npm_new_cert_response.json is defined
+
+- name: Display certificate creation success
+  ansible.builtin.debug:
+    msg: |
+      ✅ Successfully created wildcard certificate:
+      - ID: {{ npm_cert_id }}
+      - Domains: {{ npm_cert_domain_names | join(', ') }}
+      - Provider: Let's Encrypt (DNS-01 via {{ npm_cert_dns_provider }})
+  when:
+    - npm_new_cert_response is defined
+    - npm_new_cert_response.status == 201
+
+- name: Verify certificate ID is available
+  ansible.builtin.assert:
+    that:
+      - npm_cert_id is defined
+      - npm_cert_id | int > 0
+    fail_msg: "Failed to obtain certificate ID - cannot proceed with proxy host configuration"
+    success_msg: "Certificate ID {{ npm_cert_id }} ready for proxy host configuration"
+
+- name: Display certificate summary
+  ansible.builtin.debug:
+    msg: |
+      📋 Certificate Summary:
+      - Certificate ID: {{ npm_cert_id }}
+      - Domain: {{ npm_domain }}
+      - Wildcard: *.{{ npm_domain }}
+      - Email: {{ letsencrypt_email }}
+      - DNS Provider: {{ npm_cert_dns_provider }}

@@ -1,0 +1,121 @@
+---
+# ========================================
+# Process Individual Proxy Host
+# ========================================
+# This file is included via loop from manage_proxy_hosts.yml
+# Handles creation or update of a single proxy host configuration
+
+- name: Check if proxy host already exists for {{ proxy_host_item.domain }}
+  ansible.builtin.set_fact:
+    npm_existing_proxy_host: "{{ npm_existing_proxy_hosts.json | selectattr('domain_names', 'contains', proxy_host_item.domain) | list | first | default({}) }}"
+
+- name: Display existing proxy host status
+  ansible.builtin.debug:
+    msg: |
+      {% if npm_existing_proxy_host | length > 0 %}
+      ⚠️  Proxy host exists: {{ proxy_host_item.domain }} (ID: {{ npm_existing_proxy_host.id }})
+      {% else %}
+      ➕ Will create new proxy host: {{ proxy_host_item.domain }}
+      {% endif %}
+
+# ========================================
+# Build proxy host configuration payload
+# ========================================
+- name: Build proxy host configuration for {{ proxy_host_item.domain }}
+  ansible.builtin.set_fact:
+    npm_proxy_host_config:
+      domain_names:
+        - "{{ proxy_host_item.domain }}"
+      forward_scheme: "{{ proxy_host_item.scheme }}"
+      forward_host: "{{ proxy_host_item.forward_host }}"
+      forward_port: "{{ proxy_host_item.forward_port }}"
+      certificate_id: "{{ npm_cert_id }}"
+      ssl_forced: "{{ proxy_host_item.ssl_forced | default(npm_ssl_forced) }}"
+      http2_support: "{{ proxy_host_item.http2_support | default(npm_http2_support) }}"
+      hsts_enabled: "{{ proxy_host_item.hsts_enabled | default(npm_hsts_enabled) }}"
+      hsts_subdomains: "{{ proxy_host_item.hsts_subdomains | default(npm_hsts_subdomains) }}"
+      block_exploits: "{{ proxy_host_item.block_exploits | default(npm_block_exploits) }}"
+      caching_enabled: "{{ proxy_host_item.caching_enabled | default(npm_caching_enabled) }}"
+      allow_websocket_upgrade: "{{ proxy_host_item.websockets_enabled | default(npm_websockets_support) }}"
+      access_list_id: "0"
+      advanced_config: ""
+      enabled: true
+      meta: {}
+      locations: []
+
+# ========================================
+# CREATE new proxy host
+# ========================================
+- name: Create new proxy host for {{ proxy_host_item.domain }}
+  ansible.builtin.uri:
+    url: "{{ npm_api_url }}/api/nginx/proxy-hosts"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ npm_proxy_host_config }}"
+    validate_certs: "{{ npm_validate_certs }}"
+    status_code: 201
+    timeout: "{{ npm_api_timeout }}"
+  register: npm_create_proxy_host_response
+  when: npm_existing_proxy_host | length == 0
+  retries: "{{ npm_api_retries }}"
+  delay: "{{ npm_api_retry_delay }}"
+  until: npm_create_proxy_host_response.status == 201
+
+- name: Display proxy host creation success
+  ansible.builtin.debug:
+    msg: |
+      ✅ Successfully created proxy host:
+      - Domain: {{ proxy_host_item.domain }}
+      - Backend: {{ proxy_host_item.scheme }}://{{ proxy_host_item.forward_host }}:{{ proxy_host_item.forward_port }}
+      - SSL Certificate ID: {{ npm_cert_id }}
+      - HTTPS Forced: {{ npm_ssl_forced }}
+      - WebSockets: {{ proxy_host_item.websockets_enabled | default(npm_websockets_support) }}
+  when:
+    - npm_create_proxy_host_response is defined
+    - npm_create_proxy_host_response.status == 201
+
+# ========================================
+# UPDATE existing proxy host
+# ========================================
+- name: Update existing proxy host for {{ proxy_host_item.domain }}
+  ansible.builtin.uri:
+    url: "{{ npm_api_url }}/api/nginx/proxy-hosts/{{ npm_existing_proxy_host.id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ npm_proxy_host_config }}"
+    validate_certs: "{{ npm_validate_certs }}"
+    status_code: 200
+    timeout: "{{ npm_api_timeout }}"
+  register: npm_update_proxy_host_response
+  when:
+    - npm_existing_proxy_host | length > 0
+    - npm_proxy_update_existing | bool
+  retries: "{{ npm_api_retries }}"
+  delay: "{{ npm_api_retry_delay }}"
+  until: npm_update_proxy_host_response.status == 200
+
+- name: Display proxy host update success
+  ansible.builtin.debug:
+    msg: |
+      🔄 Successfully updated proxy host:
+      - Domain: {{ proxy_host_item.domain }}
+      - Backend: {{ proxy_host_item.scheme }}://{{ proxy_host_item.forward_host }}:{{ proxy_host_item.forward_port }}
+      - SSL Certificate ID: {{ npm_cert_id }}
+      - HTTPS Forced: {{ npm_ssl_forced }}
+      - WebSockets: {{ proxy_host_item.websockets_enabled | default(npm_websockets_support) }}
+  when:
+    - npm_update_proxy_host_response is defined
+    - npm_update_proxy_host_response.status == 200
+
+- name: Skip update (proxy host already configured)
+  ansible.builtin.debug:
+    msg: "⏩ Skipping {{ proxy_host_item.domain }} - already configured (npm_proxy_update_existing=false)"
+  when:
+    - npm_existing_proxy_host | length > 0
+    - not npm_proxy_update_existing | bool

@@ -1,0 +1,76 @@
+---
+# Advanced NPM API Configuration Example
+# ========================================
+# Per-host customization with mixed HTTP/HTTPS backends
+
+- name: Configure NGINX Proxy Manager - Advanced Setup
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    # NPM API connection
+    npm_api_url: "http://192.168.1.10:81"
+    npm_user: "{{ vault_npm_admin_email }}"
+    npm_password: "{{ vault_npm_admin_password }}"
+    
+    # Domain configuration
+    npm_domain: "chadbartel.duckdns.org"
+    duckdns_token: "{{ vault_duckdns_token }}"
+    letsencrypt_email: "{{ vault_letsencrypt_email }}"
+    
+    # Custom global SSL settings
+    npm_ssl_forced: true
+    npm_http2_support: true
+    npm_hsts_enabled: true
+    npm_hsts_subdomains: false
+    
+    # Advanced proxy host configurations
+    proxy_hosts:
+      # Jellyfin - HTTP backend with WebSockets
+      - domain: "jellyfin.{{ npm_domain }}"
+        forward_host: "192.168.1.12"
+        forward_port: 8096
+        scheme: "http"
+        websockets_enabled: true
+        caching_enabled: false
+        block_exploits: true
+        
+      # OpenVPN Admin UI - HTTPS backend (critical!)
+      - domain: "vpn.{{ npm_domain }}"
+        forward_host: "192.168.1.10"
+        forward_port: 943
+        scheme: "https"  # Must use HTTPS for OpenVPN Admin UI
+        websockets_enabled: true
+        hsts_enabled: true
+        hsts_subdomains: false
+        block_exploits: false  # Some VPN clients may trigger exploit detection
+        
+      # Portainer - HTTP backend with WebSockets
+      - domain: "portainer.{{ npm_domain }}"
+        forward_host: "192.168.1.10"
+        forward_port: 9000
+        scheme: "http"
+        websockets_enabled: true
+        caching_enabled: false
+        
+      # Pi-hole Admin - HTTP backend
+      - domain: "pihole.{{ npm_domain }}"
+        forward_host: "192.168.1.10"
+        forward_port: 8081
+        scheme: "http"
+        websockets_enabled: false
+        caching_enabled: false
+        block_exploits: true
+  
+  tasks:
+    - name: Validate vault variables are loaded
+      ansible.builtin.assert:
+        that:
+          - vault_npm_admin_email is defined
+          - vault_npm_admin_password is defined
+          - vault_duckdns_token is defined
+        fail_msg: "Missing vault variables - ensure vault.yml is loaded"
+    
+    - name: Import nginx_proxy_manager_api role
+      ansible.builtin.import_role:
+        name: nginx_proxy_manager_api

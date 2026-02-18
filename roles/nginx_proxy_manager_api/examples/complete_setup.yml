@@ -1,0 +1,90 @@
+---
+# Complete NPM Setup with Infrastructure Integration
+# ===================================================
+# Full production configuration with pre-deployment checks
+
+- name: Complete NGINX Proxy Manager Configuration
+  hosts: manager_nodes
+  gather_facts: true
+  become: true
+  
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  
+  vars:
+    # NPM service configuration
+    npm_service_name: "npm-stack_npm"
+    npm_swarm_manager: "{{ groups['swarm_managers'][0] }}"
+    
+    # NPM API connection (dynamic from inventory)
+    npm_api_url: "http://{{ ansible_host }}:{{ proxy_host_port }}"
+    npm_user: "{{ admin_email }}"
+    npm_password: "{{ vault_npm_admin_password }}"
+    
+    # Domain configuration
+    npm_domain: "{{ vault_domain_name }}"
+    duckdns_token: "{{ vault_duckdns_token }}"
+    letsencrypt_email: "{{ admin_email }}"
+    
+    # Proxy hosts from inventory host_vars
+    proxy_hosts:
+      - domain: "jellyfin.{{ npm_domain }}"
+        forward_host: "{{ hostvars['lenovo_server'].ansible_host }}"
+        forward_port: 8096
+        scheme: "http"
+        websockets_enabled: true
+        
+      - domain: "vpn.{{ npm_domain }}"
+        forward_host: "{{ hostvars['pi4_01'].ansible_host }}"
+        forward_port: 943
+        scheme: "https"
+        websockets_enabled: true
+  
+  pre_tasks:
+    - name: Wait for NPM service to be ready
+      ansible.builtin.uri:
+        url: "{{ npm_api_url }}/api/schema"
+        status_code: 200
+        validate_certs: false
+        timeout: 5
+      register: npm_health_check
+      retries: 30
+      delay: 10
+      until: npm_health_check.status == 200
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Display NPM readiness status
+      ansible.builtin.debug:
+        msg: "✅ NPM is ready at {{ npm_api_url }}"
+      run_once: true
+  
+  tasks:
+    - name: Configure NPM via API
+      ansible.builtin.import_role:
+        name: nginx_proxy_manager_api
+      delegate_to: localhost
+      run_once: true
+  
+  post_tasks:
+    - name: Display access information
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════════════╗
+          ║  🌐 NGINX Proxy Manager - Configuration Complete             ║
+          ╚══════════════════════════════════════════════════════════════╝
+          
+          📝 Access URLs:
+          {% for host in proxy_hosts %}
+          - https://{{ host.domain }}
+          {% endfor %}
+          
+          🔧 NPM Admin Panel: {{ npm_api_url }}
+          📧 Admin Email: {{ npm_user }}
+          
+          ⚠️  Important Notes:
+          1. Ensure DNS records point to your public IP
+          2. Port forward 80/443 to NPM host ({{ ansible_host }})
+          3. For OpenVPN: Use https://vpn.{{ npm_domain }} (scheme=https backend)
+      run_once: true

@@ -1,0 +1,77 @@
+---
+# NGINX Proxy Manager API Role - Variables Template
+# ==================================================
+# Copy this to your vars.yml or playbook and customize
+
+# ========================================
+# NPM API Connection
+# ========================================
+npm_api_url: "http://192.168.1.10:81"
+npm_user: "admin@example.com"
+npm_password: "{{ vault_npm_admin_password }}"  # Store in vault.yml
+npm_validate_certs: false
+
+# ========================================
+# Domain & DNS Configuration
+# ========================================
+npm_domain: "yourname.duckdns.org"
+duckdns_token: "{{ vault_duckdns_token }}"  # Store in vault.yml
+letsencrypt_email: "{{ npm_user }}"
+
+# ========================================
+# Proxy Host Definitions
+# ========================================
+proxy_hosts:
+  # Example 1: Jellyfin Media Server (HTTP backend)
+  - domain: "jellyfin.{{ npm_domain }}"
+    forward_host: "192.168.1.12"
+    forward_port: 8096
+    scheme: "http"
+    websockets_enabled: true
+    caching_enabled: false
+  
+  # Example 2: OpenVPN Admin UI (HTTPS backend - CRITICAL!)
+  - domain: "vpn.{{ npm_domain }}"
+    forward_host: "192.168.1.10"
+    forward_port: 943
+    scheme: "https"  # Must be https for OpenVPN Admin UI
+    websockets_enabled: true
+    hsts_enabled: true
+  
+  # Example 3: Portainer (HTTP backend)
+  - domain: "portainer.{{ npm_domain }}"
+    forward_host: "192.168.1.10"
+    forward_port: 9000
+    scheme: "http"
+    websockets_enabled: true
+  
+  # Example 4: Pi-hole Admin (HTTP backend)
+  - domain: "pihole.{{ npm_domain }}"
+    forward_host: "192.168.1.10"
+    forward_port: 8081
+    scheme: "http"
+    websockets_enabled: false
+
+# ========================================
+# SSL/TLS Settings (Global Defaults)
+# ========================================
+npm_ssl_forced: true  # Redirect HTTP → HTTPS
+npm_http2_support: true
+npm_hsts_enabled: true
+npm_hsts_subdomains: false
+
+# ========================================
+# Advanced Settings (Optional)
+# ========================================
+npm_websockets_support: true
+npm_block_exploits: true
+npm_caching_enabled: false
+
+# Idempotency settings
+npm_cert_skip_if_exists: true
+npm_proxy_update_existing: true
+
+# API retry settings
+npm_api_retries: 5
+npm_api_retry_delay: 10
+npm_api_timeout: 30
