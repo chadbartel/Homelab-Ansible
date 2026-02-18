@@ -121,6 +121,19 @@ pihole_config_custom_dns_entries:
 pihole_config_dnsmasq_settings:
   - "dns-forward-max=300"
 
+# Pi-hole rate limiting configuration (prevents "Client X has been rate-limited" errors)
+pihole_rate_limit_enabled: true
+pihole_rate_limit_count: 2000  # Queries per interval (10x default of 1000)
+pihole_rate_limit_interval: 60  # Seconds
+
+# Pi-hole upstream DNS servers (prevents query failures)
+pihole_upstream_dns_servers:
+  - "1.1.1.1"  # Cloudflare primary
+  - "8.8.8.8"  # Google DNS fallback
+
+# Pi-hole DNS listening mode (security hardening)
+pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'all')
+
 # Note: pihole_config_adlists uses defaults from role (roles/pihole_config/defaults/main.yml)
 # Override here if needed:
 # pihole_config_adlists:

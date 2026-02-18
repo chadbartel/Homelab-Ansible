@@ -1,0 +1,149 @@
+---
+# FTL and system information tasks
+# GET /info/ftl - FTL daemon information
+# GET /info/host - Host system information
+# GET /info/system - Pi-hole system info
+# GET /info/version - Version information
+# GET /info/database - Database information
+# GET /info/client - Client information (for current session)
+# GET /info/login - Login/authentication information
+# GET /info/metrics - Prometheus-format metrics
+# GET /info/sensors - System sensors (temperature, etc.)
+# GET /info/messages - System messages/notices
+# DELETE /info/messages/{message_id} - Delete specific message
+# GET /info/messages/count - Count of unread messages
+# GET /endpoints - List all available API endpoints
+
+- name: Get FTL information
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/ftl"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_ftl
+  when: pihole_api_info_operation == "get_ftl"
+
+- name: Get host information
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/host"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_host
+  when: pihole_api_info_operation == "get_host"
+
+- name: Get system information
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/system"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_system
+  when: pihole_api_info_operation == "get_system"
+
+- name: Get version information
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/version"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_version
+  when: pihole_api_info_operation == "get_version"
+
+- name: Get database information
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/database"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_database
+  when: pihole_api_info_operation == "get_database"
+
+- name: Get client information
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/client"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_client
+  when: pihole_api_info_operation == "get_client"
+
+- name: Get Prometheus metrics
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/metrics"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_metrics
+  when: pihole_api_info_operation == "get_metrics"
+
+- name: Get system sensors
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/sensors"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_sensors
+  when: pihole_api_info_operation == "get_sensors"
+
+- name: Get system messages
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/messages"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_messages
+  when: pihole_api_info_operation == "get_messages"
+
+- name: Get message count
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/messages/count"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_message_count
+  when: pihole_api_info_operation == "get_message_count"
+
+- name: Delete system message
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/info/messages/{{ pihole_api_message_id }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_message_delete
+  when:
+    - pihole_api_info_operation == "delete_message"
+    - pihole_api_message_id is defined
+
+- name: List all API endpoints
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/endpoints"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_info_endpoints
+  when: pihole_api_info_operation == "get_endpoints"
