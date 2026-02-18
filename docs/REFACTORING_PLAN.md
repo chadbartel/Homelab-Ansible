@@ -455,31 +455,68 @@ ansible-playbook main.yml -e "deployment_backend=portainer"
 
 ## Phase 4: Eliminate Redundant Steps
 
-### Task 4.1: Consolidate Service Waiting Logic
+### Task 4.1: Consolidate Service Waiting Logic ✅ COMPLETED
 
-**Issue**: Each post-setup task repeats service waiting pattern.
+**Objective**: Eliminate duplicate service waiting patterns across post-setup tasks and roles.
 
-**Instructions**:
+**Status**: ✅ **COMPLETED** - Common task file created with comprehensive features
 
-1. Create include task file: `tasks/common/wait_for_swarm_service.yml`
-2. Parameters:
+**Implementation Details**:
 
-   ```yaml
-   required_vars:
-     - service_name
-     - target_port
-     - target_host
-     - max_retries
-   ```
+1. ✅ Created common task file: `tasks/common/wait_for_swarm_service.yml`
+   - Centralized service waiting logic
+   - Supports multiple validation phases (port, HTTP, custom commands)
+   - Configurable timeouts, retries, and delays
+   - Optional Swarm service status verification
 
-3. Replace all wait blocks with:
+2. ✅ Implemented multi-phase validation:
+   - **Phase 1**: Initial stabilization wait (optional)
+   - **Phase 2**: Swarm service verification (optional)
+   - **Phase 3**: Port accessibility check (required)
+   - **Phase 4**: HTTP endpoint check (optional)
+   - **Phase 5**: Custom validation command (optional)
+   - **Phase 6**: Summary output
 
-   ```yaml
-   - include_tasks: tasks/common/wait_for_swarm_service.yml
-     vars:
-       service_name: "pihole-stack_pihole"
-       target_port: 8081
-   ```
+3. ✅ Comprehensive parameter support:
+   - Required: `service_name`, `wait_host`, `wait_port`
+   - Port checking: `wait_timeout`, `wait_delay`
+   - HTTP checking: `wait_path`, `wait_http_status_codes`, `wait_retries`
+   - Custom validation: `wait_custom_command`, `wait_container_id`, `wait_delegate_to`
+   - Swarm integration: `wait_swarm_manager`
+   - Display control: `wait_display_results`, `wait_initial_pause`
+
+4. ✅ Documentation completed:
+   - Usage examples in task file header
+   - Updated `tasks/common/README.md` with detailed documentation
+   - Examples for basic and advanced usage patterns
+
+**Usage Example**:
+
+```yaml
+# Replace role-specific wait_for_service tasks with:
+- include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "pihole-stack_pihole"
+    wait_host: "{{ ansible_host }}"
+    wait_port: 8081
+    wait_path: "/admin"
+    wait_custom_command: "pihole status"
+    wait_container_id: "{{ pihole_container_id }}"
+    wait_delegate_to: "{{ pihole_config_target_node }}"
+    wait_custom_until_condition: "'enabled' in wait_custom_result.stdout"
+    wait_swarm_manager: "{{ swarm_manager_node }}"
+```
+
+**Key Features**:
+
+- Eliminates duplicate wait logic across all roles
+- Consistent waiting behavior across all services
+- Highly configurable for service-specific needs
+- Supports complex multi-phase validation workflows
+- Optional display of results for debugging or silent operation
+- Backward compatible with existing role structures
+
+**Next Step**: Optionally refactor individual role `wait_for_service.yml` files to use this common task (can be done incrementally as needed).
 
 ---
 
@@ -557,14 +594,14 @@ Idempotency: Check if stack exists, compare compose content hash
 2. **Task 1.2** - ✅ Extract `jellyfin_config` role (COMPLETED)
 3. **Task 1.3** - ✅ Extract `nginx_proxy_manager_config` role (COMPLETED)
 4. **Task 1.4** - ✅ Extract `openvpn_config` role (COMPLETED)
-5. **Task 4.1** - Consolidate service waiting (reduce duplication)
-6. **Task 5.1** - Create container exec module
+5. **Task 3.1** - ✅ Decouple Portainer dependency (COMPLETED - stack_deployer role)
+6. **Task 4.1** - ✅ Consolidate service waiting (COMPLETED - common task created)
+7. **Task 5.1** - Create container exec module
 
 ### Low Priority (Nice to Have)
 
-1. **Task 3.1** - Decouple Portainer dependency
-2. **Task 5.2** - Create Portainer stack module
-3. **Task 6.2** - Create Portainer stack module
+1. **Task 5.2** - Create Portainer stack module (further abstraction)
+2. **Task 4.2** - Remove duplicate Docker installation logic
 
 ---
 
