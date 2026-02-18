@@ -7,6 +7,17 @@ admin_email: "me@chadbartel.com"
 admin_password: "{{ vault_admin_password }}"
 admin_ssh_key_public: "{{ vault_admin_ssh_key_public }}"
 
+# Docker user configuration
+# Users to add to the docker group (allows running Docker commands without sudo)
+# If not specified, defaults to admin_user only
+docker_users:
+  - "{{ admin_user }}"
+# Example with multiple users:
+# docker_users:
+#   - thatsmidnight
+#   - deployuser
+#   - devuser
+
 # Bootstrap configuration
 ansible_version: "2.18.6"
 x86_image_link: "https://mirror.pnl.gov/releases/noble/ubuntu-24.04.2-live-server-amd64.iso"

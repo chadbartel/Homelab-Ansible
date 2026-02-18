@@ -520,13 +520,72 @@ ansible-playbook main.yml -e "deployment_backend=portainer"
 
 ---
 
-### Task 4.2: Remove Duplicate Docker Installation Logic
+### Task 4.2: Remove Duplicate Docker Installation Logic ✅ COMPLETED
 
-**Instructions**:
+**Objective**: Eliminate redundant Docker installation checks and improve idempotency.
 
-1. Review `tasks/docker.yml` for redundant checks
-2. Ensure `docker_users` loop doesn't re-add existing users (use `state: present`)
-3. Verify Docker socket permissions aren't reset unnecessarily
+**Status**: ✅ **COMPLETED** - Docker installation refactored with comprehensive idempotency
+
+**Implementation Details**:
+
+1. ✅ Added pre-installation health checks:
+   - Checks if Docker is already installed (`docker --version`)
+   - Checks if Docker daemon is healthy (`docker info`)
+   - Sets facts: `docker_needs_installation` and `docker_needs_repair`
+
+2. ✅ Consolidated apt cache updates:
+   - Removed redundant `update_cache: true` calls
+   - Uses `cache_valid_time: 3600` to avoid unnecessary updates
+   - Only updates cache when actually adding repository
+
+3. ✅ Implemented `docker_users` list support:
+   - New variable: `docker_users` in `vars.yml`
+   - Defaults to `[admin_user]` for backward compatibility
+   - Loop adds multiple users to docker group idempotently
+   - Uses `append: true` to avoid removing users from other groups
+
+4. ✅ Conditional task execution:
+   - Docker installation only runs when `docker_needs_installation` is true
+   - Nuclear fix script only runs when needed (installation or repair required)
+   - Service startup only when needed (not on every run)
+
+5. ✅ Improved cleanup:
+   - Temporary GPG key file (`/tmp/docker.asc`) is removed after use
+   - No unnecessary Docker socket permission resets
+
+6. ✅ Enhanced status reporting:
+   - Shows actual Docker version from `docker version` command
+   - Reports whether Docker was newly installed, repaired, or already healthy
+   - Lists all users with Docker access
+
+**Variables Added**:
+
+```yaml
+# In vars.yml
+docker_users:
+  - "{{ admin_user }}"
+# Example with multiple users:
+# docker_users:
+#   - thatsmidnight
+#   - deployuser
+#   - devuser
+```
+
+**Key Features**:
+
+- Fully idempotent (safe to re-run multiple times)
+- No redundant apt cache updates
+- Conditional execution based on actual Docker status
+- Support for multiple Docker users
+- Proper cleanup of temporary files
+- Clear status reporting
+
+**Benefits**:
+
+- Reduced execution time (skips installation when Docker is healthy)
+- No unnecessary service restarts
+- Better support for multi-user environments
+- Improved debugging with clear status messages
 
 ---
 
@@ -586,7 +645,7 @@ Idempotency: Check if stack exists, compare compose content hash
 1. **Task 2.1** - ✅ Fix adlist idempotency (COMPLETED - pihole_adlist module created)
 2. **Task 2.2** - ✅ Fix custom DNS idempotency (COMPLETED - template-based approach)
 3. **Task 2.3** - ✅ Fix dnsmasq configuration idempotency (COMPLETED - docker_exec_lineinfile module)
-4. **Task 3.2** - Decouple node-specific logic (portability)
+4. **Task 3.2** - ✅ Decouple node-specific logic (COMPLETED - dynamic fact gathering)
 
 ### Medium Priority (Structural Improvements)
 
@@ -596,12 +655,12 @@ Idempotency: Check if stack exists, compare compose content hash
 4. **Task 1.4** - ✅ Extract `openvpn_config` role (COMPLETED)
 5. **Task 3.1** - ✅ Decouple Portainer dependency (COMPLETED - stack_deployer role)
 6. **Task 4.1** - ✅ Consolidate service waiting (COMPLETED - common task created)
-7. **Task 5.1** - Create container exec module
+7. **Task 4.2** - ✅ Remove duplicate Docker installation logic (COMPLETED)
 
 ### Low Priority (Nice to Have)
 
-1. **Task 5.2** - Create Portainer stack module (further abstraction)
-2. **Task 4.2** - Remove duplicate Docker installation logic
+1. **Task 5.1** - Create container exec module
+2. **Task 5.2** - Create Portainer stack module (further abstraction)
 
 ---
 

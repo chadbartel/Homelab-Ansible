@@ -1,51 +1,89 @@
 ---
-# Docker installation and configuration tasks - SIMPLIFIED VERSION
-- name: Install Docker prerequisite packages
-  ansible.builtin.apt:
-    name:
-      - ca-certificates
-      - curl
-      - gnupg
-    state: present
-    update_cache: true
+# Docker installation and configuration tasks - IDEMPOTENT VERSION
+# Follows Ansible best practices for idempotency and minimal redundancy
 
-- name: Create directory for Docker GPG key
-  ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: '0755'
+# Phase 1: Check current Docker status
+- name: Check if Docker is already installed
+  ansible.builtin.command: docker --version
+  register: docker_installed
+  changed_when: false
+  failed_when: false
 
-- name: Download Docker's official GPG key
-  ansible.builtin.get_url:
-    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
-    dest: /tmp/docker.asc
-    mode: '0644'
+- name: Check if Docker daemon is healthy
+  ansible.builtin.command: docker info
+  register: docker_health_check
+  changed_when: false
+  failed_when: false
+  when: docker_installed.rc == 0
 
-- name: Dearmor the Docker GPG key
-  ansible.builtin.command:
-    cmd: gpg --dearmor -o /etc/apt/keyrings/docker.gpg /tmp/docker.asc
-    creates: /etc/apt/keyrings/docker.gpg
+- name: Set Docker status facts
+  ansible.builtin.set_fact:
+    docker_needs_installation: >
+      {{ docker_installed.rc != 0 }}
+    docker_needs_repair: >
+      {{ docker_installed.rc == 0 and docker_health_check.rc != 0 }}
 
-- name: Add Docker repository
-  ansible.builtin.apt_repository:
-    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
-    state: present
-    filename: docker
+# Phase 2: Install Docker (only if needed)
+- name: Docker installation block
+  when: docker_needs_installation
+  block:
+    - name: Install Docker prerequisite packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+        cache_valid_time: 3600  # Only update cache if older than 1 hour
 
-- name: Update apt cache after adding Docker repo
-  ansible.builtin.apt:
-    update_cache: true
+    - name: Create directory for Docker GPG key
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
 
-- name: Install Docker Engine
-  ansible.builtin.apt:
-    name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-      - docker-buildx-plugin
-      - docker-compose-plugin
-    state: present
+    - name: Download Docker's official GPG key
+      ansible.builtin.get_url:
+        url: >
+          https://download.docker.com/linux/
+          {{- ansible_distribution | lower }}/gpg
+        dest: /tmp/docker.asc
+        mode: '0644'
 
+    - name: Dearmor the Docker GPG key
+      ansible.builtin.command:
+        cmd: gpg --dearmor -o /etc/apt/keyrings/docker.gpg /tmp/docker.asc
+        creates: /etc/apt/keyrings/docker.gpg
+
+    - name: Clean up temporary GPG key
+      ansible.builtin.file:
+        path: /tmp/docker.asc
+        state: absent
+
+    - name: Add Docker repository
+      ansible.builtin.apt_repository:
+        repo: >
+          deb
+          [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}
+          signed-by=/etc/apt/keyrings/docker.gpg]
+          https://download.docker.com/linux/{{ ansible_distribution | lower }}
+          {{ ansible_distribution_release }} stable
+        state: present
+        filename: docker
+        update_cache: true  # Only update cache when repo is added
+
+    - name: Install Docker Engine
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+# Phase 3: Ensure Python Docker SDK is installed
 - name: Install Python Docker SDK in virtual environment
   ansible.builtin.pip:
     name: docker
@@ -53,34 +91,45 @@
     virtualenv: "{{ python_venv_path }}"
     virtualenv_command: "python{{ python_version }} -m venv"
 
-- name: Add admin user to docker group
+# Phase 4: Manage Docker group membership (supports multiple users)
+- name: Add users to docker group
   ansible.builtin.user:
-    name: "{{ admin_user }}"
+    name: "{{ item }}"
     groups: docker
     append: true
+  loop: "{{ docker_users | default([admin_user]) }}"
+  # Using state: present is implicit in ansible.builtin.user module
+  # append: true ensures we don't remove users from other groups
 
-- name: Apply nuclear Docker fix for lenovo_server
+# Phase 5: Docker service management (conditional based on need)
+- name: Apply Docker socket repair for lenovo_server (only if needed)
   ansible.builtin.script: bash_scripts/fix-docker-socket.sh
-  when: inventory_hostname == 'lenovo_server'
+  when:
+    - inventory_hostname == 'lenovo_server'
+    - docker_needs_installation or docker_needs_repair
   register: docker_nuclear_fix
+  # Script has built-in idempotency check, exits early if Docker is healthy
 
-- name: Standard Docker startup for other hosts
+- name: Start Docker service for other hosts (only if needed)
+  when:
+    - inventory_hostname != 'lenovo_server'
+    - docker_needs_installation or docker_needs_repair
   block:
     - name: Start and enable Docker service
       ansible.builtin.systemd:
         name: docker
         state: started
         enabled: true
-        daemon_reload: true
 
     - name: Wait for Docker socket
       ansible.builtin.wait_for:
         path: /var/run/docker.sock
         timeout: 30
-  when: inventory_hostname != 'lenovo_server'
 
+# Phase 6: Validate and finalize
 - name: Reset SSH connection to pick up docker group membership
   ansible.builtin.meta: reset_connection
+  when: docker_needs_installation or docker_needs_repair
 
 - name: Verify Docker is working
   ansible.builtin.command: docker info
@@ -88,10 +137,20 @@
   changed_when: false
   retries: 3
   delay: 5
+  until: docker_verify.rc == 0
+
+- name: Get Docker version for display
+  ansible.builtin.command: docker version --format '{% raw %}{{.Server.Version}}{% endraw %}'
+  register: docker_version
+  changed_when: false
 
 - name: Display Docker status
   ansible.builtin.debug:
     msg: |
       ✅ Docker successfully configured on {{ inventory_hostname }}
-      Version: {{ ansible_local.docker.version | default('Unknown') }}
-      Status: Working
+      Version: {{ docker_version.stdout }}
+      Status: {{
+        'Newly installed' if docker_needs_installation
+        else ('Repaired' if docker_needs_repair else 'Already healthy')
+      }}
+      Users: {{ docker_users | default([admin_user]) | join(', ') }}
