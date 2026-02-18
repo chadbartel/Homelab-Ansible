@@ -39,8 +39,9 @@
   when: pihole_config_display_results | default(true)
 
 - name: Update Pi-hole gravity database
-  ansible.builtin.shell: |
-    docker exec {{ pihole_container_id }} pihole -g
+  docker_swarm_container_exec:
+    container_id: "{{ pihole_container_id }}"
+    command: "pihole -g"
   register: gravity_update
   changed_when: "'Update complete' in gravity_update.stdout"
   delegate_to: "{{ pihole_config_target_node }}"

@@ -27,8 +27,9 @@
   delegate_to: "{{ pihole_config_target_node }}"
 
 - name: Restart dnsmasq to apply changes
-  ansible.builtin.shell: |
-    docker exec {{ pihole_container_id }} pihole restartdns
+  docker_swarm_container_exec:
+    container_id: "{{ pihole_container_id }}"
+    command: "pihole restartdns"
   when: dnsmasq_results.changed
   delegate_to: "{{ pihole_config_target_node }}"
 

@@ -152,8 +152,9 @@
 # PHASE 5: Custom validation command (optional)
 # ========================================
 - name: Execute custom validation command
-  ansible.builtin.shell: |
-    docker exec {{ wait_container_id }} {{ wait_custom_command }}
+  docker_swarm_container_exec:
+    container_id: "{{ wait_container_id }}"
+    command: "{{ wait_custom_command }}"
   register: wait_custom_result
   until: "{{ wait_custom_until_condition | default('wait_custom_result.rc == 0') }}"
   retries: "{{ _wait_custom_retries | int }}"

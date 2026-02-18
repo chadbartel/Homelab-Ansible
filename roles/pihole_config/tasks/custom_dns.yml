@@ -47,8 +47,9 @@
   when: pihole_config_custom_dns_entries | default([]) | length > 0
 
 - name: Read existing custom DNS from container
-  ansible.builtin.shell: |
-    docker exec {{ pihole_container_id }} cat /etc/pihole/custom.list 2>/dev/null || echo ""
+  docker_swarm_container_exec:
+    container_id: "{{ pihole_container_id }}"
+    command: "cat /etc/pihole/custom.list 2>/dev/null || echo ''"
   register: existing_dns
   changed_when: false
   failed_when: false
@@ -56,18 +57,19 @@
   when: pihole_config_custom_dns_entries | default([]) | length > 0
 
 - name: Update custom DNS entries in container
-  ansible.builtin.shell: |
-    docker exec {{ pihole_container_id }} bash -c 'cat > /etc/pihole/custom.list << '\''EOF'\''
-    {{ dns_content }}
-    EOF'
+  docker_swarm_container_exec:
+    container_id: "{{ pihole_container_id }}"
+    command: "tee /etc/pihole/custom.list > /dev/null"
+    stdin: "{{ dns_content }}"
   register: dns_update
   changed_when: existing_dns.stdout != dns_content
   delegate_to: "{{ pihole_config_target_node }}"
   when: pihole_config_custom_dns_entries | default([]) | length > 0
 
 - name: Restart Pi-hole DNS to apply custom DNS entries
-  ansible.builtin.shell: |
-    docker exec {{ pihole_container_id }} pihole restartdns
+  docker_swarm_container_exec:
+    container_id: "{{ pihole_container_id }}"
+    command: "pihole restartdns"
   when:
     - pihole_config_custom_dns_entries | default([]) | length > 0
     - dns_update.changed

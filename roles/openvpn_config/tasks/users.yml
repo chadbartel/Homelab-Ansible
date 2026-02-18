@@ -2,10 +2,9 @@
 # User Management Tasks - Create and configure VPN users (Idempotent)
 
 - name: Check which users already exist  
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_id.stdout }} \
-      sacli --user "{{ item.username }}" UserPropGet 2>&1 | \
-      grep -q '"type".*:.*"user_connect"' && echo "{{ item.username }}" || echo ""
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: "sacli --user '{{ item.username }}' UserPropGet 2>&1 | grep -q '\"type\".*:.*\"user_connect\"' && echo '{{ item.username }}' || echo ''"
   loop: "{{ openvpn_config_users }}"
   register: user_checks
   delegate_to: "{{ openvpn_config_target_host }}"
@@ -30,11 +29,11 @@
     label: "{{ user.username }}"
 
 - name: Restart OpenVPN to persist user changes
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_id.stdout }} sacli start
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: "sacli start"
   register: openvpn_user_restart
   delegate_to: "{{ openvpn_config_target_host }}"
-  changed_when: true
   when: openvpn_config_users | length > 0
 
 - name: Wait for OpenVPN to reload after user changes
@@ -43,10 +42,9 @@
   when: openvpn_config_users | length > 0
 
 - name: Verify users were created successfully
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_id.stdout }} \
-      sacli --user "{{ item.username }}" UserPropGet 2>&1 | \
-      grep -q '"type".*:.*"user_connect"' && echo "EXISTS" || echo "MISSING"
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: "sacli --user '{{ item.username }}' UserPropGet 2>&1 | grep -q '\"type\".*:.*\"user_connect\"' && echo 'EXISTS' || echo 'MISSING'"
   loop: "{{ openvpn_config_users }}"
   register: user_verification
   delegate_to: "{{ openvpn_config_target_host }}"
