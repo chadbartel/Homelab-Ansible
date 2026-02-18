@@ -23,6 +23,7 @@ openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
 portainer_agent_secret: "{{ vault_portainer_agent_secret }}"
 
 # OpenVPN configuration
+openvpn_image: "openvpn/openvpn-as:2.14.3-5936bcd7-Ubuntu24"
 openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
 openvpn_thatsmidnight_password: "{{ vault_openvpn_thatsmidnight_password }}"
 openvpn_tyramail_password: "{{ vault_openvpn_tyramail_password }}"
@@ -85,11 +86,13 @@ jellyfin_config_libraries:
     refresh_on_create: true
 
 # NGINX Proxy Manager Config Role Variables
+npm_image: "jc21/nginx-proxy-manager:2"
 npm_service_name: "npm-stack_npm"
 npm_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
 npm_target_node: "lenovo_server"
 
 # Pi-hole configuration
+pihole_image: "pihole/pihole:2025.11.1"
 pihole_config_path: "/opt/pihole/etc-pihole"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
 block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
@@ -117,6 +120,19 @@ pihole_config_custom_dns_entries:
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:
   - "dns-forward-max=300"
+
+# Pi-hole rate limiting configuration (prevents "Client X has been rate-limited" errors)
+pihole_rate_limit_enabled: true
+pihole_rate_limit_count: 2000  # Queries per interval (10x default of 1000)
+pihole_rate_limit_interval: 60  # Seconds
+
+# Pi-hole upstream DNS servers (prevents query failures)
+pihole_upstream_dns_servers:
+  - "1.1.1.1"  # Cloudflare primary
+  - "8.8.8.8"  # Google DNS fallback
+
+# Pi-hole DNS listening mode (security hardening)
+pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'all')
 
 # Note: pihole_config_adlists uses defaults from role (roles/pihole_config/defaults/main.yml)
 # Override here if needed:

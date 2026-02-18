@@ -1,0 +1,122 @@
+---
+# Pi-hole configuration management tasks
+# GET /config - Get full configuration
+# PATCH /config - Update configuration (partial)
+# GET /config/{element} - Get specific config element
+# PUT /config/{element}/{value} - Set specific config value
+# DELETE /config/{element}/{value} - Delete specific config value
+
+- name: Get full Pi-hole configuration
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/config"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_config_result
+  when: pihole_api_config_operation == "get_config"
+
+- name: Update Pi-hole configuration (partial update)
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/config"
+    method: PATCH
+    body: "{{ pihole_api_config_updates }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_config_patch_result
+  when:
+    - pihole_api_config_operation == "update_config"
+    - pihole_api_config_updates is defined
+
+- name: Get specific configuration element
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/config/{{ pihole_api_config_element }}"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_config_element_result
+  when:
+    - pihole_api_config_operation == "get_element"
+    - pihole_api_config_element is defined
+
+- name: Set specific configuration value
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/config/{{ pihole_api_config_element }}/{{ pihole_api_config_value }}"
+    method: PUT
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_config_set_result
+  when:
+    - pihole_api_config_operation == "set_value"
+    - pihole_api_config_element is defined
+    - pihole_api_config_value is defined
+
+- name: Delete specific configuration value
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/config/{{ pihole_api_config_element }}/{{ pihole_api_config_value }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_config_delete_result
+  when:
+    - pihole_api_config_operation == "delete_value"
+    - pihole_api_config_element is defined
+    - pihole_api_config_value is defined
+
+- name: Configure rate limiting (idempotent)
+  block:
+    - name: Get current rate limit configuration
+      pihole_api:
+        base_url: "{{ pihole_api_base_url }}"
+        session_id: "{{ pihole_session_id }}"
+        endpoint: "/config"
+        method: GET
+        validate_certs: "{{ pihole_api_validate_certs }}"
+        timeout: "{{ pihole_api_timeout }}"
+      register: current_config
+
+    - name: Check if rate limit update needed
+      ansible.builtin.set_fact:
+        rate_limit_needs_update: >-
+          {{
+            (current_config.response.dns.rateLimit.count | default(1000) != pihole_api_rate_limit_count) or
+            (current_config.response.dns.rateLimit.interval | default(60) != pihole_api_rate_limit_interval)
+          }}
+
+    - name: Update rate limit configuration
+      pihole_api:
+        base_url: "{{ pihole_api_base_url }}"
+        session_id: "{{ pihole_session_id }}"
+        endpoint: "/config"
+        method: PATCH
+        body:
+          dns:
+            rateLimit:
+              count: "{{ pihole_api_rate_limit_count }}"
+              interval: "{{ pihole_api_rate_limit_interval }}"
+        validate_certs: "{{ pihole_api_validate_certs }}"
+        timeout: "{{ pihole_api_timeout }}"
+      register: pihole_rate_limit_update_result
+      when: rate_limit_needs_update | bool
+
+    - name: Display rate limit update result
+      ansible.builtin.debug:
+        msg: |
+          Rate Limit Configuration:
+          {% if rate_limit_needs_update %}
+          Updated from {{ current_config.response.dns.rateLimit.count | default(1000) }}/{{ current_config.response.dns.rateLimit.interval | default(60) }}s
+          to {{ pihole_api_rate_limit_count }}/{{ pihole_api_rate_limit_interval }}s
+          {% else %}
+          Already configured: {{ pihole_api_rate_limit_count }}/{{ pihole_api_rate_limit_interval }}s (no change needed)
+          {% endif %}
+
+  when: pihole_api_config_operation == "configure_rate_limit"

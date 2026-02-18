@@ -1,0 +1,74 @@
+---
+# Example: Domain whitelist and blocklist management
+
+- name: Pi-hole Domain Management
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    pihole_api_target_node: "lenovo_server"
+    pihole_api_web_port: 8081
+    pihole_api_password: "{{ vault_pihole_admin_password }}"
+    
+  tasks:
+    - name: Authenticate with Pi-hole API
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "create_session"
+
+    - name: Whitelist domain (exact match)
+      include_role:
+        name: pihole_api
+        tasks_from: domains.yml
+      vars:
+        pihole_api_operation: "domains"
+        pihole_api_domain_operation: "whitelist_exact"
+        pihole_api_domain: "example.com"
+        pihole_api_domain_comment: "Whitelisted via API"
+
+    - name: Whitelist domain pattern (regex)
+      include_role:
+        name: pihole_api
+        tasks_from: domains.yml
+      vars:
+        pihole_api_operation: "domains"
+        pihole_api_domain_operation: "whitelist_regex"
+        pihole_api_domain: ".*\\.example\\.com"
+        pihole_api_domain_comment: "Whitelist all example.com subdomains"
+
+    - name: Block specific domain
+      include_role:
+        name: pihole_api
+        tasks_from: domains.yml
+      vars:
+        pihole_api_operation: "domains"
+        pihole_api_domain_operation: "blocklist_exact"
+        pihole_api_domain: "ads.badsite.com"
+        pihole_api_domain_comment: "Blocked via API"
+
+    - name: Search for domain in lists
+      include_role:
+        name: pihole_api
+        tasks_from: lists.yml
+      vars:
+        pihole_api_operation: "lists"
+        pihole_api_list_operation: "search"
+        pihole_api_search_domain: "example.com"
+
+    - name: Display search results
+      ansible.builtin.debug:
+        msg: |
+          Domain Search Results for 'example.com':
+          {{ pihole_list_search.response }}
+
+    - name: Cleanup session
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "destroy_session"

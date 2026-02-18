@@ -1,0 +1,29 @@
+---
+# Teleporter (backup/restore) tasks
+# GET /teleporter - Export Pi-hole configuration
+# POST /teleporter - Import Pi-hole configuration
+
+- name: Export Pi-hole configuration (teleporter backup)
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/teleporter"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_teleporter_export
+  when: pihole_api_teleporter_operation == "export"
+
+- name: Import Pi-hole configuration (teleporter restore)
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/teleporter"
+    method: POST
+    body: "{{ pihole_api_teleporter_config }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_teleporter_import
+  when:
+    - pihole_api_teleporter_operation == "import"
+    - pihole_api_teleporter_config is defined

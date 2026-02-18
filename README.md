@@ -11,6 +11,28 @@ This collection provides independent, reusable roles that can be composed to cre
 - **Docker Swarm**: Docker Swarm cluster management
 - **Portainer**: Container management platform (Swarm or standalone modes)
 - **Pi-hole**: DNS ad blocker with custom homelab domain resolution
+- **Pi-hole API**: Comprehensive Pi-hole API v6.0 management (80+ endpoints) 🆕
+
+### 🆕 Pi-hole API Role
+
+The `pihole_api` role provides complete management of Pi-hole via its REST API v6.0, including:
+
+- **Rate Limiting Management**: Fix "Client X has been rate-limited" errors
+- **Statistics & Metrics**: Query history, top clients, top domains
+- **Domain Management**: Whitelist/blocklist with exact or regex matching
+- **Client Management**: Per-client configuration and rate limits
+- **Configuration**: Full Pi-hole configuration via API
+- **Backup & Restore**: Teleporter-based configuration backup/restore
+
+**Quick Fix for Rate Limiting**:
+
+```bash
+ansible-playbook roles/pihole_api/examples/rate_limit_fix.yml
+```
+
+See [roles/pihole_api/README.md](roles/pihole_api/README.md) for full documentation.
+
+**Incident Report**: [docs/PIHOLE_RATE_LIMIT_INCIDENT.md](docs/PIHOLE_RATE_LIMIT_INCIDENT.md)
 
 ## 📁 Structure
 
@@ -202,6 +224,8 @@ The playbook automatically:
 
 - **URL**: `http://your-manager-ip:80/admin`
 - **Purpose**: Network-wide ad blocking and DNS
+- **API Management**: Use `pihole_api` role for programmatic configuration (rate limits, statistics, domain/client management, backup/restore)
+- **Quick Fix**: `ansible-playbook roles/pihole_api/examples/rate_limit_fix.yml` for rate limiting issues
 
 ### Nginx Proxy Manager
 
@@ -236,6 +260,7 @@ The playbook automatically:
 2. **Docker Installation Fails**: Check internet connectivity and package repositories
 3. **Swarm Join Fails**: Verify network connectivity between nodes
 4. **Service Won't Start**: Check Docker logs and resource availability
+5. **Pi-hole Rate Limiting Errors**: Run `ansible-playbook roles/pihole_api/examples/rate_limit_fix.yml` to increase rate limits or use `identify_rate_limit_source.yml` to find heavy clients
 
 ### Useful Commands
 

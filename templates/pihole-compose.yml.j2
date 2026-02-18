@@ -4,7 +4,7 @@ version: "3.8"
 services:
   pihole:
     hostname: {{ pihole_container_name }}
-    image: pihole/pihole:2025.11.1
+    image: {{ pihole_image }}
     ports:
       - "445:443/tcp"
       - "53:53/tcp"
@@ -13,9 +13,14 @@ services:
     environment:
       TZ: '{{ timezone }}'
       FTLCONF_webserver_api_password: '{{ pihole_web_password }}'
-      # Sets the upstream DNS to the internal Unbound resolver
-      # FTLCONF_dns_upstreams: '127.0.0.1#5335'
-      FTLCONF_dns_listeningMode: 'all'
+      # Upstream DNS servers (prevents query failures and timeouts)
+      FTLCONF_dns_upstreams: '{{ pihole_upstream_dns_servers | default(["1.1.1.1", "8.8.8.8"]) | join(";") }}'
+      # DNS listening mode - 'local' only listens on container network (more secure than 'all')
+      FTLCONF_dns_listeningMode: '{{ pihole_dns_listening_mode | default("local") }}'
+      # Rate limiting configuration (prevents "Client X has been rate-limited" errors)
+      # Note: These are startup defaults; can be overridden via API at runtime
+      FTLCONF_dns_rateLimit_count: '{{ pihole_rate_limit_count | default(2000) }}'
+      FTLCONF_dns_rateLimit_interval: '{{ pihole_rate_limit_interval | default(60) }}'
       FTLCONF_dns_revServers: 'true,192.168.1.0/24,192.168.1.1'
       FTLCONF_dns_dnssec: 'false'
       FTLCONF_dns_hosts: |

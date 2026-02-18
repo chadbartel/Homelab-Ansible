@@ -1,0 +1,137 @@
+---
+# Domain management tasks (whitelist/blocklist)
+# POST /domains:batchDelete - Delete multiple domains
+# POST /domains/{type}/{kind} - Add domain ({type} = allow/deny, {kind} = exact/regex)
+# GET /domains/{type}/{kind}/{domain} - Get domain details
+# PUT /domains/{type}/{kind}/{domain} - Update domain
+# DELETE /domains/{type}/{kind}/{domain} - Remove domain
+
+- name: Add domain to whitelist (exact match)
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/domains/allow/exact"
+    method: POST
+    body:
+      domain: "{{ pihole_api_domain }}"
+      comment: "{{ pihole_api_domain_comment | default('') }}"
+      groups: "{{ pihole_api_domain_groups | default([]) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_domain_whitelist_exact
+  when:
+    - pihole_api_domain_operation == "whitelist_exact"
+    - pihole_api_domain is defined
+
+- name: Add domain to whitelist (regex match)
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/domains/allow/regex"
+    method: POST
+    body:
+      domain: "{{ pihole_api_domain }}"
+      comment: "{{ pihole_api_domain_comment | default('') }}"
+      groups: "{{ pihole_api_domain_groups | default([]) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_domain_whitelist_regex
+  when:
+    - pihole_api_domain_operation == "whitelist_regex"
+    - pihole_api_domain is defined
+
+- name: Add domain to blocklist (exact match)
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/domains/deny/exact"
+    method: POST
+    body:
+      domain: "{{ pihole_api_domain }}"
+      comment: "{{ pihole_api_domain_comment | default('') }}"
+      groups: "{{ pihole_api_domain_groups | default([]) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_domain_blocklist_exact
+  when:
+    - pihole_api_domain_operation == "blocklist_exact"
+    - pihole_api_domain is defined
+
+- name: Add domain to blocklist (regex match)
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/domains/deny/regex"
+    method: POST
+    body:
+      domain: "{{ pihole_api_domain }}"
+      comment: "{{ pihole_api_domain_comment | default('') }}"
+      groups: "{{ pihole_api_domain_groups | default([]) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_domain_blocklist_regex
+  when:
+    - pihole_api_domain_operation == "blocklist_regex"
+    - pihole_api_domain is defined
+
+- name: Get domain details
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/domains/{{ pihole_api_domain_type }}/{{ pihole_api_domain_kind }}/{{ pihole_api_domain }}"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_domain_get
+  when:
+    - pihole_api_domain_operation == "get"
+    - pihole_api_domain is defined
+    - pihole_api_domain_type is defined
+    - pihole_api_domain_kind is defined
+
+- name: Update domain
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/domains/{{ pihole_api_domain_type }}/{{ pihole_api_domain_kind }}/{{ pihole_api_domain }}"
+    method: PUT
+    body: "{{ pihole_api_domain_updates }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_domain_update
+  when:
+    - pihole_api_domain_operation == "update"
+    - pihole_api_domain is defined
+    - pihole_api_domain_type is defined
+    - pihole_api_domain_kind is defined
+    - pihole_api_domain_updates is defined
+
+- name: Remove domain
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/domains/{{ pihole_api_domain_type }}/{{ pihole_api_domain_kind }}/{{ pihole_api_domain }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_domain_delete
+  when:
+    - pihole_api_domain_operation == "delete"
+    - pihole_api_domain is defined
+    - pihole_api_domain_type is defined
+    - pihole_api_domain_kind is defined
+
+- name: Batch delete domains
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/domains:batchDelete"
+    method: POST
+    body:
+      domains: "{{ pihole_api_domains }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_domain_batch_delete
+  when:
+    - pihole_api_domain_operation == "batch_delete"
+    - pihole_api_domains is defined

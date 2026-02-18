@@ -24,6 +24,23 @@
     name: pihole_config
     tasks_from: dnsmasq
 
+- name: Apply Pi-hole rate limit configuration via API
+  ansible.builtin.include_role:
+    name: pihole_api
+    tasks_from: configure_rate_limit
+  vars:
+    pihole_api_base_url: "http://{{ hostvars[pihole_config_target_node]['ansible_host'] }}:{{ pihole_web_port }}/api"
+    pihole_api_password: "{{ vault_pihole_admin_password }}"
+    pihole_api_rate_limit_count: "{{ pihole_rate_limit_count }}"
+    pihole_api_rate_limit_interval: "{{ pihole_rate_limit_interval }}"
+    pihole_api_validate_certs: false
+    pihole_api_timeout: 30
+  when: pihole_rate_limit_enabled | default(true)
+  tags:
+    - pihole
+    - pihole-config
+    - rate-limit
+
 - name: Display Pi-hole access information
   ansible.builtin.debug:
     msg: |
@@ -38,4 +55,12 @@
       - {{ pihole_config_adlists | default([]) | length }} block lists configured
       - {{ pihole_config_custom_dns_entries | default([]) | length }} custom DNS entries
       - {{ pihole_config_dnsmasq_settings | default([]) | length }} dnsmasq settings
+      - Rate Limit: {{ pihole_rate_limit_count | default(2000) }} queries/{{ pihole_rate_limit_interval | default(60) }}s per client
+      - Upstream DNS: {{ pihole_upstream_dns_servers | default(['1.1.1.1', '8.8.8.8']) | join(', ') }}
+      - Listening Mode: {{ pihole_dns_listening_mode | default('local') }}
       - Running on node: {{ pihole_target_host }}
+      
+      🔧 Rate Limiting:
+      The rate limit has been configured to prevent "Client X has been rate-limited" errors.
+      Default of 1000 queries/60s increased to {{ pihole_rate_limit_count | default(2000) }} queries/60s.
+      Rate limit is set via FTL environment variables and persists across container restarts.

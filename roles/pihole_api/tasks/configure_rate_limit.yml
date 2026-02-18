@@ -1,0 +1,128 @@
+---
+# Complete rate limit configuration workflow
+# NOTE: Rate limits are PRIMARILY configured via FTLCONF_dns_rateLimit_* environment variables
+# in the compose file. This API verification is optional and provides runtime validation only.
+
+- name: Debug Pi-hole API connection details
+  ansible.builtin.debug:
+    msg: |
+      Note: Rate limiting is configured via FTL environment variables (FTLCONF_dns_rateLimit_count, FTLCONF_dns_rateLimit_interval).
+      Attempting optional API verification...
+      Base URL: {{ pihole_api_base_url }}
+
+- name: Attempt Pi-hole API authentication
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    password: "{{ pihole_api_password }}"
+    endpoint: "/auth"
+    method: POST
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_auth_result
+  delegate_to: localhost
+  failed_when: false
+  ignore_errors: true
+
+- name: Set API verification skip flag
+  ansible.builtin.set_fact:
+    skip_api_verification: "{{ pihole_auth_result.failed | default(true) or pihole_auth_result.session_id is not defined }}"
+
+- name: Display API authentication status
+  ansible.builtin.debug:
+    msg: |
+      {% if skip_api_verification %}
+      ⚠️  Pi-hole API authentication skipped (API not ready or authentication failed)
+      
+      This is OK! Rate limiting is configured via FTL environment variables:
+      - FTLCONF_dns_rateLimit_count: {{ pihole_api_rate_limit_count }}
+      - FTLCONF_dns_rateLimit_interval: {{ pihole_api_rate_limit_interval }}
+      
+      These settings persist across container restarts.
+      {% else %}
+      ✅ Pi-hole API authentication successful - proceeding with verification
+      {% endif %}
+
+- name: Set session ID for subsequent calls
+  ansible.builtin.set_fact:
+    pihole_session_id: "{{ pihole_auth_result.session_id }}"
+  when: not skip_api_verification
+
+- name: Get current rate limit configuration
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/config"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: current_config
+  delegate_to: localhost
+  when: not skip_api_verification
+
+- name: Check if rate limit update needed
+  ansible.builtin.set_fact:
+    rate_limit_needs_update: >-
+      {{
+        (current_config.response.dns.rateLimit.count | default(1000) != pihole_api_rate_limit_count) or
+        (current_config.response.dns.rateLimit.interval | default(60) != pihole_api_rate_limit_interval)
+      }}
+  when: not skip_api_verification
+
+- name: Update rate limit configuration
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/config"
+    method: PATCH
+    body:
+      dns:
+        rateLimit:
+          count: "{{ pihole_api_rate_limit_count }}"
+          interval: "{{ pihole_api_rate_limit_interval }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_rate_limit_update_result
+  when: 
+    - not skip_api_verification
+    - rate_limit_needs_update | bool
+  delegate_to: localhost
+
+- name: Get updated configuration for verification
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/config"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: final_config
+  delegate_to: localhost
+  when: not skip_api_verification
+
+- name: Display rate limit configuration
+  ansible.builtin.debug:
+    msg: |
+      Pi-hole Rate Limit Configuration:
+      {% if rate_limit_needs_update %}
+      ✅ Updated from {{ current_config.response.dns.rateLimit.count | default(1000) }}/{{ current_config.response.dns.rateLimit.interval | default(60) }}s
+      to {{ final_config.response.dns.rateLimit.count }}/{{ final_config.response.dns.rateLimit.interval }}s
+      {% else %}
+      ℹ️  Already configured: {{ final_config.response.dns.rateLimit.count }}/{{ final_config.response.dns.rateLimit.interval }}s (no change needed)
+      {% endif %}
+      
+      This prevents "Client X has been rate-limited" errors for clients making up to 
+      {{ final_config.response.dns.rateLimit.count }} queries per {{ final_config.response.dns.rateLimit.interval }} seconds.
+      
+      Note: Configuration persists in Pi-hole database (pihole_etc volume).
+  when: not skip_api_verification
+
+- name: Cleanup Pi-hole API session
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/auth"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  delegate_to: localhost
+  when: not skip_api_verification
