@@ -1,9 +1,6 @@
 ---
 # Service Readiness Tasks - Wait for OpenVPN Access Server to be fully ready
-
-- name: Initial wait for OpenVPN Access Server startup
-  ansible.builtin.pause:
-    seconds: "{{ openvpn_config_startup_wait }}"
+# Now using the common wait_for_swarm_service task for consistency
 
 - name: Determine target IP for readiness checks
   ansible.builtin.set_fact:
@@ -16,45 +13,19 @@
         {{ openvpn_config_target_host }}
       {%- endif -%}
 
-- name: Wait for OpenVPN Access Server web UI port to be accessible
-  ansible.builtin.wait_for:
-    port: "{{ openvpn_config_web_port }}"
-    host: "{{ _openvpn_target_ip }}"
-    delay: "{{ openvpn_config_readiness_delay }}"
-    timeout: "{{ openvpn_config_readiness_timeout }}"
-  delegate_to: localhost
-  become: false
-
-- name: Verify OpenVPN Access Server admin UI is responding
-  ansible.builtin.uri:
-    url: "https://{{ _openvpn_target_ip }}:{{ openvpn_config_web_port }}/admin"
-    method: GET
-    validate_certs: no
-    status_code: [200, 302, 401]  # 401 is expected before login
-    timeout: 10
-  register: openvpn_web_check
-  retries: "{{ openvpn_config_readiness_retries }}"
-  delay: "{{ openvpn_config_readiness_delay }}"
-  until: openvpn_web_check is success
-  delegate_to: localhost
-  become: false
-  changed_when: false
-
-- name: Verify OpenVPN sacli command is available in container
-  ansible.builtin.shell: |
-    docker exec {{ openvpn_container_id.stdout }} which sacli
-  register: sacli_check
-  delegate_to: "{{ openvpn_config_target_host }}"
-  changed_when: false
-  failed_when: sacli_check.rc != 0
-  retries: 5
-  delay: 5
-  until: sacli_check.rc == 0
-
-- name: Display OpenVPN readiness status
-  ansible.builtin.debug:
-    msg: |
-      OpenVPN Access Server is ready:
-      - Web UI: Responding ({{ openvpn_web_check.status }})
-      - sacli: Available
-      - Container: {{ openvpn_container_id.stdout }}
+- name: Wait for OpenVPN service using common task
+  ansible.builtin.include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "{{ openvpn_config_service_name }}"
+    wait_host: "{{ _openvpn_target_ip }}"
+    wait_port: "{{ openvpn_config_web_port }}"
+    wait_initial_pause: "{{ openvpn_config_startup_wait }}"
+    wait_delay: "{{ openvpn_config_readiness_delay }}"
+    wait_timeout: "{{ openvpn_config_readiness_timeout }}"
+    wait_swarm_manager: "{{ openvpn_config_swarm_manager | default(omit) }}"
+    wait_custom_command: "which sacli"
+    wait_container_id: "{{ openvpn_container_id.stdout }}"
+    wait_delegate_to: "{{ openvpn_config_target_host }}"
+    wait_custom_retries: 5
+    wait_custom_delay: 5
+    wait_display_results: true
