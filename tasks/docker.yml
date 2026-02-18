@@ -140,7 +140,7 @@
   until: docker_verify.rc == 0
 
 - name: Get Docker version for display
-  ansible.builtin.command: docker version --format '{{.Server.Version}}'
+  ansible.builtin.command: docker version --format '{% raw %}{{.Server.Version}}{% endraw %}'
   register: docker_version
   changed_when: false
 
