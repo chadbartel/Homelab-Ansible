@@ -21,7 +21,9 @@ services:
       # Note: These are startup defaults; can be overridden via API at runtime
       FTLCONF_dns_rateLimit_count: '{{ pihole_rate_limit_count | default(2000) }}'
       FTLCONF_dns_rateLimit_interval: '{{ pihole_rate_limit_interval | default(60) }}'
-      FTLCONF_dns_revServers: 'true,192.168.1.0/24,192.168.1.1'
+{% if pihole_enable_reverse_dns_server | default(false) %}
+      FTLCONF_dns_revServers: 'true,{{ pihole_reverse_dns_subnet | default("192.168.1.0/24") }},{{ pihole_reverse_dns_server | default(gateway_ip) }}'
+{% endif %}
       FTLCONF_dns_dnssec: 'false'
       FTLCONF_dns_hosts: |
         {{ manager_node_ip }} {{ pihole_container_name }}.{{ local_domain }}
