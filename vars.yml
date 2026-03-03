@@ -157,7 +157,8 @@ pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'al
 # Koffan configuration
 koffan_image: "ghcr.io/pansalut/koffan:v2.1.1"
 koffan_container_name: "grocery"
-koffan_host_port: 3000
+koffan_host_port: 80  # Container port (used by NPM overlay proxy)
+koffan_external_port: 3000  # Host-published Swarm port (for direct access)
 koffan_config_service_name: "koffan-stack_koffan"
 koffan_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
 koffan_config_target_node: "lenovo_server"

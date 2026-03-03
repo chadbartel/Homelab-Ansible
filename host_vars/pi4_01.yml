@@ -27,3 +27,8 @@ proxy_hosts:
     host: "{{ jellyfin_container_name }}"  # DNS works on overlay network
     port: 8096  # Internal Jellyfin web interface port
     scheme: "http"
+  
+  - domain: "{{ koffan_container_name }}.{{ local_domain }}"
+    host: "{{ koffan_container_name }}"  # DNS works on overlay network (hostname set in compose)
+    port: "{{ koffan_host_port }}"  # Internal Koffan web port (80)
+    scheme: "http"
