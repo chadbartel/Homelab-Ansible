@@ -10,7 +10,8 @@ Get Koffan configured and operational in 5 minutes.
 
 ## Step 1: Configure Variables
 
-### In `vars.yml`:
+### In `vars.yml`
+
 ```yaml
 # Already added by integration:
 koffan_config_service_name: "koffan-stack_koffan"
@@ -20,7 +21,8 @@ koffan_config_web_port: 80
 koffan_config_api_port: 80
 ```
 
-### In `vault.yml`:
+### In `vault.yml`
+
 ```bash
 ansible-vault edit vault.yml
 # Add this line:
@@ -53,17 +55,20 @@ curl -I http://192.168.1.12:3000
 ## Step 4: Access Koffan
 
 ### Direct Access
-```
+
+```text
 http://192.168.1.12:3000
 ```
 
 ### Via DNS (if configured)
-```
+
+```text
 http://koffan.home.local:3000
 ```
 
 ### Via HTTPS Reverse Proxy
-```
+
+```text
 https://koffan.home.local  (if SSL certificate is set up)
 ```
 
@@ -71,7 +76,7 @@ https://koffan.home.local  (if SSL certificate is set up)
 
 Koffan is now ready to use!
 
-### What was configured:
+### What was configured
 
 1. ✅ **Container Discovery** - Automatically finds Koffan in Swarm
 2. ✅ **Service Readiness** - Waits for port to be accessible
@@ -83,6 +88,7 @@ Koffan is now ready to use!
 ### Optional Enhancements
 
 #### Enable NFS Backup
+
 ```yaml
 # In vars.yml
 koffan_config_setup_nfs_backup: true
@@ -92,6 +98,7 @@ ansible-playbook main.yml -t "post_setup" --tags "koffan"
 ```
 
 #### Verify Full Configuration
+
 ```bash
 # Run idempotency test
 make deploy  # First run
@@ -101,11 +108,13 @@ make deploy  # Second run - should show minimal changes
 ## API Usage
 
 ### Check API Connectivity
+
 ```bash
 curl http://192.168.1.12:80/api/version
 ```
 
 ### Example: Create Grocery Appointment (if API supports)
+
 ```bash
 curl -X POST http://192.168.1.12:80/api/appointments \
   -H "Content-Type: application/json" \
@@ -117,17 +126,20 @@ See [Koffan REST API Documentation](https://github.com/PanSalut/Koffan/wiki/REST
 ## Troubleshooting
 
 ### Service not starting
+
 ```bash
 docker service logs koffan-stack_koffan --tail 100
 ```
 
 ### Port not responding
+
 ```bash
 # Check if port 3000 is bound correctly
 docker service inspect koffan-stack_koffan | grep -A 5 "Ports"
 ```
 
 ### Database missing
+
 ```bash
 # Verify named volume exists
 docker volume ls | grep koffan_data
@@ -135,6 +147,7 @@ docker volume inspect koffan_data
 ```
 
 ### DNS not resolving
+
 ```bash
 # Check Pi-hole configuration
 nslookup koffan.home.local 192.168.1.10
@@ -158,6 +171,6 @@ nslookup koffan.home.local 192.168.1.10
 
 ## Support
 
-For Koffan app issues: https://github.com/PanSalut/Koffan
+For Koffan app issues: <https://github.com/PanSalut/Koffan>
 
 For Homelab-Ansible integration issues: See project documentation

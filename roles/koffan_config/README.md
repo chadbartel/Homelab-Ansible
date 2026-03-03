@@ -62,11 +62,13 @@ nfs_export_path: "/mnt/ssd_media"                     # NFS storage mount point
 Discovers the Koffan container running in Docker Swarm and sets facts for use in subsequent tasks.
 
 **Sets Facts:**
+
 - `koffan_task_id`: Swarm task ID
 - `koffan_node_name`: Swarm node hostname
 - `koffan_container_id`: Docker container ID (12-char)
 
 **Usage:**
+
 ```yaml
 - include_tasks: discover_container.yml
 ```
@@ -76,6 +78,7 @@ Discovers the Koffan container running in Docker Swarm and sets facts for use in
 Waits for Koffan web interface to be fully initialized and responsive.
 
 **Usage:**
+
 ```yaml
 - include_tasks: wait_for_service.yml
   vars:
@@ -87,6 +90,7 @@ Waits for Koffan web interface to be fully initialized and responsive.
 Verifies Koffan REST API is responding and ready for use.
 
 **Usage:**
+
 ```yaml
 - include_tasks: initialize_api.yml
   vars:
@@ -98,6 +102,7 @@ Verifies Koffan REST API is responding and ready for use.
 Configures NFS backup directory and creates initial database backup. This is optional and only runs if `koffan_config_setup_nfs_backup` is true.
 
 **Usage:**
+
 ```yaml
 - include_tasks: setup_nfs_backup.yml
   vars:
@@ -205,6 +210,7 @@ After deployment:
 ### Container not found
 
 Ensure service is deployed and running:
+
 ```bash
 docker service ls | grep koffan
 docker service ps koffan-stack_koffan
@@ -213,6 +219,7 @@ docker service ps koffan-stack_koffan
 ### Port not accessible
 
 Check network connectivity:
+
 ```bash
 curl -I http://192.168.1.12:3000
 ```
@@ -220,6 +227,7 @@ curl -I http://192.168.1.12:3000
 ### API not responding
 
 Check container logs:
+
 ```bash
 docker logs <container_id>
 ```
@@ -227,6 +235,7 @@ docker logs <container_id>
 ### Database file missing
 
 The SQLite database is stored in the named volume. Verify volume exists:
+
 ```bash
 docker volume ls | grep koffan_data
 ```
