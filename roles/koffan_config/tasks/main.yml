@@ -1,0 +1,41 @@
+---
+# Main tasks file for Koffan configuration role
+#
+# This role provides modular Koffan post-deployment configuration for Docker Swarm environments.
+# It handles service verification, API initialization, and optional NFS backup configuration.
+#
+# Usage:
+#   - import_role:
+#       name: koffan_config
+#       tasks_from: wait_for_service
+#     vars:
+#       koffan_config_service_name: "koffan-stack_koffan"
+#
+# Or run complete setup:
+#   - import_role:
+#       name: koffan_config
+
+- name: Display Koffan config role information
+  ansible.builtin.debug:
+    msg: |
+      Koffan Configuration Role loaded.
+      
+      Available task files:
+        - discover_container.yml: Discover Koffan container in Swarm
+        - wait_for_service.yml: Wait for Koffan service to be ready
+        - initialize_api.yml: Initialize API and verify connectivity
+        - setup_nfs_backup.yml: Configure NFS backup of shopping.db
+      
+      Service: {{ koffan_config_service_name }}
+      Swarm Manager: {{ koffan_config_swarm_manager }}
+      Target Node: {{ koffan_config_target_node }}
+  when: koffan_config_display_results | default(true)
+
+- name: Ensure required variables are defined
+  ansible.builtin.assert:
+    that:
+      - koffan_config_service_name is defined
+      - koffan_config_swarm_manager is defined
+      - koffan_config_target_node is defined
+    fail_msg: "Required variables not defined. Please check defaults/main.yml"
+    success_msg: "All required variables are defined"

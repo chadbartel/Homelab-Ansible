@@ -1,0 +1,24 @@
+---
+# Example: Service readiness check only
+#
+# Only wait for Koffan service to be ready, without performing full configuration
+# Useful for troubleshooting or checking if service is operational
+#
+# Usage:
+#   ansible-playbook roles/koffan_config/examples/wait_for_service_example.yml
+
+- name: Wait for Koffan service to be ready
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: wait_for_service
+  vars:
+    koffan_config_service_name: "koffan-stack_koffan"
+    koffan_config_swarm_manager: "pi4_01"
+    koffan_config_target_node: "lenovo_server"
+    koffan_config_web_port: 80
+    koffan_config_readiness_timeout: 300
+    target_host: "192.168.1.12"
+
+- name: Service is ready for use
+  ansible.builtin.debug:
+    msg: "✅ Koffan is ready!"

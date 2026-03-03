@@ -1,0 +1,34 @@
+---
+galaxy_info:
+  role_name: koffan_config
+  author: Homelab Ansible
+  description: Ansible role for post-deployment configuration of Koffan grocery app in Docker Swarm environments
+  license: GPL-3.0-or-later
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: EL
+      versions:
+        - all
+    - name: Fedora
+      versions:
+        - all
+    - name: Alpine
+      versions:
+        - all
+  
+  galaxy_tags:
+    - docker
+    - swarm
+    - koffan
+    - grocery
+    - automation
+    - configuration
+
+dependencies: []

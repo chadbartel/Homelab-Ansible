@@ -1,0 +1,82 @@
+---
+# Example: Complete Koffan configuration with all features
+#
+# This example shows how to perform a complete Koffan setup including
+# service discovery, readiness verification, API initialization, and
+# optional NFS backup configuration.
+#
+# Usage:
+#   ansible-playbook roles/koffan_config/examples/complete_setup.yml
+#
+# Or include in your main playbook:
+#   - include_tasks: roles/koffan_config/examples/complete_setup.yml
+
+# ========================================
+# PHASE 1: Service Discovery
+# ========================================
+- name: Discover Koffan container in Docker Swarm
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: discover_container
+  vars:
+    koffan_config_service_name: "koffan-stack_koffan"
+    koffan_config_swarm_manager: "pi4_01"
+
+# ========================================
+# PHASE 2: Service Readiness
+# ========================================
+- name: Wait for Koffan to be ready
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: wait_for_service
+  vars:
+    koffan_config_service_name: "koffan-stack_koffan"
+    koffan_config_swarm_manager: "pi4_01"
+    koffan_config_target_node: "lenovo_server"
+    target_host: "192.168.1.12"
+
+# ========================================
+# PHASE 3: API Initialization
+# ========================================
+- name: Initialize Koffan API
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: initialize_api
+  vars:
+    koffan_config_service_name: "koffan-stack_koffan"
+    koffan_config_api_port: 80
+    koffan_config_validate_certs: false
+    target_url: "http://192.168.1.12:80"
+
+# ========================================
+# PHASE 4: NFS Backup Configuration (Optional)
+# ========================================
+- name: Configure NFS backup
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: setup_nfs_backup
+  vars:
+    koffan_config_service_name: "koffan-stack_koffan"
+    koffan_config_swarm_manager: "pi4_01"
+    koffan_config_target_node: "lenovo_server"
+    nfs_export_path: "/mnt/ssd_media"
+  when: setup_nfs_backup | default(false)
+
+# ========================================
+# PHASE 5: Verification
+# ========================================
+- name: Verify Koffan configuration
+  ansible.builtin.debug:
+    msg: |
+      ✅ Koffan Configuration Complete!
+      
+      Service Details:
+      - Service Name: {{ koffan_config_service_name }}
+      - Container ID: {{ koffan_container_id }}
+      - Node: {{ koffan_node_name }}
+      - Status: Ready
+      
+      Access URLs:
+      - Direct: http://{{ target_host | default('192.168.1.12') }}:80
+      - DNS: http://koffan.home.local:3000
+      - API: http://{{ target_host | default('192.168.1.12') }}:80/api

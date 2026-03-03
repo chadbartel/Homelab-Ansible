@@ -1,0 +1,24 @@
+---
+# Default variables for Koffan configuration role
+
+# Service discovery configuration
+koffan_config_service_name: "koffan-stack_koffan"
+koffan_config_swarm_manager: "{{ groups['swarm_managers'][0] | default('pi4_01') }}"
+koffan_config_target_node: "lenovo_server"  # Ansible inventory hostname where container runs
+
+# Service readiness configuration
+koffan_config_web_port: 80
+koffan_config_api_port: 80
+koffan_config_readiness_retries: 20
+koffan_config_readiness_delay: 10
+koffan_config_readiness_timeout: 180
+koffan_config_startup_wait: 45
+
+# API configuration
+koffan_config_api_endpoint: "http://localhost/api"
+koffan_config_admin_user: "admin"
+koffan_config_admin_password: ""  # Should be overridden with vault variable
+
+# Display settings
+koffan_config_display_results: true
+koffan_config_validate_certs: false

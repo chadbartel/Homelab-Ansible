@@ -127,6 +127,8 @@ pihole_config_custom_dns_entries:
     hostname: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
   - ip: "{{ manager_node_ip }}"
     hostname: "{{ openvpn_container_name }}.{{ local_domain }}"
+  - ip: "{{ manager_node_ip }}"
+    hostname: "{{ koffan_container_name }}.{{ local_domain }}"
 
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:
@@ -152,6 +154,18 @@ pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'al
 #     comment: "Custom List"
 #     enabled: true
 
+# Koffan configuration
+koffan_image: "ghcr.io/pansalut/koffan:v2.1.1"
+koffan_container_name: "koffan"
+koffan_host_port: 3000
+koffan_config_service_name: "koffan-stack_koffan"
+koffan_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
+koffan_config_target_node: "lenovo_server"
+koffan_config_web_port: 80
+koffan_config_api_port: 80
+koffan_config_admin_password: "{{ vault_koffan_admin_password }}"
+koffan_config_setup_nfs_backup: false  # Set to true to enable NFS backup of shopping.db
+
 # Docker Stacks Configuration for manager nodes
 portainer_stacks:
   - name: npm-stack
@@ -162,6 +176,8 @@ portainer_stacks:
     compose_template: openvpn-compose.yml.j2
   - name: jellyfin-stack
     compose_template: jellyfin-compose.yml.j2
+  - name: koffan-stack
+    compose_template: koffan-compose.yml.j2
 
 # NFS: Storage Host 192.168.1.12 (lenovo_server) exports /mnt/ssd_media to other nodes
 nfs_storage_host_ip: "192.168.1.12"

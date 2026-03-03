@@ -13,3 +13,7 @@ proxy_hosts:
     host: "{{ pihole_container_name }}"
     port: "{{ pihole_host_port }}"
     scheme: "http"
+  - domain: "{{ koffan_container_name }}.{{ local_domain }}"
+    host: "{{ koffan_container_name }}"
+    port: "{{ koffan_host_port }}"
+    scheme: "http"

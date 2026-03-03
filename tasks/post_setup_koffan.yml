@@ -1,0 +1,70 @@
+---
+# Koffan post-deployment configuration using koffan_config role
+# All tasks run on the target node where Koffan is deployed
+#
+# This file orchestrates the Koffan configuration by calling the koffan_config role
+# with all necessary task files in sequence.
+#
+# The koffan_config role provides:
+# - Automatic container discovery in Docker Swarm
+# - Service readiness verification
+# - API initialization and connectivity validation
+# - Optional NFS backup setup
+#
+# See roles/koffan_config/README.md for more information
+
+# ========================================
+# PHASE 1: Service Verification & Readiness
+# ========================================
+- name: Wait for Koffan service to be ready
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: wait_for_service
+  vars:
+    target_host: "{{ hostvars[koffan_config_target_node].ansible_host }}"  # Use actual IP
+
+# ========================================
+# PHASE 2: API Initialization
+# ========================================
+- name: Initialize Koffan API
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: initialize_api
+  vars:
+    target_url: "http://{{ hostvars[koffan_config_target_node].ansible_host }}:{{ koffan_config_api_port }}"
+
+# ========================================
+# PHASE 3: NFS Backup Configuration (Optional)
+# ========================================
+- name: Configure NFS backup for Koffan database
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: setup_nfs_backup
+  when: koffan_config_setup_nfs_backup | default(false)
+
+# ========================================
+# PHASE 4: Display Summary
+# ========================================
+- name: Display Koffan configuration summary
+  ansible.builtin.debug:
+    msg: |
+      ✅ Koffan Grocery App is configured and ready!
+      
+      🛒 Access Information:
+      Web UI: http://{{ koffan_container_name }}.{{ local_domain }} (via reverse proxy)
+      Direct Access: http://{{ hostvars[koffan_config_target_node].ansible_host }}:{{ koffan_config_web_port }}
+      API Endpoint: http://{{ hostvars[koffan_config_target_node].ansible_host }}:{{ koffan_config_api_port }}/api
+      
+      📦 Features:
+      - Grocery list management with REST API
+      - SQLite database with automatic persistence
+      - Accessible via HTTPS through NGINX Proxy Manager
+      - DNS: koffan.home.local
+      {% if koffan_config_setup_nfs_backup | default(false) %}
+      - Database backup stored on NFS at {{ nfs_export_path }}/koffan/
+      {% endif %}
+      
+      🔐 Next Steps:
+      1. Access the web UI at https://koffan.home.local (if DNS is configured)
+      2. Make grocery lists and manage shopping items
+      3. (Optional) Configure automated NFS backups via cron

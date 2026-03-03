@@ -1,0 +1,41 @@
+---
+version: "3.8"
+
+services:
+  koffan:
+    hostname: {{ koffan_container_name }}
+    image: {{ koffan_image | default('ghcr.io/pansalut/koffan:v2.1.1') }}
+    ports:
+      - "{{ koffan_host_port }}:80"  # Publish port for direct access and API automation
+    networks:
+      - proxy-network
+    dns:
+      - 192.168.1.10  # Pi-hole (primary for ad-blocking)
+      - 1.1.1.1  # Cloudflare DNS for reliable external resolution
+      - 8.8.8.8  # Google DNS fallback
+    volumes:
+      - koffan_data:/data  # Named volume for SQLite database persistence
+    deploy:
+      replicas: 1
+      # No placement constraint = runs on any healthy Swarm node
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        order: start-first
+        failure_action: rollback
+
+networks:
+  proxy-network:
+    external: true
+
+volumes:
+  koffan_data:
+    driver: local
