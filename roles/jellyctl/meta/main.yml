@@ -2,29 +2,32 @@
 galaxy_info:
   role_name: jellyctl
   author: thatsmidnight
-  description: Ansible role for managing Jellyfin using jellyctl CLI tool
+  description: Ansible role for managing Jellyfin via jellyctl CLI tool
+  company: 
+  
   license: MIT
+  
   min_ansible_version: "2.9"
   
   platforms:
     - name: Ubuntu
       versions:
-        - focal
-        - jammy
+        - all
     - name: Debian
       versions:
-        - buster
-        - bullseye
+        - all
     - name: EL
       versions:
-        - 8
-        - 9
-
+        - all
+    - name: Fedora
+      versions:
+        - all
+  
   galaxy_tags:
     - jellyfin
     - media
     - streaming
-    - cli
     - management
+    - cli
 
 dependencies: []

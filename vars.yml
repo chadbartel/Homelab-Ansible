@@ -147,6 +147,12 @@ pihole_upstream_dns_servers:
 # Pi-hole DNS listening mode (security hardening)
 pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'all')
 
+# Pi-hole reverse DNS server configuration (disabled by default to prevent router rate limiting)
+# Enable this only if your router/gateway can handle the reverse DNS query load
+pihole_enable_reverse_dns_server: false  # Set to true to enable
+pihole_reverse_dns_subnet: "192.168.1.0/24"  # Subnet for reverse DNS
+pihole_reverse_dns_server: "{{ gateway_ip }}"  # DNS server for reverse lookups (defaults to gateway)
+
 # Note: pihole_config_adlists uses defaults from role (roles/pihole_config/defaults/main.yml)
 # Override here if needed:
 # pihole_config_adlists:

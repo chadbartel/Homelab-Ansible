@@ -1,59 +1,91 @@
 ---
 # Main tasks for jellyctl role
 
-- name: Check if jellyctl is installed
-  ansible.builtin.command: which {{ jellyctl_binary }}
-  register: jellyctl_check
+- name: Check for jellyctl binary
+  ansible.builtin.command: which jellyctl
+  register: jellyctl_which_result
   changed_when: false
   failed_when: false
+  when: jellyctl_binary_path == ""
+
+- name: Set jellyctl binary path from which command
+  ansible.builtin.set_fact:
+    jellyctl_binary: "{{ jellyctl_which_result.stdout }}"
+  when: 
+    - jellyctl_binary_path == ""
+    - jellyctl_which_result.rc == 0
+
+- name: Set jellyctl binary path from variable
+  ansible.builtin.set_fact:
+    jellyctl_binary: "{{ jellyctl_binary_path }}"
+  when: jellyctl_binary_path != ""
 
 - name: Fail if jellyctl is not found
   ansible.builtin.fail:
-    msg: >
-      jellyctl binary not found in PATH. Please install jellyctl manually before using this role.
-      Visit https://github.com/user/jellyctl for installation instructions.
-  when: jellyctl_check.rc != 0
+    msg: "jellyctl binary not found. Please install jellyctl on the target host."
+  when:
+    - jellyctl_fail_on_missing
+    - jellyctl_binary_path == ""
+    - jellyctl_which_result.rc != 0
 
-- name: Verify jellyctl version
-  ansible.builtin.command: "{{ jellyctl_binary }} --version"
-  register: jellyctl_version
-  changed_when: false
-  failed_when: false
+- name: Verify jellyctl is executable
+  ansible.builtin.stat:
+    path: "{{ jellyctl_binary }}"
+  register: jellyctl_stat
+  when: jellyctl_binary is defined
 
-- name: Display jellyctl version
+- name: Fail if jellyctl is not executable
+  ansible.builtin.fail:
+    msg: "jellyctl found at {{ jellyctl_binary }} but is not executable"
+  when:
+    - jellyctl_binary is defined
+    - jellyctl_stat.stat.exists
+    - not jellyctl_stat.stat.executable
+
+- name: Validate required parameters
+  ansible.builtin.fail:
+    msg: "jellyctl_command is required"
+  when: jellyctl_command == ""
+
+- name: Build jellyctl command
+  ansible.builtin.set_fact:
+    jellyctl_full_command: >-
+      {{ jellyctl_binary }}
+      --url={{ jellyctl_url }}
+      {% if jellyctl_token != "" %}--token={{ jellyctl_token }}{% endif %}
+      {{ jellyctl_command }}
+      {% if jellyctl_subcommand != "" %}{{ jellyctl_subcommand }}{% endif %}
+      {% if jellyctl_output_json %}--json{% endif %}
+      {% for key, value in jellyctl_flags.items() %}
+      {% if value is sameas true %}--{{ key }}{% elif value is not sameas false %}--{{ key }}={{ value }}{% endif %}
+      {% endfor %}
+      {{ jellyctl_args | join(' ') }}
+  when: jellyctl_binary is defined
+
+- name: Execute jellyctl command
+  ansible.builtin.command: "{{ jellyctl_full_command }}"
+  register: jellyctl_result
+  changed_when: jellyctl_command in ['system'] or jellyctl_subcommand in ['create', 'delete', 'enable', 'disable', 'set-admin', 'unset-admin', 'set-hidden', 'unset-hidden', 'shutdown', 'restart', 'restore', 'start', 'stop', 'scan']
+  when: jellyctl_binary is defined
+
+- name: Display jellyctl output
   ansible.builtin.debug:
-    msg: "Found jellyctl: {{ jellyctl_version.stdout }}"
-  when: jellyctl_version.rc == 0
+    var: jellyctl_result.stdout_lines
+  when: 
+    - jellyctl_result is defined
+    - not jellyctl_output_json
 
-- name: Validate required variables
-  ansible.builtin.assert:
-    that:
-      - jellyctl_url is defined
-      - jellyctl_url | length > 0
-    fail_msg: "jellyctl_url must be defined and non-empty"
-    success_msg: "Configuration validated successfully"
+- name: Parse and display JSON output
+  ansible.builtin.debug:
+    var: jellyctl_result.stdout | from_json
+  when:
+    - jellyctl_result is defined
+    - jellyctl_output_json
+    - jellyctl_result.stdout != ""
 
-# Include task files based on what the user wants to do
-- name: Include user management tasks
-  ansible.builtin.include_tasks: users.yml
-  when: jellyctl_user_operation is defined
-
-- name: Include library management tasks
-  ansible.builtin.include_tasks: library.yml
-  when: jellyctl_library_operation is defined
-
-- name: Include API key management tasks
-  ansible.builtin.include_tasks: keys.yml
-  when: jellyctl_key_operation is defined
-
-- name: Include system management tasks
-  ansible.builtin.include_tasks: system.yml
-  when: jellyctl_system_operation is defined
-
-- name: Include scheduled task management tasks
-  ansible.builtin.include_tasks: tasks.yml
-  when: jellyctl_task_operation is defined
-
-- name: Include activity log tasks
-  ansible.builtin.include_tasks: activity.yml
-  when: jellyctl_activity_operation is defined
+- name: Set jellyctl output fact
+  ansible.builtin.set_fact:
+    jellyctl_output: "{{ jellyctl_result.stdout }}"
+    jellyctl_stderr: "{{ jellyctl_result.stderr }}"
+    jellyctl_rc: "{{ jellyctl_result.rc }}"
+  when: jellyctl_result is defined
