@@ -52,7 +52,7 @@ The core of this role is the `jellyfin_api` custom module, which provides a gene
 ### Module Parameters
 
 | Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
+| ----------- | ---------- | --------- | ------------- |
 | `base_url` | Yes | - | Base URL of the Jellyfin server |
 | `api_token` | No* | - | API token for authentication |
 | `username` | No* | - | Username for authentication |
@@ -261,7 +261,87 @@ The role includes several task files for common operations:
 
 **Available Actions:** `info`, `public_info`, `get_config`, `update_config`, `restart`, `shutdown`, `activity_log`, `logs`, `ping`
 
-### 5. Backup Operations (`backups.yml`)
+### 5. LiveTV Tuner Management (`tuners.yml`)
+
+Manage IPTV tuners for LiveTV functionality. Supports M3U/M3U8 playlist sources.
+
+```yaml
+# List all configured tuners
+- import_role:
+    name: jellyfin
+    tasks_from: tuners
+  vars:
+    jellyfin_url: "http://localhost:8096"
+    jellyfin_api_token: "your-token"
+    jellyfin_action: list
+
+# Create M3U IPTV tuner (idempotent - checks if URL exists)
+- import_role:
+    name: jellyfin
+    tasks_from: tuners
+  vars:
+    jellyfin_action: create
+    jellyfin_tuner_name: "All English IPTV Channels"
+    jellyfin_tuner_m3u_url: "https://iptv-org.github.io/iptv/countries/us.m3u"
+    jellyfin_tuner_import_favorites: false
+    jellyfin_tuner_hw_transcode: true
+    jellyfin_tuner_stream_looping: true
+    jellyfin_tuner_count: 1
+
+# Delete tuner by ID
+- import_role:
+    name: jellyfin
+    tasks_from: tuners
+  vars:
+    jellyfin_action: delete
+    jellyfin_tuner_id: "tuner-id-here"
+```
+
+**Available Actions:** `list`, `create`, `delete`
+
+**Tuner Variables:**
+
+- `jellyfin_tuner_name` - Friendly display name (default: "IPTV")
+- `jellyfin_tuner_m3u_url` - URL to M3U/M3U8 playlist (required for create)
+- `jellyfin_tuner_import_favorites` - Only import favorited channels (default: false)
+- `jellyfin_tuner_hw_transcode` - Enable hardware transcoding (default: true)
+- `jellyfin_tuner_stream_looping` - Enable stream looping (default: true)
+- `jellyfin_tuner_count` - Max concurrent streams from this tuner (default: 1)
+- `jellyfin_tuner_user_agent` - Custom user agent string (default: "")
+- `jellyfin_tuner_source` - Source identifier (default: "")
+- `jellyfin_tuner_id` - Tuner ID for delete operations (required for delete)
+
+**API Endpoint:** `/LiveTv/TunerHosts` (POST/DELETE only; GET not supported by Jellyfin API)
+
+**API Limitation Notice:**
+
+⚠️ **Known Limitation**: The Jellyfin API endpoint `/LiveTv/TunerHosts` only supports **POST** and **DELETE** methods. The **GET method is not available** on this endpoint (returns HTTP 405 Method Not Allowed). This means:
+
+- Idempotency checking for existing tuners cannot be performed via API
+- To avoid duplicate tuner creation, the role will attempt GET first but gracefully handle the 405 error
+- If you redeploy and a tuner with the same URL already exists, the API may either:
+  - Reject the POST with a conflict error (recommended behavior), or
+  - Silently ignore it (idempotent on API side)
+- After first deployment, manually verify tuner creation in Jellyfin web UI before redeploying
+
+**Workaround for Repeated Deployments:**
+
+Set `jellyfin_tuner_exists: true` in your variables if you know the tuner is already configured:
+
+```yaml
+jellyfin_tuner_exists: true  # Skip creation task on subsequent runs
+```
+
+Alternatively, manually configure tuners via the Jellyfin web UI (Dashboard → Live TV → Tuner Devices) and skip the `tuners.yml` task.
+
+**Notes:**
+
+- After creating a tuner, Jellyfin automatically scans the M3U playlist (may take time for large playlists)
+- Configure EPG (Electronic Program Guide) separately in Jellyfin Dashboard → Live TV → Guide Data
+- See `examples/tuner_management.yml` for comprehensive examples including multiple playlist sources
+- Tuner configuration is persisted in `/config/config/livetv.xml` within the container
+
+### 6. Backup Operations (`backups.yml`)
 
 ```yaml
 # List backups

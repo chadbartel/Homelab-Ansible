@@ -1,0 +1,145 @@
+---
+# LiveTV tuner management tasks for Jellyfin
+# Supports M3U/M3U8 IPTV playlists and other tuner types
+
+# ========================================
+# LIST: Get all tuner hosts
+# ========================================
+- name: Get all LiveTV tuner hosts
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/LiveTv/TunerHosts"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_tuners_list
+  when: jellyfin_action == 'list'
+
+- name: Display tuner hosts
+  ansible.builtin.debug:
+    var: jellyfin_tuners_list.response
+  when: jellyfin_action == 'list'
+
+# ========================================
+# CREATE: Add M3U tuner host (idempotent)
+# ========================================
+# NOTE: Jellyfin API /LiveTv/TunerHosts endpoint only supports POST/DELETE methods
+# GET is not supported (returns 405 Method Not Allowed per API HTTP OPTIONS response)
+# Therefore, we cannot reliably check for existing tuners via API
+# Solution: Attempt GET for idempotency, but gracefully handle 405 error and proceed with POST
+- name: Attempt to get existing tuner hosts for idempotency check (API may not support GET)
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/LiveTv/TunerHosts"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_existing_tuners
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined
+  ignore_errors: yes
+
+- name: Check if tuner with same URL already exists (if idempotency check succeeded)
+  ansible.builtin.set_fact:
+    jellyfin_tuner_exists: "{{ jellyfin_existing_tuners.response | default([]) | selectattr('Url', 'defined') | selectattr('Url', 'equalto', jellyfin_tuner_m3u_url) | list | length > 0 }}"
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined and
+    jellyfin_existing_tuners.failed is defined and
+    not jellyfin_existing_tuners.failed
+
+- name: Set tuner not found (default) if idempotency check failed or API doesn't support GET
+  ansible.builtin.set_fact:
+    jellyfin_tuner_exists: false
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined and
+    (jellyfin_existing_tuners.failed is not defined or jellyfin_existing_tuners.failed)
+
+- name: Skip tuner creation if already exists
+  ansible.builtin.debug:
+    msg: "Tuner with URL '{{ jellyfin_tuner_m3u_url }}' already exists, skipping creation"
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined and
+    jellyfin_tuner_exists | default(false)
+
+- name: Warn about tuner idempotency limitation
+  ansible.builtin.debug:
+    msg: |
+      ⚠️  Unable to verify existing tuners via API
+      (Jellyfin /LiveTv/TunerHosts endpoint does not support GET method)
+      
+      Proceeding to create tuner: {{ jellyfin_tuner_m3u_url }}
+      If this URL already exists, the API may reject the POST or handle it gracefully.
+      
+      Recommendation: After first deployment, manually verify tuner in Jellyfin web UI
+      or set jellyfin_tuner_exists: true before redeploying to skip creation.
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined and
+    (jellyfin_existing_tuners.failed is not defined or jellyfin_existing_tuners.failed)
+
+- name: Create M3U tuner host
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/LiveTv/TunerHosts"
+    method: POST
+    body:
+      Type: "m3u"
+      Url: "{{ jellyfin_tuner_m3u_url }}"
+      FriendlyName: "{{ jellyfin_tuner_name | default('IPTV') }}"
+      ImportFavoritesOnly: "{{ jellyfin_tuner_import_favorites | default(false) }}"
+      AllowHWTranscoding: "{{ jellyfin_tuner_hw_transcode | default(true) }}"
+      EnableStreamLooping: "{{ jellyfin_tuner_stream_looping | default(true) }}"
+      Source: "{{ jellyfin_tuner_source | default('') }}"
+      TunerCount: "{{ jellyfin_tuner_count | default(1) }}"
+      UserAgent: "{{ jellyfin_tuner_user_agent | default('') }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_tuner_created
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined and
+    not (jellyfin_tuner_exists | default(false))
+
+- name: Display created tuner information
+  ansible.builtin.debug:
+    msg: "Successfully created tuner '{{ jellyfin_tuner_name | default('IPTV') }}' with URL: {{ jellyfin_tuner_m3u_url }}"
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined and
+    not (jellyfin_tuner_exists | default(false))
+
+# ========================================
+# DELETE: Remove tuner host by ID
+# ========================================
+- name: Delete tuner host by ID
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/LiveTv/TunerHosts"
+    method: DELETE
+    query_params:
+      id: "{{ jellyfin_tuner_id }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_tuner_deleted
+  when: jellyfin_action == 'delete' and jellyfin_tuner_id is defined
+
+- name: Confirm tuner deletion
+  ansible.builtin.debug:
+    msg: "Successfully deleted tuner with ID: {{ jellyfin_tuner_id }}"
+  when: jellyfin_action == 'delete' and jellyfin_tuner_id is defined

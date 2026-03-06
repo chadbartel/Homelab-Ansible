@@ -57,16 +57,43 @@ services:
       - jellyfin_epg:/epg
     environment:
       - TZ={{ timezone | default('America/Los_Angeles') }}
-      - EPG_URL={{ jellyfin_epg_url | default('https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz') }}
-    command: >
-      sh -c "
-      apk add --no-cache curl tzdata &&
-      echo '{{ jellyfin_epg_schedule | default("0 1 * * *") }} /epg && curl -fsSL $$EPG_URL -o epg_ripper_US2.xml.gz && gunzip -f epg_ripper_US2.xml.gz && echo \"EPG updated at $$(date)\" >> /epg/update.log' > /etc/crontabs/root &&
-      echo \"EPG Updater started - scheduled for 1:00 AM PST daily\" &&
-      echo \"Initial download starting...\" &&
-      cd /epg && curl -fsSL $$EPG_URL -o epg_ripper_US2.xml.gz && gunzip -f epg_ripper_US2.xml.gz && echo \"Initial EPG downloaded at $$(date)\" > /epg/update.log &&
-      crond -f -l 2
-      "
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache curl tzdata
+        
+        # Create update script
+        cat > /usr/local/bin/update-epg.sh << 'EOFSCRIPT'
+        #!/bin/sh
+        cd /epg || exit 1
+        echo "Starting EPG update at $$(date)" >> /epg/update.log
+        
+{% for epg_file in jellyfin_epg_files | default([]) %}
+        # Download {{ epg_file.filename }}
+        echo "[{{ loop.index }}/{{ jellyfin_epg_files | length }}] Downloading {{ epg_file.filename }}..."
+        if curl -fsSL "{{ epg_file.url }}" -o "{{ epg_file.filename }}"; then
+          if gunzip -f "{{ epg_file.filename }}"; then
+            echo "✓ {{ epg_file.filename }} updated successfully at $$(date)" >> /epg/update.log
+          else
+            echo "✗ Failed to extract {{ epg_file.filename }} at $$(date)" >> /epg/update.log
+          fi
+        else
+          echo "✗ Failed to download {{ epg_file.filename }} at $$(date)" >> /epg/update.log
+        fi
+        
+{% endfor %}
+        echo "EPG update completed at $$(date)" >> /epg/update.log
+        echo "---" >> /epg/update.log
+        EOFSCRIPT
+        
+        chmod +x /usr/local/bin/update-epg.sh
+        echo '{{ jellyfin_epg_schedule | default("0 1 * * *") }} /usr/local/bin/update-epg.sh' > /etc/crontabs/root
+        echo "EPG Updater started - scheduled for {{ jellyfin_epg_schedule | default('1:00 AM PST') }} daily"
+        echo "Initial download of {{ jellyfin_epg_files | default([]) | length }} EPG file(s) starting..."
+        /usr/local/bin/update-epg.sh
+        echo "Initial EPG download complete. Cron daemon starting..."
+        exec crond -f -l 2
     deploy:
       replicas: 1
       placement:
