@@ -26,7 +26,11 @@
 # ========================================
 # CREATE: Add M3U tuner host (idempotent)
 # ========================================
-- name: Get existing tuner hosts for idempotency check
+# NOTE: Jellyfin API /LiveTv/TunerHosts endpoint only supports POST/DELETE methods
+# GET is not supported (returns 405 Method Not Allowed per API HTTP OPTIONS response)
+# Therefore, we cannot reliably check for existing tuners via API
+# Solution: Attempt GET for idempotency, but gracefully handle 405 error and proceed with POST
+- name: Attempt to get existing tuner hosts for idempotency check (API may not support GET)
   jellyfin_api:
     base_url: "{{ jellyfin_url }}"
     api_token: "{{ jellyfin_api_token | default(omit) }}"
@@ -40,13 +44,24 @@
   when: >
     jellyfin_action == 'create' and
     jellyfin_tuner_m3u_url is defined
+  ignore_errors: yes
 
-- name: Check if tuner with same URL already exists
+- name: Check if tuner with same URL already exists (if idempotency check succeeded)
   ansible.builtin.set_fact:
     jellyfin_tuner_exists: "{{ jellyfin_existing_tuners.response | default([]) | selectattr('Url', 'defined') | selectattr('Url', 'equalto', jellyfin_tuner_m3u_url) | list | length > 0 }}"
   when: >
     jellyfin_action == 'create' and
-    jellyfin_tuner_m3u_url is defined
+    jellyfin_tuner_m3u_url is defined and
+    jellyfin_existing_tuners.failed is defined and
+    not jellyfin_existing_tuners.failed
+
+- name: Set tuner not found (default) if idempotency check failed or API doesn't support GET
+  ansible.builtin.set_fact:
+    jellyfin_tuner_exists: false
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined and
+    (jellyfin_existing_tuners.failed is not defined or jellyfin_existing_tuners.failed)
 
 - name: Skip tuner creation if already exists
   ansible.builtin.debug:
@@ -55,6 +70,22 @@
     jellyfin_action == 'create' and
     jellyfin_tuner_m3u_url is defined and
     jellyfin_tuner_exists | default(false)
+
+- name: Warn about tuner idempotency limitation
+  ansible.builtin.debug:
+    msg: |
+      ⚠️  Unable to verify existing tuners via API
+      (Jellyfin /LiveTv/TunerHosts endpoint does not support GET method)
+      
+      Proceeding to create tuner: {{ jellyfin_tuner_m3u_url }}
+      If this URL already exists, the API may reject the POST or handle it gracefully.
+      
+      Recommendation: After first deployment, manually verify tuner in Jellyfin web UI
+      or set jellyfin_tuner_exists: true before redeploying to skip creation.
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_tuner_m3u_url is defined and
+    (jellyfin_existing_tuners.failed is not defined or jellyfin_existing_tuners.failed)
 
 - name: Create M3U tuner host
   jellyfin_api:

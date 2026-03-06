@@ -57,11 +57,11 @@
 # PHASE 5: TV Tuner Setup
 # ========================================
 - name: Create IPTV tuner device(s)
-  ansible.builtin.import_role:
+  ansible.builtin.include_role:
     name: jellyfin
     tasks_from: tuners
   vars:
-    jellyfin_url: "{{ target_url }}"
+    jellyfin_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
     jellyfin_api_token: "{{ jellyfin_config_api_token }}"
     jellyfin_action: "create"
     jellyfin_tuner_m3u_url: "{{ item.url }}"

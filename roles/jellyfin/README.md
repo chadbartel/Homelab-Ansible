@@ -311,14 +311,35 @@ Manage IPTV tuners for LiveTV functionality. Supports M3U/M3U8 playlist sources.
 - `jellyfin_tuner_source` - Source identifier (default: "")
 - `jellyfin_tuner_id` - Tuner ID for delete operations (required for delete)
 
-**API Endpoint:** `/LiveTv/TunerHosts` (GET/POST/DELETE)
+**API Endpoint:** `/LiveTv/TunerHosts` (POST/DELETE only; GET not supported by Jellyfin API)
+
+**API Limitation Notice:**
+
+⚠️ **Known Limitation**: The Jellyfin API endpoint `/LiveTv/TunerHosts` only supports **POST** and **DELETE** methods. The **GET method is not available** on this endpoint (returns HTTP 405 Method Not Allowed). This means:
+
+- Idempotency checking for existing tuners cannot be performed via API
+- To avoid duplicate tuner creation, the role will attempt GET first but gracefully handle the 405 error
+- If you redeploy and a tuner with the same URL already exists, the API may either:
+  - Reject the POST with a conflict error (recommended behavior), or
+  - Silently ignore it (idempotent on API side)
+- After first deployment, manually verify tuner creation in Jellyfin web UI before redeploying
+
+**Workaround for Repeated Deployments:**
+
+Set `jellyfin_tuner_exists: true` in your variables if you know the tuner is already configured:
+
+```yaml
+jellyfin_tuner_exists: true  # Skip creation task on subsequent runs
+```
+
+Alternatively, manually configure tuners via the Jellyfin web UI (Dashboard → Live TV → Tuner Devices) and skip the `tuners.yml` task.
 
 **Notes:**
 
-- The create action is idempotent - it checks if a tuner with the same URL already exists before creating
 - After creating a tuner, Jellyfin automatically scans the M3U playlist (may take time for large playlists)
 - Configure EPG (Electronic Program Guide) separately in Jellyfin Dashboard → Live TV → Guide Data
 - See `examples/tuner_management.yml` for comprehensive examples including multiple playlist sources
+- Tuner configuration is persisted in `/config/config/livetv.xml` within the container
 
 ### 6. Backup Operations (`backups.yml`)
 
