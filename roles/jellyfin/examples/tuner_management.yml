@@ -1,0 +1,166 @@
+---
+# Example: LiveTV Tuner Management Operations
+# This playbook demonstrates IPTV tuner configuration and management
+
+- name: Manage Jellyfin LiveTV Tuners
+  hosts: localhost
+  gather_facts: false
+  vars:
+    jellyfin_url: "http://localhost:8096"
+    jellyfin_api_token: "your-api-token-here"
+  
+  tasks:
+    # ========================================
+    # LIST: Get all configured tuners
+    # ========================================
+    - name: List all existing tuner hosts
+      import_role:
+        name: jellyfin
+        tasks_from: tuners
+      vars:
+        jellyfin_action: list
+    
+    # ========================================
+    # CREATE: Add IPTV tuner (idempotent)
+    # ========================================
+    - name: Create US IPTV tuner (all English channels)
+      import_role:
+        name: jellyfin
+        tasks_from: tuners
+      vars:
+        jellyfin_action: create
+        jellyfin_tuner_name: "All English IPTV Channels"
+        jellyfin_tuner_m3u_url: "https://iptv-org.github.io/iptv/countries/us.m3u"
+        jellyfin_tuner_import_favorites: false
+        jellyfin_tuner_hw_transcode: true
+        jellyfin_tuner_stream_looping: true
+        jellyfin_tuner_count: 1
+    
+    - name: Create UK IPTV tuner
+      import_role:
+        name: jellyfin
+        tasks_from: tuners
+      vars:
+        jellyfin_action: create
+        jellyfin_tuner_name: "UK IPTV Channels"
+        jellyfin_tuner_m3u_url: "https://iptv-org.github.io/iptv/countries/uk.m3u"
+        jellyfin_tuner_hw_transcode: true
+    
+    - name: Create Canada IPTV tuner
+      import_role:
+        name: jellyfin
+        tasks_from: tuners
+      vars:
+        jellyfin_action: create
+        jellyfin_tuner_name: "Canada IPTV Channels"
+        jellyfin_tuner_m3u_url: "https://iptv-org.github.io/iptv/countries/ca.m3u"
+    
+    # ========================================
+    # CREATE: Custom M3U playlist
+    # ========================================
+    - name: Create custom hosted M3U playlist
+      import_role:
+        name: jellyfin
+        tasks_from: tuners
+      vars:
+        jellyfin_action: create
+        jellyfin_tuner_name: "Custom Sports Channels"
+        jellyfin_tuner_m3u_url: "https://example.com/my-sports-playlist.m3u"
+        jellyfin_tuner_import_favorites: true  # Only import favorited channels
+        jellyfin_tuner_user_agent: "Mozilla/5.0"  # Custom user agent if required
+    
+    # ========================================
+    # CREATE: Multiple tuners at once
+    # ========================================
+    - name: Create multiple IPTV tuners from list
+      import_role:
+        name: jellyfin
+        tasks_from: tuners
+      vars:
+        jellyfin_action: create
+        jellyfin_tuner_name: "{{ item.name }}"
+        jellyfin_tuner_m3u_url: "{{ item.url }}"
+      loop:
+        - name: "News Channels"
+          url: "https://example.com/news.m3u"
+        - name: "Documentary Channels"
+          url: "https://example.com/documentaries.m3u"
+        - name: "Kids Channels"
+          url: "https://example.com/kids.m3u"
+    
+    # ========================================
+    # DELETE: Remove tuner by ID
+    # ========================================
+    # Note: First get the tuner list to find the ID, then delete
+    - name: Get tuner list to find ID
+      import_role:
+        name: jellyfin
+        tasks_from: tuners
+      vars:
+        jellyfin_action: list
+      register: tuner_list_result
+    
+    # Example: Delete the first tuner (you would typically filter by name/URL)
+    - name: Delete specific tuner by ID
+      import_role:
+        name: jellyfin
+        tasks_from: tuners
+      vars:
+        jellyfin_action: delete
+        jellyfin_tuner_id: "{{ tuner_list_result.jellyfin_tuners_list.response[0].Id }}"
+      when: tuner_list_result.jellyfin_tuners_list.response | length > 0
+
+# ========================================
+# Common M3U Playlist Sources
+# ========================================
+# Public IPTV sources (iptv-org GitHub project):
+# - US: https://iptv-org.github.io/iptv/countries/us.m3u
+# - UK: https://iptv-org.github.io/iptv/countries/uk.m3u
+# - Canada: https://iptv-org.github.io/iptv/countries/ca.m3u
+# - France: https://iptv-org.github.io/iptv/countries/fr.m3u
+# - Germany: https://iptv-org.github.io/iptv/countries/de.m3u
+# - All countries: https://iptv-org.github.io/iptv/index.m3u
+#
+# Note: The iptv-org project is community-maintained and provides
+# free-to-air channels. Quality and availability may vary.
+
+# ========================================
+# Important Notes
+# ========================================
+# 1. **Idempotency**: The create action checks if a tuner with the same URL
+#    already exists. If found, it skips creation (no error).
+#
+# 2. **API Permissions**: Requires admin user or API token with LiveTV permissions.
+#
+# 3. **Channel Scanning**: After creating a tuner, Jellyfin automatically
+#    scans the M3U playlist. This may take a few minutes for large playlists.
+#
+# 4. **EPG (Electronic Program Guide)**: Configure EPG sources separately
+#    in Jellyfin Dashboard → Live TV → Guide Data to get channel schedules.
+#
+# 5. **Hardware Transcoding**: Set `jellyfin_tuner_hw_transcode: true` if
+#    your server supports hardware acceleration (Intel QSV, NVIDIA NVENC, etc.).
+#
+# 6. **Favorites Only**: Set `jellyfin_tuner_import_favorites: true` to only
+#    import channels marked with `tvg-favorite="true"` in the M3U file.
+#
+# 7. **Tuner Count**: `jellyfin_tuner_count` sets the max concurrent streams
+#    from this source (default: 1, increase if your source allows).
+
+# ========================================
+# Typical API Response Structure
+# ========================================
+# GET /LiveTv/TunerHosts returns:
+# [
+#   {
+#     "Id": "abc123",
+#     "Type": "m3u",
+#     "Url": "https://example.com/playlist.m3u",
+#     "FriendlyName": "IPTV Channels",
+#     "ImportFavoritesOnly": false,
+#     "AllowHWTranscoding": true,
+#     "EnableStreamLooping": true,
+#     "TunerCount": 1,
+#     "UserAgent": ""
+#   }
+# ]
