@@ -35,6 +35,8 @@ services:
     volumes:
       - pihole_etc:/etc/pihole
       - pihole_dnsmasq:/etc/dnsmasq.d
+    tmpfs:
+      - /dev/shm:exec,size={{ pihole_shm_size | default(134217728) }}
     cap_add:
       - NET_ADMIN
     networks:
