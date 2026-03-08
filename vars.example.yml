@@ -21,6 +21,7 @@ openvpn_user2_password: "{{ vault_openvpn_user2_password }}"
 
 # Pi-hole configuration
 pihole_config_path: "/opt/pihole/etc-pihole"
+pihole_shm_size: 134217728  # /dev/shm size in bytes (128MB); FTL exhausted the default 67MB
 block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
 
 # Docker Stacks Configuration for manager nodes
