@@ -111,3 +111,47 @@
   when: 
     - openvpn_already_configured.stdout == 'configured'
     - not openvpn_config_force_reconfigure
+
+# ============================================================================
+# Hostname enforcement - runs on EVERY Ansible execution (not guarded by marker
+# file). This prevents the Docker auto-detected overlay IP from persisting in
+# client profiles. The vault variable is the sole source of truth.
+# ============================================================================
+- name: Query current host.name from OpenVPN configuration
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: >-
+      sacli ConfigQuery 2>/dev/null |
+      python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('host.name',''))"
+  register: _openvpn_current_hostname
+  delegate_to: "{{ openvpn_config_target_host }}"
+  changed_when: false
+  failed_when: false
+  when: openvpn_config_server_hostname is defined
+
+- name: Enforce DDNS hostname (correct drift from Docker auto-detection)
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: "sacli --key 'host.name' --value '{{ openvpn_config_server_hostname }}' ConfigPut"
+  register: _openvpn_hostname_enforced
+  delegate_to: "{{ openvpn_config_target_host }}"
+  when:
+    - openvpn_config_server_hostname is defined
+    - _openvpn_current_hostname.stdout | trim != openvpn_config_server_hostname
+
+- name: Restart OpenVPN processes to regenerate client profiles with correct hostname
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: "sacli start"
+  delegate_to: "{{ openvpn_config_target_host }}"
+  when: _openvpn_hostname_enforced is changed
+
+- name: Wait for OpenVPN to restart after hostname correction
+  ansible.builtin.wait_for:
+    port: "{{ openvpn_config_web_port }}"
+    host: "{{ _openvpn_target_ip }}"
+    delay: 10
+    timeout: 120
+  delegate_to: localhost
+  become: false
+  when: _openvpn_hostname_enforced is changed
