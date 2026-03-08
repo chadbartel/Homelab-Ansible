@@ -222,6 +222,31 @@
       when: item.stat.exists
       tags: ["jellyfin", "volumes", "verify"]
 
+- name: Prepare Pi-hole shared memory volume on worker node
+  hosts: lenovo_server
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Ensure pihole_shm volume is a correctly-sized tmpfs
+      ansible.builtin.shell: |
+        if docker volume inspect pihole-stack_pihole_shm 2>/dev/null | grep -q '"type": "tmpfs"'; then
+          echo "ALREADY_CORRECT"
+        else
+          docker volume rm pihole-stack_pihole_shm 2>/dev/null || true
+          docker volume create \
+            --driver local \
+            --opt type=tmpfs \
+            --opt device=tmpfs \
+            --opt "o=size={{ pihole_shm_size | default(134217728) }},mode=1777" \
+            pihole-stack_pihole_shm
+          echo "CREATED"
+        fi
+      register: pihole_shm_result
+      changed_when: "'CREATED' in pihole_shm_result.stdout"
+      tags: ["pihole", "volumes", "prepare"]
+
 - name: Deploy Portainer and stacks to the manager node
   hosts: manager_nodes
   become: true
