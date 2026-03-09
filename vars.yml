@@ -36,8 +36,6 @@ portainer_agent_secret: "{{ vault_portainer_agent_secret }}"
 # OpenVPN configuration
 openvpn_image: "openvpn/openvpn-as:2.14.3-5936bcd7-Ubuntu24"
 openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
-openvpn_thatsmidnight_password: "{{ vault_openvpn_thatsmidnight_password }}"
-openvpn_tyramail_password: "{{ vault_openvpn_tyramail_password }}"
 openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
 # OpenVPN Config Role Variables
@@ -49,11 +47,11 @@ openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
 openvpn_config_server_hostname: "{{ vault_openvpn_hostname }}"
 openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
 openvpn_config_users:
-  - username: "thatsmidnight"
-    password: "{{ vault_openvpn_thatsmidnight_password }}"
+  - username: "{{ vault_openvpn_user1_username }}"
+    password: "{{ vault_openvpn_user1_password }}"
     autologin: true
-  - username: "tyramail"
-    password: "{{ vault_openvpn_tyramail_password }}"
+  - username: "{{ vault_openvpn_user2_username }}"
+    password: "{{ vault_openvpn_user2_password }}"
     autologin: true
 
 # Jellyfin configuration
