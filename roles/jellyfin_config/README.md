@@ -312,7 +312,7 @@ The role automatically discovers which node the container is on. If placement co
 deploy:
   placement:
     constraints:
-      - node.hostname == midnight-laptop
+      - node.hostname == my-node-hostname  # Use Swarm hostname, not Ansible inventory name
 ```
 
 ### API Key Already Exists with Different App Name

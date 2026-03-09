@@ -34,7 +34,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.hostname == {{ jellyfin_target_host | default('midnight-laptop') }}
+          - node.hostname == {{ jellyfin_target_host }}
       resources:
         limits:
           memory: 4G
@@ -98,7 +98,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.hostname == {{ jellyfin_target_host | default('midnight-laptop') }}
+          - node.hostname == {{ jellyfin_target_host }}
       resources:
         limits:
           memory: 64M

@@ -190,7 +190,7 @@ Check placement constraints in `templates/jellyfin-compose.yml.j2`:
 deploy:
   placement:
     constraints:
-      - node.hostname == midnight-laptop  # Use Swarm hostname, not Ansible inventory name
+      - node.hostname == my-node-hostname  # Use Swarm hostname, not Ansible inventory name
 ```
 
 ### Setup Wizard Already Completed

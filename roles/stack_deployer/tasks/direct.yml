@@ -17,7 +17,7 @@
   loop: "{{ stack_deployer_stacks }}"
   delegate_to: "{{ stack_deployer_swarm_manager }}"
 
-- name: Ensure Jellyfin volumes exist on midnight-laptop
+- name: Ensure Jellyfin volumes exist on lenovo_server
   ansible.builtin.shell: |
     docker volume inspect jellyfin_config >/dev/null 2>&1 || docker volume create jellyfin_config
     docker volume inspect jellyfin_cache >/dev/null 2>&1 || docker volume create jellyfin_cache
