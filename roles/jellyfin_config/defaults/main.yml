@@ -22,7 +22,7 @@ jellyfin_config_disable_remote_access: false
 
 # Admin user configuration (should be set via vars.yml or vault.yml)
 jellyfin_config_admin_user: "{{ admin_user | default('admin') }}"
-jellyfin_config_admin_password: "{{ jellyfin_thatsmidnight_password | default('') }}"
+jellyfin_config_admin_password: "{{ jellyfin_user1_password | default('') }}"
 
 # API key configuration
 jellyfin_config_api_key_app_name: "ansible_automation"

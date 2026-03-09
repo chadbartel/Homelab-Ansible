@@ -52,7 +52,7 @@ jellyfin_config_disable_remote_access: false
 
 ```yaml
 jellyfin_config_admin_user: "{{ admin_user }}"
-jellyfin_config_admin_password: "{{ jellyfin_thatsmidnight_password }}"
+jellyfin_config_admin_password: "{{ jellyfin_user1_password }}"
 ```
 
 **⚠️ Security Note**: Store password in `vault.yml`:

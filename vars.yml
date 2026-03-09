@@ -55,7 +55,7 @@ openvpn_config_users:
     autologin: true
 
 # Jellyfin configuration
-jellyfin_thatsmidnight_password: "{{ vault_jellyfin_thatsmidnight_password }}"
+jellyfin_user1_password: "{{ vault_jellyfin_user1_password }}"
 jellyfin_enable_hw_accel: false  # Hardware acceleration not supported in Docker Swarm (device cgroups limitation)
 jellyfin_target_host: "midnight-laptop"  # The specific host for Jellyfin (must match Swarm node hostname)
 jellyfin_image: "jellyfin/jellyfin:10"  # Official Jellyfin image
