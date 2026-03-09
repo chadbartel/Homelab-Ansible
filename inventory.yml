@@ -4,15 +4,15 @@ all:
       hosts:
         pi4_01:
           ansible_host: 192.168.1.10
-          ansible_user: thatsmidnight
+          ansible_user: "{{ vault_admin_username | default('admin') }}"
           ansible_python_interpreter: "/usr/bin/python3"
         lenovo_server:
           ansible_host: 192.168.1.12
-          ansible_user: thatsmidnight
+          ansible_user: "{{ vault_admin_username | default('admin') }}"
           ansible_python_interpreter: "/usr/bin/python3"
         pi3_01:
           ansible_host: 192.168.1.11
-          ansible_user: thatsmidnight
+          ansible_user: "{{ vault_admin_username | default('admin') }}"
           ansible_python_interpreter: "/usr/bin/python3"
       vars:
         # We will define the root admin user here

@@ -25,18 +25,49 @@
   register: jellyfin_volume_check
   changed_when: "'jellyfin_config' in jellyfin_volume_check.stdout or 'jellyfin_cache' in jellyfin_volume_check.stdout"
 
-- name: Deploy stacks to Docker Swarm
+- name: Ensure stack checksum cache directory exists
+  ansible.builtin.file:
+    path: "/tmp/stack-deploy-checksums"
+    state: directory
+    mode: '0755'
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Deploy stacks to Docker Swarm (skip if unchanged)
   ansible.builtin.shell:
-    cmd: "docker stack deploy -c {{ stack_deployer_compose_dir }}/{{ item.name }}.yml {{ item.name }}"
+    cmd: |
+      set -e
+      STACK_NAME="{{ item.name }}"
+      COMPOSE_FILE="{{ stack_deployer_compose_dir }}/{{ item.name }}.yml"
+      CHECKSUM_FILE="/tmp/stack-deploy-checksums/${STACK_NAME}.sha256"
+
+      NEW_CHECKSUM=$(sha256sum "${COMPOSE_FILE}" | awk '{print $1}')
+
+      # Check if the stack already exists
+      if docker stack ls | awk 'NR>1 {print $1}' | grep -q "^${STACK_NAME}$"; then
+        STACK_EXISTS="yes"
+      else
+        STACK_EXISTS="no"
+      fi
+
+      # Skip deployment if the stack exists and the compose file hasn't changed
+      if [ "${STACK_EXISTS}" = "yes" ] && [ -f "${CHECKSUM_FILE}" ] && [ "$(cat ${CHECKSUM_FILE})" = "${NEW_CHECKSUM}" ]; then
+        echo "SKIPPED: ${STACK_NAME} (no changes detected)"
+        exit 0
+      fi
+
+      docker stack deploy -c "${COMPOSE_FILE}" "${STACK_NAME}"
+      echo "${NEW_CHECKSUM}" > "${CHECKSUM_FILE}"
+      echo "DEPLOYED: ${STACK_NAME}"
   loop: "{{ stack_deployer_stacks }}"
   register: stack_deployment_result
+  changed_when: "'DEPLOYED:' in stack_deployment_result.stdout"
   delegate_to: "{{ stack_deployer_swarm_manager }}"
 
 - name: Display stack deployment results (direct backend)
   ansible.builtin.debug:
     msg: |
       Stack: {{ item.item.name }}
-      Status: {{ 'Deployed' if item.changed else 'Already up to date' }}
+      Status: {{ 'Deployed' if item.changed else 'Already up to date (skipped)' }}
       Output: {{ item.stdout }}
   loop: "{{ stack_deployment_result.results }}"
 

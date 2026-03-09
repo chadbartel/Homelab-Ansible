@@ -20,7 +20,9 @@
       --no-trunc | head -n 1
   register: pihole_task_id_result
   changed_when: false
-  failed_when: pihole_task_id_result.stdout == ""
+  until: pihole_task_id_result.rc == 0 and pihole_task_id_result.stdout != ""
+  retries: 18
+  delay: 10
   delegate_to: "{{ pihole_config_swarm_manager }}"
 
 - name: Get Pi-hole node name from Swarm service
@@ -30,7 +32,9 @@
       --format '{%raw%}{{.Node}}{%endraw%}' | head -n 1
   register: pihole_node_name_result
   changed_when: false
-  failed_when: pihole_node_name_result.stdout == ""
+  until: pihole_node_name_result.rc == 0 and pihole_node_name_result.stdout != ""
+  retries: 18
+  delay: 10
   delegate_to: "{{ pihole_config_swarm_manager }}"
 
 - name: Get Pi-hole container ID from Swarm task
@@ -40,7 +44,9 @@
       --format '{%raw%}{{.Status.ContainerStatus.ContainerID}}{%endraw%}' | head -c 12
   register: pihole_container_id_result
   changed_when: false
-  failed_when: pihole_container_id_result.stdout == ""
+  until: pihole_container_id_result.rc == 0 and pihole_container_id_result.stdout != ""
+  retries: 12
+  delay: 10
   delegate_to: "{{ pihole_config_swarm_manager }}"
 
 - name: Set Pi-hole container facts

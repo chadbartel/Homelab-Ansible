@@ -57,6 +57,9 @@
 - name: Prepare SSD media drive on Storage Host (lenovo_server)
   hosts: lenovo_server
   become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
   tasks:
     - name: Include SSD media drive setup tasks
       ansible.builtin.include_tasks: tasks/ssd_media_drive.yml

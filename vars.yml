@@ -36,7 +36,7 @@ openvpn_hostname: "{{ vault_openvpn_hostname }}"
 # OpenVPN Config Role Variables
 openvpn_config_service_name: "vpn-stack_openvpn-as"
 openvpn_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
-openvpn_config_target_host: "{{ vault_admin_username }}-laptop"
+openvpn_config_target_host: "lenovo_server"  # Ansible inventory name (used for delegate_to with docker exec)
 openvpn_config_admin_user: "{{ openvpn_container_name }}"
 openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
 openvpn_config_server_hostname: "{{ vault_openvpn_hostname }}"
@@ -52,7 +52,7 @@ openvpn_config_users:
 # Jellyfin configuration
 jellyfin_user1_password: "{{ vault_jellyfin_user1_password }}"
 jellyfin_enable_hw_accel: false  # Hardware acceleration not supported in Docker Swarm (device cgroups limitation)
-jellyfin_target_host: "{{ vault_admin_username }}-laptop"  # The specific host for Jellyfin (must match Swarm node hostname)
+jellyfin_target_host: "{{ lenovo_swarm_hostname }}"  # Swarm node hostname (must match node.hostname in docker node ls)
 jellyfin_image: "jellyfin/jellyfin:10"  # Official Jellyfin image
 jellyfin_container_name: "jellyfin"
 jellyfin_host_port: 8096
@@ -83,7 +83,7 @@ jellyfin_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_ma
 jellyfin_config_target_node: "lenovo_server"
 jellyfin_config_web_port: 8096
 jellyfin_config_admin_user: "{{ admin_user }}"
-jellyfin_config_admin_password: "{{ vault_jellyfin_thatsmidnight_password }}"
+jellyfin_config_admin_password: "{{ vault_jellyfin_user1_password }}"
 jellyfin_config_api_key_app_name: "ansible_automation"
 jellyfin_config_libraries:
   - name: "Music"
@@ -116,7 +116,7 @@ block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
 pihole_data_path: "/opt/pihole"
 pihole_web_port: 8081  # Port for Pi-hole web interface
 pihole_dns_port: 80  # Port for Pi-hole DNS service
-pihole_target_host: "{{ vault_admin_username }}-laptop"  # The specific host for Pi-hole (must match Swarm node hostname)
+pihole_target_host: "{{ lenovo_swarm_hostname }}"  # Swarm node hostname (must match node.hostname in docker node ls)
 pihole_shm_size: 134217728  # /dev/shm size in bytes (128MB); FTL exhausted the default 67MB
 
 # Pi-hole Config Role Variables
@@ -198,6 +198,9 @@ pihole_container_name: "pihole"
 openvpn_container_name: "vpn"
 portainer_container_name: "portainer"
 nginx_proxy_container_name: "proxy"
+
+# Swarm node hostnames (differ from Ansible inventory names — see copilot-instructions.md)
+lenovo_swarm_hostname: "midnight-laptop"  # Swarm hostname for lenovo_server (192.168.1.12)
 
 # Network configuration
 homelab_network: "192.168.2.0/24"
