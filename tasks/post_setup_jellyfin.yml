@@ -1,0 +1,119 @@
+---
+# Jellyfin post-deployment configuration using jellyfin_config role
+# All tasks run on lenovo_server where Jellyfin is deployed
+#
+# This file has been refactored to use the jellyfin_config role
+# instead of inline configuration logic.
+#
+# The jellyfin_config role provides:
+# - Automatic container discovery in Docker Swarm
+# - Idempotent setup wizard completion
+# - Idempotent API key creation
+# - Declarative library configuration
+#
+# See roles/jellyfin_config/README.md for more information
+
+# ========================================
+# PHASE 1: Service Verification & Readiness
+# ========================================
+- name: Wait for Jellyfin service to be ready
+  ansible.builtin.import_role:
+    name: jellyfin_config
+    tasks_from: wait_for_service
+  vars:
+    target_host: "{{ hostvars[jellyfin_config_target_node].ansible_host }}"  # Use actual IP
+
+# ========================================
+# PHASE 2: Setup Wizard Completion
+# ========================================
+- name: Complete Jellyfin setup wizard (idempotent)
+  ansible.builtin.import_role:
+    name: jellyfin_config
+    tasks_from: setup_wizard
+  vars:
+    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+
+# ========================================
+# PHASE 3: API Key Generation
+# ========================================
+- name: Create or retrieve API key (idempotent)
+  ansible.builtin.import_role:
+    name: jellyfin_config
+    tasks_from: api_keys
+  vars:
+    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+
+# ========================================
+# PHASE 4: Library Configuration
+# ========================================
+- name: Configure media libraries
+  ansible.builtin.import_role:
+    name: jellyfin_config
+    tasks_from: libraries
+  vars:
+    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+
+# ========================================
+# PHASE 5: TV Tuner Setup
+# ========================================
+- name: Create IPTV tuner device(s)
+  ansible.builtin.include_role:
+    name: jellyfin
+    tasks_from: tuners
+  vars:
+    jellyfin_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+    jellyfin_api_token: "{{ jellyfin_config_api_token }}"
+    jellyfin_action: "create"
+    jellyfin_tuner_m3u_url: "{{ item.url }}"
+    jellyfin_tuner_name: "{{ item.name }}"
+  loop: "{{ jellyfin_iptv_playlists }}"
+
+# ========================================
+# PHASE 6: Final Information Display
+# ========================================
+- name: Display Jellyfin deployment summary
+  ansible.builtin.debug:
+    msg: |
+      ✅ Jellyfin Deployment & Configuration Complete!
+
+      🌐 Access Information:
+      External (Recommended): {{ jellyfin_external_url }} (via Nginx Proxy Manager)
+      Direct Access (LAN): http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_host_port }}
+      From {{ jellyfin_config_target_node }}: http://127.0.0.1:{{ jellyfin_host_port }}
+
+      👤 Admin Credentials:
+      Username: {{ jellyfin_config_admin_user }}
+      Password: (stored in vault.yml)
+
+      📍 Deployment Details:
+      - Running on: {{ jellyfin_node_name | default(jellyfin_target_host) }} ({{ jellyfin_config_target_node }})
+      - Container ID: {{ jellyfin_container_id | default('N/A') }}
+      - Memory Limit: {{ jellyfin_memory_limit }}
+      - Hardware Acceleration: {{ 'Enabled (Intel QSV)' if jellyfin_enable_hw_accel | default(false) else 'DISABLED (set jellyfin_enable_hw_accel: true to enable)' }}
+      - Media Path: {{ jellyfin_media_mount_path }} → {{ jellyfin_container_media_path }} (in container)
+
+      📚 Configured Libraries:
+      {% for library in jellyfin_config_libraries %}
+      - {{ library.name }} ({{ library.paths | join(', ') }})
+      {% endfor %}
+
+      🔑 API Token:
+      {{ jellyfin_config_api_token | default('Not generated - check role output') }}
+      ⚠️ Store this token in vault.yml: vault_jellyfin_api_token
+
+      🔧 Next Steps:
+      1. Save API token to vault.yml (if not already done)
+      2. Navigate to Dashboard → Playback → Transcoding
+      3. Set Hardware acceleration to "Intel Quick Sync (QSV)" (if enabled)
+      4. Monitor library scanning progress in Dashboard
+
+      💡 Management Options:
+      - Portainer: Check stack status and container logs
+      - Jellyfin API: Programmatic access via jellyfin ansible role
+      - Jellyfin Config: Post-deployment configuration via jellyfin_config role
+      - jellyctl (optional): CLI tool for manual management
+
+      📖 Documentation:
+      - Role README: roles/jellyfin_config/README.md
+      - Quick Start: roles/jellyfin_config/QUICK_START.md
+      - Examples: roles/jellyfin_config/examples/

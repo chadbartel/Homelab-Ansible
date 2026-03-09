@@ -1,0 +1,6 @@
+---
+# Handlers for the homelab playbook
+- name: restart ssh
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: restarted

@@ -1,0 +1,42 @@
+---
+# Main tasks file for Pi-hole configuration role
+#
+# This role provides modular Pi-hole configuration for Docker Swarm environments.
+# It handles container discovery, adlist management, custom DNS configuration, and dnsmasq settings.
+#
+# Usage:
+#   - import_role:
+#       name: pihole_config
+#       tasks_from: adlists
+#     vars:
+#       pihole_config_service_name: "pihole-stack_pihole"
+#       pihole_config_adlists:
+#         - url: "https://example.com/blocklist.txt"
+#           comment: "Example Blocklist"
+#           enabled: true
+
+- name: Display Pi-hole config role information
+  ansible.builtin.debug:
+    msg: |
+      Pi-hole Configuration Role loaded.
+      
+      Available task files:
+        - discover_container.yml: Discover Pi-hole container in Swarm
+        - wait_for_service.yml: Wait for Pi-hole service to be ready
+        - adlists.yml: Manage Pi-hole ad block lists
+        - custom_dns.yml: Configure custom DNS entries
+        - dnsmasq.yml: Configure dnsmasq settings
+      
+      Service: {{ pihole_config_service_name }}
+      Swarm Manager: {{ pihole_config_swarm_manager }}
+      Target Node: {{ pihole_config_target_node }}
+  when: pihole_config_display_results | default(true)
+
+- name: Ensure required variables are defined
+  ansible.builtin.assert:
+    that:
+      - pihole_config_service_name is defined
+      - pihole_config_swarm_manager is defined
+      - pihole_config_target_node is defined
+    fail_msg: "Required variables not defined. Please check defaults/main.yml"
+    success_msg: "All required variables are defined"

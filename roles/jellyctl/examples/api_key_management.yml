@@ -1,0 +1,41 @@
+---
+# Example: API Key Management with jellyctl role
+
+- name: Manage Jellyfin API Keys
+  hosts: jellyfin_servers
+  vars_files:
+    - ../vault.yml  # Contains vault_jellyfin_api_token
+  
+  vars:
+    jellyctl_url: "http://jellyfin.local:8096"
+    jellyctl_token: "{{ vault_jellyfin_api_token }}"
+
+  tasks:
+    - name: List all API keys
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_key_operation: "list"
+        jellyctl_output_format: "json"
+
+    - name: Create API key for automation
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_key_operation: "create"
+        jellyctl_key_name: "ansible_automation"
+
+    - name: Create API key for monitoring
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_key_operation: "create"
+        jellyctl_key_name: "monitoring_service"
+
+    - name: Delete old API key
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_key_operation: "delete"
+        jellyctl_key_name: "deprecated_key"
+      when: cleanup_old_keys | default(false)

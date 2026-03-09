@@ -1,0 +1,57 @@
+---
+# Example: Backup and Restore Operations
+# This playbook demonstrates backup creation and management
+
+- name: Jellyfin Backup Management
+  hosts: localhost
+  gather_facts: false
+  vars:
+    jellyfin_url: "http://localhost:8096"
+    jellyfin_api_token: "your-api-token-here"
+  
+  tasks:
+    - name: List existing backups
+      import_role:
+        name: jellyfin
+        tasks_from: backups
+      vars:
+        jellyfin_action: list
+      register: backup_list
+    
+    - name: Display existing backups
+      debug:
+        msg: "Backup: {{ item.Name }} - Size: {{ item.Size | filesizeformat }} - Date: {{ item.Date }}"
+      loop: "{{ backup_list.ansible_facts.jellyfin_backups_list.response | default([]) }}"
+      loop_control:
+        label: "{{ item.Name }}"
+      when: backup_list.ansible_facts.jellyfin_backups_list.response is defined
+    
+    - name: Create new backup
+      import_role:
+        name: jellyfin
+        tasks_from: backups
+      vars:
+        jellyfin_action: create
+    
+    - name: Wait for backup to complete
+      pause:
+        seconds: 30
+        prompt: "Waiting for backup creation..."
+    
+    - name: List backups again to see the new one
+      import_role:
+        name: jellyfin
+        tasks_from: backups
+      vars:
+        jellyfin_action: list
+      register: updated_backup_list
+    
+    # Example of restoring a backup (use with caution!)
+    # - name: Restore from backup
+    #   import_role:
+    #     name: jellyfin
+    #     tasks_from: backups
+    #   vars:
+    #     jellyfin_action: restore
+    #     jellyfin_backup_name: "backup-20260207.zip"
+    #   when: false  # Safety: only run when explicitly enabled

@@ -1,0 +1,41 @@
+---
+# Stack Deployer Role - Basic Direct Backend Example
+# This example shows the simplest deployment using docker stack deploy
+
+- name: Deploy stacks using direct backend
+  hosts: servers
+  gather_facts: true
+  
+  vars:
+    # Use direct backend (default)
+    stack_deployer_backend: "direct"
+    
+    # Swarm manager node for delegation
+    stack_deployer_swarm_manager: "pi4_01"
+    
+    # Stacks to deploy
+    stack_deployer_stacks:
+      - name: "pihole-stack"
+        compose_template: "templates/pihole-compose.yml.j2"
+      
+      - name: "jellyfin-stack"
+        compose_template: "templates/jellyfin-compose.yml.j2"
+      
+      - name: "npm-stack"
+        compose_template: "templates/npm-compose.yml.j2"
+  
+  tasks:
+    - name: Deploy all stacks
+      ansible.builtin.include_role:
+        name: stack_deployer
+
+    - name: Verify stacks are deployed
+      ansible.builtin.command:
+        cmd: docker stack ls
+      register: stack_list
+      delegate_to: "{{ stack_deployer_swarm_manager }}"
+      changed_when: false
+    
+    - name: Display deployed stacks
+      ansible.builtin.debug:
+        msg: "{{ stack_list.stdout }}"

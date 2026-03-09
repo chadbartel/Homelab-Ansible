@@ -1,0 +1,157 @@
+---
+# Initial Setup Tasks - Configure OpenVPN Access Server (Idempotent)
+
+- name: Check if OpenVPN has been previously configured
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: "test -f {{ openvpn_config_marker_file }} && echo 'configured' || echo 'not_configured'"
+  register: openvpn_already_configured
+  delegate_to: "{{ openvpn_config_target_host }}"
+  changed_when: false
+  failed_when: false
+
+- name: Display configuration status
+  ansible.builtin.debug:
+    msg: |
+      Configuration status: {{ openvpn_already_configured.stdout }}
+      Force reconfigure: {{ openvpn_config_force_reconfigure }}
+      Will configure: {{ openvpn_already_configured.stdout == 'not_configured' or openvpn_config_force_reconfigure }}
+
+- name: Initial server configuration block
+  when: openvpn_already_configured.stdout == 'not_configured' or openvpn_config_force_reconfigure
+  delegate_to: "{{ openvpn_config_target_host }}"
+  block:
+    - name: Set OpenVPN admin password
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id.stdout }}"
+        command: "sacli --user '{{ openvpn_config_admin_user }}' --new_pass '{{ openvpn_config_admin_password }}' SetLocalPassword"
+      register: admin_password_result
+      retries: 3
+      delay: 10
+      until: admin_password_result.rc == 0
+      no_log: true  # Don't log password
+
+    - name: Grant admin privileges to admin user
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id.stdout }}"
+        command: "sacli --user '{{ openvpn_config_admin_user }}' --key 'prop_superuser' --value 'true' UserPropPut"
+      register: admin_privileges_result
+      retries: 3
+      delay: 10
+      until: admin_privileges_result.rc == 0
+
+    - name: Set OpenVPN server hostname
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id.stdout }}"
+        command: "sacli --key 'host.name' --value '{{ openvpn_config_server_hostname }}' ConfigPut"
+      register: hostname_result
+      retries: 3
+      delay: 10
+      until: hostname_result.rc == 0
+      when: openvpn_config_server_hostname is defined
+
+    - name: Activate OpenVPN Access Server with license key
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id.stdout }}"
+        command: "sacli --value '{{ openvpn_config_activation_key }}' LoadSubscription"
+      register: activation_result
+      retries: 3
+      delay: 10
+      until: activation_result.rc == 0
+      when: openvpn_config_activation_key is defined
+      no_log: true  # Don't log activation key
+
+    - name: Apply additional server configuration settings
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id.stdout }}"
+        command: "sacli --key '{{ item.key }}' --value '{{ item.value }}' ConfigPut"
+      loop: "{{ openvpn_config_server_settings }}"
+      register: config_settings_result
+      retries: 2
+      delay: 5
+      until: config_settings_result.rc == 0
+      when: openvpn_config_server_settings | length > 0
+
+    - name: Restart OpenVPN Access Server to apply initial settings
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id.stdout }}"
+        command: "sacli start"
+      register: openvpn_restart_result
+      retries: 2
+      delay: 10
+      until: openvpn_restart_result.rc == 0
+
+    - name: Wait for OpenVPN to restart and be ready
+      ansible.builtin.wait_for:
+        port: "{{ openvpn_config_web_port }}"
+        host: "{{ _openvpn_target_ip }}"
+        delay: 15
+        timeout: 120
+      delegate_to: localhost
+      become: false
+
+    - name: Mark OpenVPN as configured
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id.stdout }}"
+        command: "touch {{ openvpn_config_marker_file }}"
+        creates: "{{ openvpn_config_marker_file }}"
+
+    - name: Display initial setup completion message
+      ansible.builtin.debug:
+        msg: |
+          ✓ Initial server configuration completed
+          - Admin user configured: {{ openvpn_config_admin_user }}
+          - Server hostname: {{ openvpn_config_server_hostname | default('Not configured') }}
+          - Activation: {{ 'Applied' if openvpn_config_activation_key is defined else 'Skipped' }}
+          - Custom settings: {{ openvpn_config_server_settings | length }} applied
+
+- name: Display idempotency message when already configured
+  ansible.builtin.debug:
+    msg: "OpenVPN Access Server already configured - skipping initial setup (idempotent)"
+  when: 
+    - openvpn_already_configured.stdout == 'configured'
+    - not openvpn_config_force_reconfigure
+
+# ============================================================================
+# Hostname enforcement - runs on EVERY Ansible execution (not guarded by marker
+# file). This prevents the Docker auto-detected overlay IP from persisting in
+# client profiles. The vault variable is the sole source of truth.
+# ============================================================================
+- name: Query current host.name from OpenVPN configuration
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: >-
+      sacli ConfigQuery 2>/dev/null |
+      python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('host.name',''))"
+  register: _openvpn_current_hostname
+  delegate_to: "{{ openvpn_config_target_host }}"
+  changed_when: false
+  failed_when: false
+  when: openvpn_config_server_hostname is defined
+
+- name: Enforce DDNS hostname (correct drift from Docker auto-detection)
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: "sacli --key 'host.name' --value '{{ openvpn_config_server_hostname }}' ConfigPut"
+  register: _openvpn_hostname_enforced
+  delegate_to: "{{ openvpn_config_target_host }}"
+  when:
+    - openvpn_config_server_hostname is defined
+    - _openvpn_current_hostname.stdout | trim != openvpn_config_server_hostname
+
+- name: Restart OpenVPN processes to regenerate client profiles with correct hostname
+  docker_swarm_container_exec:
+    container_id: "{{ openvpn_container_id.stdout }}"
+    command: "sacli start"
+  delegate_to: "{{ openvpn_config_target_host }}"
+  when: _openvpn_hostname_enforced is changed
+
+- name: Wait for OpenVPN to restart after hostname correction
+  ansible.builtin.wait_for:
+    port: "{{ openvpn_config_web_port }}"
+    host: "{{ _openvpn_target_ip }}"
+    delay: 10
+    timeout: 120
+  delegate_to: localhost
+  become: false
+  when: _openvpn_hostname_enforced is changed

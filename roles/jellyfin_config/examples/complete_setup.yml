@@ -1,0 +1,115 @@
+---
+# Complete Jellyfin post-deployment configuration example
+#
+# This playbook runs all configuration tasks in sequence:
+# 1. Wait for service to be ready
+# 2. Complete setup wizard (if needed)
+# 3. Create/retrieve API key
+# 4. Configure media libraries
+#
+# Usage:
+#   ansible-playbook -i ../../inventory.yml examples/complete_setup.yml
+
+- name: Complete Jellyfin Configuration
+  hosts: lenovo_server
+  gather_facts: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  
+  vars:
+    # Service configuration
+    jellyfin_config_service_name: "jellyfin-stack_jellyfin"
+    jellyfin_config_swarm_manager: "pi4_01"
+    jellyfin_config_target_node: "lenovo_server"
+    jellyfin_config_web_port: 8096
+    
+    # Admin credentials
+    jellyfin_config_admin_user: "{{ admin_user }}"
+    jellyfin_config_admin_password: "{{ vault_jellyfin_thatsmidnight_password }}"
+    
+    # API key
+    jellyfin_config_api_key_app_name: "ansible_automation"
+    
+    # Libraries to configure
+    jellyfin_config_libraries:
+      - name: "Music"
+        type: "music"
+        paths:
+          - "/media/music"
+        refresh_on_create: true
+      
+      - name: "Movies"
+        type: "movies"
+        paths:
+          - "/media/movies"
+        refresh_on_create: true
+      
+      - name: "Concerts"
+        type: "movies"
+        paths:
+          - "/media/concerts"
+        refresh_on_create: true
+  
+  tasks:
+    - name: Step 1 - Wait for Jellyfin service to be ready
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: wait_for_service
+      tags:
+        - wait
+        - always
+    
+    - name: Step 2 - Complete setup wizard (if needed)
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: setup_wizard
+      tags:
+        - wizard
+        - setup
+    
+    - name: Step 3 - Create or retrieve API key
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: api_keys
+      tags:
+        - api
+        - keys
+    
+    - name: Step 4 - Configure media libraries
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: libraries
+      tags:
+        - libraries
+        - media
+    
+    - name: Display final configuration summary
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          ✅ Jellyfin Configuration Complete!
+          ========================================
+          
+          🌐 Access URL: http://{{ ansible_host }}:{{ jellyfin_config_web_port }}
+          
+          👤 Admin User: {{ jellyfin_config_admin_user }}
+          
+          🔑 API Details:
+          - App Name: {{ jellyfin_config_api_key_app_name }}
+          - Token: {{ jellyfin_config_api_token }}
+          
+          📚 Configured Libraries:
+          {% for lib in jellyfin_config_libraries %}
+          - {{ lib.name }} ({{ lib.type }})
+          {% endfor %}
+          
+          💡 Next Steps:
+          1. Store API token in vault.yml if not already saved
+          2. Configure hardware acceleration in Dashboard → Playback → Transcoding
+          3. Monitor library scanning in Dashboard → Scheduled Tasks
+          4. Set up additional users if needed
+          
+          ========================================
+      tags:
+        - always

@@ -1,0 +1,33 @@
+---
+# Stack Deployer - Kompose Backend (Future Implementation)
+# Converts Docker Compose to Kubernetes manifests and deploys
+
+- name: Check if kompose is installed
+  ansible.builtin.command:
+    cmd: "{{ stack_deployer_kompose_bin }} version"
+  register: kompose_version
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Fail if kompose is not installed
+  ansible.builtin.fail:
+    msg: |
+      Kompose backend is not yet implemented.
+      
+      To use Kompose:
+      1. Install kompose: https://kompose.io/installation/
+      2. Implement conversion logic in this file
+      3. Test with: stack_deployer_backend: kompose
+  when: kompose_version.rc != 0
+
+- name: Display kompose information
+  ansible.builtin.debug:
+    msg: |
+      ⚠️ Kompose backend is a placeholder for future implementation
+      Kompose version: {{ kompose_version.stdout }}
+      
+      Implementation needed:
+      - Convert docker-compose.yml to Kubernetes manifests
+      - Apply manifests to Kubernetes cluster
+      - Handle service updates and rollbacks

@@ -1,0 +1,50 @@
+---
+# Koffan container discovery task
+#
+# This task discovers the Koffan container running in Docker Swarm and sets facts
+# about its location and ID for use in subsequent tasks.
+#
+# Sets the following facts:
+#   - koffan_task_id: Swarm task ID
+#   - koffan_node_name: Swarm node hostname where container is running
+#   - koffan_container_id: Docker container ID (short 12-char format)
+#
+# Usage:
+#   - include_tasks: discover_container.yml
+
+- name: Get Koffan task ID from Swarm service
+  ansible.builtin.shell: |
+    docker service ps {{ koffan_config_service_name }} \
+      --filter 'desired-state=running' \
+      --format '{%raw%}{{.ID}}{%endraw%}' \
+      --no-trunc | head -n 1
+  register: koffan_task_id_result
+  changed_when: false
+  failed_when: koffan_task_id_result.stdout == ""
+  delegate_to: "{{ koffan_config_swarm_manager }}"
+
+- name: Get Koffan node name from Swarm service
+  ansible.builtin.shell: |
+    docker service ps {{ koffan_config_service_name }} \
+      --filter 'desired-state=running' \
+      --format '{%raw%}{{.Node}}{%endraw%}' | head -n 1
+  register: koffan_node_name_result
+  changed_when: false
+  failed_when: koffan_node_name_result.stdout == ""
+  delegate_to: "{{ koffan_config_swarm_manager }}"
+
+- name: Get Koffan container ID from Swarm task
+  ansible.builtin.shell: |
+    TASK_ID="{{ koffan_task_id_result.stdout }}"
+    docker inspect "${TASK_ID}" \
+      --format '{%raw%}{{.Status.ContainerStatus.ContainerID}}{%endraw%}' | head -c 12
+  register: koffan_container_id_result
+  changed_when: false
+  failed_when: koffan_container_id_result.stdout == ""
+  delegate_to: "{{ koffan_config_swarm_manager }}"
+
+- name: Set Koffan container facts
+  ansible.builtin.set_fact:
+    koffan_task_id: "{{ koffan_task_id_result.stdout }}"
+    koffan_node_name: "{{ koffan_node_name_result.stdout }}"
+    koffan_container_id: "{{ koffan_container_id_result.stdout }}"

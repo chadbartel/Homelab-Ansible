@@ -1,0 +1,105 @@
+---
+# Stack Deployer Role - Complete Setup Example
+# This example shows all configuration options and best practices
+
+- name: Complete stack deployment with all options
+  hosts: servers
+  gather_facts: true
+  
+  vars_files:
+    - ../../../vars.yml
+    - ../../../vault.yml
+  
+  vars:
+    # Backend selection
+    stack_deployer_backend: "{{ deployment_backend | default('direct') }}"
+    
+    # Common configuration
+    stack_deployer_swarm_manager: "pi4_01"
+    stack_deployer_compose_dir: "/tmp/docker-stacks"
+    
+    # Portainer backend configuration
+    stack_deployer_portainer_url: "https://{{ hostvars[stack_deployer_swarm_manager].ansible_host }}:9443"
+    stack_deployer_portainer_admin_user: "admin"
+    stack_deployer_portainer_admin_password: "{{ vault_portainer_admin_password }}"
+    stack_deployer_portainer_endpoint_id: 1
+    stack_deployer_portainer_validate_certs: false
+    stack_deployer_portainer_api_timeout: 60
+    
+    # Direct backend configuration
+    stack_deployer_direct_prune: false
+    stack_deployer_direct_compose_version: "3.8"
+    
+    # Stacks to deploy (all homelab services)
+    stack_deployer_stacks:
+      - name: "pihole-stack"
+        compose_template: "templates/pihole-compose.yml.j2"
+      
+      - name: "jellyfin-stack"
+        compose_template: "templates/jellyfin-compose.yml.j2"
+      
+      - name: "npm-stack"
+        compose_template: "templates/npm-compose.yml.j2"
+      
+      - name: "vpn-stack"
+        compose_template: "templates/openvpn-compose.yml.j2"
+  
+  pre_tasks:
+    - name: Verify Swarm is initialized
+      ansible.builtin.command:
+        cmd: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
+      register: swarm_state
+      delegate_to: "{{ stack_deployer_swarm_manager }}"
+      changed_when: false
+      failed_when: swarm_state.stdout != "active"
+    
+    - name: Display pre-deployment information
+      ansible.builtin.debug:
+        msg: |
+          📋 Pre-Deployment Check
+          Swarm State: {{ swarm_state.stdout }}
+          Backend: {{ stack_deployer_backend }}
+          Manager: {{ stack_deployer_swarm_manager }}
+          Stacks: {{ stack_deployer_stacks | length }}
+  
+  tasks:
+    - name: Deploy all stacks
+      ansible.builtin.include_role:
+        name: stack_deployer
+  
+  post_tasks:
+    - name: Wait for services to start
+      ansible.builtin.pause:
+        seconds: 15
+        prompt: "Waiting for services to initialize..."
+    
+    - name: Verify all stacks are deployed
+      ansible.builtin.command:
+        cmd: docker stack ls --format '{{ "{{" }}.Name{{ "}}" }}'
+      register: deployed_stacks
+      delegate_to: "{{ stack_deployer_swarm_manager }}"
+      changed_when: false
+    
+    - name: Check service health
+      ansible.builtin.command:
+        cmd: docker service ls --format 'table {{ "{{" }}.Name{{ "}}" }}\t{{ "{{" }}.Replicas{{ "}}" }}\t{{ "{{" }}.Ports{{ "}}" }}'
+      register: service_status
+      delegate_to: "{{ stack_deployer_swarm_manager }}"
+      changed_when: false
+    
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ Deployment Complete!
+          
+          Deployed Stacks:
+          {{ deployed_stacks.stdout }}
+          
+          Service Status:
+          {{ service_status.stdout }}
+          
+          Access Information:
+          - Pi-hole: http://{{ hostvars[stack_deployer_swarm_manager].ansible_host }}:{{ pihole_web_port }}/admin
+          - Jellyfin: http://{{ hostvars[stack_deployer_swarm_manager].ansible_host }}:{{ jellyfin_host_port }}
+          - NPM: http://{{ hostvars[stack_deployer_swarm_manager].ansible_host }}:{{ npm_host_port }}
+          - Portainer: https://{{ hostvars[stack_deployer_swarm_manager].ansible_host }}:{{ portainer_host_port }}

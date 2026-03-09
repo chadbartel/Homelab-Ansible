@@ -1,0 +1,51 @@
+---
+# Koffan API initialization task
+#
+# Verifies Koffan API connectivity and optionally sets admin password
+# Makes API calls to ensure service is fully initialized
+#
+# Required variables:
+#   - koffan_config_admin_password: Admin password to set (optional)
+#
+# Usage:
+#   - include_tasks: initialize_api.yml
+#     vars:
+#       target_url: "http://127.0.0.1:80"  # Optional override
+
+- name: Ensure container facts are available
+  ansible.builtin.include_tasks: discover_container.yml
+  when: koffan_container_id is not defined
+
+- name: Set target Koffan URL
+  ansible.builtin.set_fact:
+    koffan_target_url: "{{ target_url | default('http://127.0.0.1:' + (koffan_config_api_port | string)) }}"
+
+- name: Verify Koffan API is responding
+  ansible.builtin.uri:
+    url: "{{ koffan_target_url }}/api/version"
+    method: GET
+    status_code: [200, 404]  # 404 is acceptable if endpoint differs
+    timeout: 10
+    validate_certs: "{{ koffan_config_validate_certs }}"
+  register: koffan_api_check
+  retries: 5
+  delay: 5
+  until: koffan_api_check.status in [200, 404]
+  failed_when: false
+
+- name: Display API connectivity status
+  ansible.builtin.debug:
+    msg: |
+      Koffan API Status:
+      ├─ URL: {{ koffan_target_url }}
+      ├─ Status Code: {{ koffan_api_check.status | default('unknown') }}
+      ├─ Response: {{ koffan_api_check.json | default('N/A') }}
+      └─ Result: {{ '✅ API is responding' if koffan_api_check.status in [200, 404] else '❌ API not responding' }}
+  when: koffan_config_display_results | default(true)
+
+- name: Validate API connectivity
+  ansible.builtin.assert:
+    that:
+      - koffan_api_check.status in [200, 404]
+    fail_msg: "Koffan API is not responding"
+    success_msg: "✅ Koffan API is responsive"

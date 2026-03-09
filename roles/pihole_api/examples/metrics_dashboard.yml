@@ -1,0 +1,122 @@
+---
+# Example: Metrics and statistics gathering
+
+- name: Pi-hole Metrics Dashboard
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    pihole_api_target_node: "lenovo_server"
+    pihole_api_web_port: 8081
+    pihole_api_password: "{{ vault_pihole_admin_password }}"
+    
+  tasks:
+    - name: Authenticate with Pi-hole API
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "create_session"
+
+    - name: Get summary statistics
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_summary"
+
+    - name: Get top clients
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_top_clients"
+        pihole_api_metrics_query_params:
+          count: 10
+
+    - name: Get top domains
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_top_domains"
+        pihole_api_metrics_query_params:
+          count: 10
+
+    - name: Get query types
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_query_types"
+
+    - name: Get upstream server stats
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_upstreams"
+
+    - name: Get recently blocked domains
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_recent_blocked"
+        pihole_api_metrics_query_params:
+          count: 10
+
+    - name: Display Pi-hole Dashboard
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Pi-hole Statistics Dashboard
+          ========================================
+          
+          Summary:
+          - Total Queries: {{ pihole_stats_summary.response.dns_queries_today }}
+          - Blocked Queries: {{ pihole_stats_summary.response.ads_blocked_today }}
+          - Blocking Percentage: {{ pihole_stats_summary.response.ads_percentage_today }}%
+          - Domains on Blocklist: {{ pihole_stats_summary.response.domains_being_blocked }}
+          
+          Top 10 Clients:
+          {% for client in pihole_stats_top_clients.response.top_clients[:10] %}
+          {{ loop.index }}. {{ client.name | default(client.ip) }}: {{ client.queries }} queries
+          {% endfor %}
+          
+          Top 10 Domains:
+          {% for domain in pihole_stats_top_domains.response.top_domains[:10] %}
+          {{ loop.index }}. {{ domain.domain }}: {{ domain.queries }} queries
+          {% endfor %}
+          
+          Query Types:
+          {% for qtype, count in pihole_stats_query_types.response.query_types.items() %}
+          - {{ qtype }}: {{ count }}
+          {% endfor %}
+          
+          Upstream Servers:
+          {% for upstream in pihole_stats_upstreams.response.upstreams %}
+          - {{ upstream.name }}: {{ upstream.queries }} queries ({{ upstream.percentage }}%)
+          {% endfor %}
+          
+          Recently Blocked:
+          {% for domain in pihole_stats_recent_blocked.response.recent_blocked[:10] %}
+          - {{ domain }}
+          {% endfor %}
+          ========================================
+
+    - name: Cleanup session
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "destroy_session"

@@ -1,0 +1,41 @@
+---
+# Log access tasks
+# GET /logs/dnsmasq - Get dnsmasq log
+# GET /logs/ftl - Get FTL log
+# GET /logs/webserver - Get webserver log
+
+- name: Get dnsmasq log
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/logs/dnsmasq"
+    method: GET
+    query_params: "{{ pihole_api_log_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_log_dnsmasq
+  when: pihole_api_log_operation == "get_dnsmasq"
+
+- name: Get FTL log
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/logs/ftl"
+    method: GET
+    query_params: "{{ pihole_api_log_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_log_ftl
+  when: pihole_api_log_operation == "get_ftl"
+
+- name: Get webserver log
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/logs/webserver"
+    method: GET
+    query_params: "{{ pihole_api_log_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_log_webserver
+  when: pihole_api_log_operation == "get_webserver"

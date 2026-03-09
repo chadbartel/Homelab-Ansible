@@ -1,0 +1,60 @@
+---
+# Jellyfin container discovery task
+#
+# This task discovers the Jellyfin container running in Docker Swarm and sets facts
+# about its location and ID for use in subsequent tasks.
+#
+# Sets the following facts:
+#   - jellyfin_task_id: Swarm task ID
+#   - jellyfin_node_name: Swarm node hostname where container is running
+#   - jellyfin_container_id: Docker container ID (short 12-char format)
+#
+# Usage:
+#   - include_tasks: discover_container.yml
+
+- name: Get Jellyfin task ID from Swarm service
+  ansible.builtin.shell: |
+    docker service ps {{ jellyfin_config_service_name }} \
+      --filter 'desired-state=running' \
+      --format '{%raw%}{{.ID}}{%endraw%}' \
+      --no-trunc | head -n 1
+  register: jellyfin_task_id_result
+  changed_when: false
+  failed_when: jellyfin_task_id_result.stdout == ""
+  delegate_to: "{{ jellyfin_config_swarm_manager }}"
+
+- name: Get Jellyfin node name from Swarm service
+  ansible.builtin.shell: |
+    docker service ps {{ jellyfin_config_service_name }} \
+      --filter 'desired-state=running' \
+      --format '{%raw%}{{.Node}}{%endraw%}' | head -n 1
+  register: jellyfin_node_name_result
+  changed_when: false
+  failed_when: jellyfin_node_name_result.stdout == ""
+  delegate_to: "{{ jellyfin_config_swarm_manager }}"
+
+- name: Get Jellyfin container ID from Swarm task
+  ansible.builtin.shell: |
+    TASK_ID="{{ jellyfin_task_id_result.stdout }}"
+    docker inspect "${TASK_ID}" \
+      --format '{%raw%}{{.Status.ContainerStatus.ContainerID}}{%endraw%}' | head -c 12
+  register: jellyfin_container_id_result
+  changed_when: false
+  failed_when: jellyfin_container_id_result.stdout == ""
+  delegate_to: "{{ jellyfin_config_swarm_manager }}"
+
+- name: Set Jellyfin container facts
+  ansible.builtin.set_fact:
+    jellyfin_task_id: "{{ jellyfin_task_id_result.stdout }}"
+    jellyfin_node_name: "{{ jellyfin_node_name_result.stdout }}"
+    jellyfin_container_id: "{{ jellyfin_container_id_result.stdout }}"
+    cacheable: true
+
+- name: Display Jellyfin container information
+  ansible.builtin.debug:
+    msg: |
+      Jellyfin Container Discovery:
+      ├─ Task ID: {{ jellyfin_task_id }}
+      ├─ Swarm Node: {{ jellyfin_node_name }}
+      └─ Container ID: {{ jellyfin_container_id }}
+  when: jellyfin_config_display_results | default(true)

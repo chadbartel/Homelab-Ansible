@@ -1,0 +1,16 @@
+---
+# Dynamic fact gathering for Swarm manager node
+# This task file sets a dynamic fact for the swarm manager node
+# to avoid hardcoding "pi4_01" throughout the project
+
+- name: Set swarm manager fact dynamically
+  ansible.builtin.set_fact:
+    swarm_manager_node: "{{ groups['swarm_managers'][0] }}"
+  run_once: true
+  delegate_to: localhost
+  delegate_facts: false
+
+- name: Display detected swarm manager node
+  ansible.builtin.debug:
+    msg: "Using swarm manager node: {{ swarm_manager_node }}"
+  run_once: true

@@ -1,0 +1,65 @@
+---
+# Modular OpenVPN Configuration
+# This example shows how to use individual task files for fine-grained control
+# Works with any deployment mode (Swarm, Docker, or Direct)
+
+- name: Modular OpenVPN Configuration
+  hosts: localhost
+  gather_facts: no
+  
+  vars:
+    # Choose your deployment mode (example uses standalone Docker)
+    openvpn_config_container_name: "openvpn-as"
+    openvpn_config_target_host: "docker-host"
+    
+    # Configuration variables
+    openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
+    openvpn_config_server_hostname: "vpn.example.com"
+    openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
+    openvpn_config_users:
+      - username: "alice"
+        password: "{{ vault_openvpn_alice_password }}"
+        autologin: true
+  
+  tasks:
+    # Phase 1: Discovery
+    - name: "Phase 1: Discover OpenVPN container"
+      ansible.builtin.include_role:
+        name: openvpn_config
+        tasks_from: discover_container
+    
+    - name: Display discovered container
+      ansible.builtin.debug:
+        msg: "Found container {{ openvpn_container_id.stdout }} - Discovery mode: {{ _openvpn_discovery_mode }}"
+    
+    # Phase 2: Readiness
+    - name: "Phase 2: Wait for OpenVPN Access Server to be ready"
+      ansible.builtin.include_role:
+        name: openvpn_config
+        tasks_from: wait_for_service
+    
+    - name: Service is ready
+      ansible.builtin.debug:
+        msg: "OpenVPN Access Server is ready for configuration"
+    
+    # Phase 3: Initial Setup (optional - comment out if already configured)
+    - name: "Phase 3: Perform initial server configuration"
+      ansible.builtin.include_role:
+        name: openvpn_config
+        tasks_from: initial_setup
+    
+    # Phase 4: User Management (can be run independently)
+    - name: "Phase 4: Create/update VPN users"
+      ansible.builtin.include_role:
+        name: openvpn_config
+        tasks_from: users
+    
+    # Final verification
+    - name: Verify final configuration
+      ansible.builtin.debug:
+        msg: |
+          ✓ All phases completed successfully
+          
+          Access your OpenVPN server:
+          - Admin UI: https://{{ _openvpn_target_ip }}:943/admin
+          - Client UI: https://{{ _openvpn_target_ip }}:943/

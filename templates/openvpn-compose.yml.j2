@@ -1,0 +1,44 @@
+---
+version: "3.8"
+
+services:
+  openvpn-as:
+    image: {{ openvpn_image }}
+    hostname: {{ openvpn_container_name }}
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "{{ vpn_host_port }}:943"
+      - "1194:1194/udp"
+      - "444:443"
+    volumes:
+      - openvpn_data:/usr/local/openvpn_as
+    environment:
+      TZ: '{{ timezone }}'
+      OPENVPN_AS_HOST: '{{ openvpn_hostname }}'
+    networks:
+      - proxy-network
+    sysctls:
+      - net.ipv4.ip_forward=1
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      update_config:
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+volumes:
+  openvpn_data:
+    driver: local
+
+networks:
+  proxy-network:
+    external: true

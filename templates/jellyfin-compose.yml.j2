@@ -1,0 +1,123 @@
+---
+version: "3.8"
+
+services:
+  jellyfin:
+    hostname: {{ jellyfin_container_name }}
+    image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
+    user: "1000:1000"  # Standard user (hardware accel not supported in Swarm)
+    ports:
+      - "{{ jellyfin_host_port }}:8096"  # Publish port for direct access and API automation
+    networks:
+      - proxy-network
+    dns:
+      - 192.168.1.10  # Pi-hole (primary for ad-blocking)
+      - 1.1.1.1  # Cloudflare DNS for reliable external stream resolution
+      - 8.8.8.8  # Google DNS fallback
+    dns_search:
+      - local  # Optional: for local domain resolution
+    volumes:
+      - jellyfin_config:/config
+      - jellyfin_cache:/cache
+      - jellyfin_epg:/epg  # EPG data shared with updater service
+      - type: bind
+        source: /mnt/ssd_media
+        target: /media
+        read_only: false
+    cap_add:
+      - SYS_NICE  # Allow FFmpeg to set process priority for smoother transcoding
+    environment:
+      # Optimize FFmpeg for better stream handling
+      JELLYFIN_FFmpeg__probesize: '1G'
+      JELLYFIN_FFmpeg__analyzeduration: '3000000'
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == {{ jellyfin_target_host }}
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        order: start-first
+        failure_action: rollback
+
+  epg-updater:
+    image: {{ jellyfin_epg_image | default('alpine:3.23') }}
+    networks:
+      - proxy-network
+    volumes:
+      - jellyfin_epg:/epg
+    environment:
+      - TZ={{ timezone | default('America/Los_Angeles') }}
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache curl tzdata
+        
+        # Create update script
+        cat > /usr/local/bin/update-epg.sh << 'EOFSCRIPT'
+        #!/bin/sh
+        cd /epg || exit 1
+        echo "Starting EPG update at $$(date)" >> /epg/update.log
+        
+{% for epg_file in jellyfin_epg_files | default([]) %}
+        # Download {{ epg_file.filename }}
+        echo "[{{ loop.index }}/{{ jellyfin_epg_files | length }}] Downloading {{ epg_file.filename }}..."
+        if curl -fsSL "{{ epg_file.url }}" -o "{{ epg_file.filename }}"; then
+          if gunzip -f "{{ epg_file.filename }}"; then
+            echo "✓ {{ epg_file.filename }} updated successfully at $$(date)" >> /epg/update.log
+          else
+            echo "✗ Failed to extract {{ epg_file.filename }} at $$(date)" >> /epg/update.log
+          fi
+        else
+          echo "✗ Failed to download {{ epg_file.filename }} at $$(date)" >> /epg/update.log
+        fi
+        
+{% endfor %}
+        echo "EPG update completed at $$(date)" >> /epg/update.log
+        echo "---" >> /epg/update.log
+        EOFSCRIPT
+        
+        chmod +x /usr/local/bin/update-epg.sh
+        echo '{{ jellyfin_epg_schedule | default("0 1 * * *") }} /usr/local/bin/update-epg.sh' > /etc/crontabs/root
+        echo "EPG Updater started - scheduled for {{ jellyfin_epg_schedule | default('1:00 AM PST') }} daily"
+        echo "Initial download of {{ jellyfin_epg_files | default([]) | length }} EPG file(s) starting..."
+        /usr/local/bin/update-epg.sh
+        echo "Initial EPG download complete. Cron daemon starting..."
+        exec crond -f -l 2
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == {{ jellyfin_target_host }}
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 16M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+networks:
+  proxy-network:
+    external: true
+
+volumes:
+  jellyfin_config:
+    driver: local
+  jellyfin_cache:
+    driver: local
+  jellyfin_epg:
+    driver: local

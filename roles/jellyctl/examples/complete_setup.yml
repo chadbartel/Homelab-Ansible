@@ -1,0 +1,83 @@
+---
+# Example: Complete Jellyfin Setup and Configuration
+# This is a comprehensive example showing multiple operations in sequence
+
+- name: Complete Jellyfin Configuration
+  hosts: jellyfin_servers
+  vars_files:
+    - ../vault.yml  # Contains vault_jellyfin_api_token
+  
+  vars:
+    jellyctl_url: "http://{{ ansible_default_ipv4.address }}:8096"
+    jellyctl_token: "{{ vault_jellyfin_api_token }}"
+    
+    # List of users to create
+    jellyfin_users:
+      - name: "alice"
+        admin: true
+        hidden: false
+      - name: "bob"
+        admin: false
+        hidden: false
+      - name: "service"
+        admin: false
+        hidden: true
+
+  tasks:
+    - name: Display Jellyfin system information
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_system_operation: "info"
+
+    - name: Create Jellyfin users
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "create"
+        jellyctl_username: "{{ item.name }}"
+      loop: "{{ jellyfin_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Set admin privileges
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "set-admin"
+        jellyctl_username: "{{ item.name }}"
+      loop: "{{ jellyfin_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: item.admin | default(false)
+
+    - name: Hide service accounts
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "set-hidden"
+        jellyctl_username: "{{ item.name }}"
+      loop: "{{ jellyfin_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: item.hidden | default(false)
+
+    - name: Create automation API key
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_key_operation: "create"
+        jellyctl_key_name: "ansible_management"
+
+    - name: Trigger initial library scan
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_library_operation: "scan"
+
+    - name: List all users (verification)
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_user_operation: "list"
+        jellyctl_output_format: "json"

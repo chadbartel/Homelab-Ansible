@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  role_name: nginx_proxy_manager_config
+  author: thatsmidnight
+  description: Idempotent NGINX Proxy Manager configuration for Docker Swarm
+  company: Homelab
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+  galaxy_tags:
+    - nginx
+    - proxy
+    - reverse-proxy
+    - docker
+    - swarm
+    - homelab
+    - npm
+
+dependencies: []

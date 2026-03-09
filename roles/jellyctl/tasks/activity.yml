@@ -1,0 +1,36 @@
+---
+# Activity log tasks for jellyctl
+
+- name: Build jellyctl base command
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ jellyctl_binary }} --url {{ jellyctl_url }}"
+
+- name: Add token to command if provided
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ _jellyctl_cmd }} --token {{ jellyctl_token }}"
+  when: jellyctl_token | length > 0
+
+# List activity logs
+- name: Build activity command
+  ansible.builtin.set_fact:
+    _activity_cmd: "{{ _jellyctl_cmd }} activity"
+
+- name: Add activity options
+  ansible.builtin.set_fact:
+    _activity_cmd: >
+      {{ _activity_cmd }}
+      {{ '--json' if jellyctl_output_format == 'json' else '' }}
+      --limit {{ jellyctl_activity_limit }}
+      --start {{ jellyctl_activity_start }}
+      {{ '--after "' + jellyctl_activity_after + '"' if jellyctl_activity_after is defined else '' }}
+
+- name: Get activity logs
+  ansible.builtin.command: "{{ _activity_cmd }}"
+  register: jellyctl_activity_logs
+  changed_when: false
+  when: jellyctl_activity_operation == 'list'
+
+- name: Display activity logs
+  ansible.builtin.debug:
+    var: jellyctl_activity_logs.stdout_lines
+  when: jellyctl_activity_operation == 'list'

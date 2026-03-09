@@ -1,0 +1,74 @@
+---
+# Authentication management tasks
+# POST /auth - Create session
+# GET /auth - Verify session
+# DELETE /auth - Destroy session
+# GET /auth/sessions - List all sessions
+# DELETE /auth/session/{id} - Delete specific session
+
+- name: Create Pi-hole authentication session
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    password: "{{ pihole_api_password }}"
+    endpoint: "/auth"
+    method: POST
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_auth_result
+  when: pihole_api_auth_operation == "create_session"
+  no_log: true
+
+- name: Set session ID fact
+  ansible.builtin.set_fact:
+    pihole_session_id: "{{ pihole_auth_result.session_id }}"
+  when: 
+    - pihole_api_auth_operation == "create_session"
+    - pihole_auth_result is defined
+    - pihole_auth_result.session_id is defined
+  no_log: true
+
+- name: Verify current authentication session
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/auth"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_auth_verify_result
+  when: pihole_api_auth_operation == "verify_session"
+
+- name: Destroy current authentication session
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/auth"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_auth_destroy_result
+  when: pihole_api_auth_operation == "destroy_session"
+
+- name: List all active sessions
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/auth/sessions"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_auth_sessions_result
+  when: pihole_api_auth_operation == "list_sessions"
+
+- name: Delete specific session by ID
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/auth/session/{{ pihole_api_target_session_id }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_auth_delete_session_result
+  when: 
+    - pihole_api_auth_operation == "delete_session"
+    - pihole_api_target_session_id is defined

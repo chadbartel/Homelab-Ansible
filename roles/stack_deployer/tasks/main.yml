@@ -1,0 +1,63 @@
+---
+# Stack Deployer Role - Main Tasks
+# Dispatches to appropriate backend based on stack_deployer_backend
+
+- name: Validate stack_deployer_backend parameter
+  ansible.builtin.fail:
+    msg: "Invalid backend '{{ stack_deployer_backend }}'. Must be one of: portainer, direct, kompose"
+  when: stack_deployer_backend not in ['portainer', 'direct', 'kompose']
+
+- name: Display deployment backend information
+  ansible.builtin.debug:
+    msg: |
+      🚀 Stack Deployer Role
+      Backend: {{ stack_deployer_backend }}
+      Swarm Manager: {{ stack_deployer_swarm_manager }}
+      Stacks to Deploy: {{ stack_deployer_stacks | length }}
+
+- name: Create proxy network for services (Swarm overlay)
+  community.docker.docker_network:
+    name: proxy-network
+    state: present
+    driver: overlay
+    attachable: true
+    scope: swarm
+    ipam_config:
+      - subnet: "172.20.0.0/16"
+        gateway: "172.20.0.1"
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Verify proxy network exists
+  ansible.builtin.command:
+    cmd: docker network inspect proxy-network
+  register: network_check
+  changed_when: false
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Display network information
+  ansible.builtin.debug:
+    msg: |
+      ✅ proxy-network created successfully
+      Network ID: {{ (network_check.stdout | from_json)[0].Id[:12] }}
+      Driver: {{ (network_check.stdout | from_json)[0].Driver }}
+      Subnet: {{ (network_check.stdout | from_json)[0].IPAM.Config[0].Subnet }}
+
+# Dispatch to backend-specific tasks
+- name: Deploy stacks via Portainer API
+  ansible.builtin.include_tasks: portainer.yml
+  when: stack_deployer_backend == 'portainer'
+
+- name: Deploy stacks directly via docker stack deploy
+  ansible.builtin.include_tasks: direct.yml
+  when: stack_deployer_backend == 'direct'
+
+- name: Deploy stacks via Kompose
+  ansible.builtin.include_tasks: kompose.yml
+  when: stack_deployer_backend == 'kompose'
+
+- name: Display deployment summary
+  ansible.builtin.debug:
+    msg: |
+      ✅ Stack deployment completed
+      Backend: {{ stack_deployer_backend }}
+      Stacks deployed: {{ stack_deployer_stacks | map(attribute='name') | list | join(', ') }}

@@ -1,0 +1,44 @@
+---
+# Pi-hole dnsmasq configuration task
+#
+# Manages dnsmasq settings in /etc/dnsmasq.d/misc.dnsmasq_lines
+# Uses docker_exec_lineinfile module for true idempotency
+#
+# Usage:
+#   - include_tasks: dnsmasq.yml
+#     vars:
+#       pihole_config_dnsmasq_settings:
+#         - "dns-forward-max=300"
+#         - "cache-size=10000"
+
+- name: Ensure container facts are available
+  ansible.builtin.include_tasks: discover_container.yml
+  when: pihole_container_id is not defined
+
+- name: Manage dnsmasq configuration settings
+  docker_exec_lineinfile:
+    container_id: "{{ pihole_container_id }}"
+    path: /etc/dnsmasq.d/misc.dnsmasq_lines
+    line: "{{ item }}"
+    state: present
+    create: true
+  loop: "{{ pihole_config_dnsmasq_settings }}"
+  register: dnsmasq_results
+  delegate_to: "{{ pihole_config_target_node }}"
+
+- name: Restart dnsmasq to apply changes
+  docker_swarm_container_exec:
+    container_id: "{{ pihole_container_id }}"
+    command: "pihole restartdns"
+  when: dnsmasq_results.changed
+  delegate_to: "{{ pihole_config_target_node }}"
+
+- name: Display dnsmasq configuration status
+  ansible.builtin.debug:
+    msg: |
+      Dnsmasq Configuration:
+      ├─ Settings processed: {{ pihole_config_dnsmasq_settings | length }}
+      ├─ Added: {{ dnsmasq_results.results | selectattr('changed', 'equalto', true) | list | length }}
+      ├─ Already present: {{ dnsmasq_results.results | selectattr('changed', 'equalto', false) | list | length }}
+      └─ DNS restarted: {{ dnsmasq_results.changed }}
+  when: pihole_config_display_results | default(true)

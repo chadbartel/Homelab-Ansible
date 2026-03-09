@@ -1,0 +1,79 @@
+---
+# Group management tasks
+# POST /groups - Create group
+# POST /groups:batchDelete - Delete multiple groups
+# GET /groups/{name} - Get group details
+# PUT /groups/{name} - Update group
+# DELETE /groups/{name} - Delete group
+
+- name: Create Pi-hole group
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/groups"
+    method: POST
+    body:
+      name: "{{ pihole_api_group_name }}"
+      description: "{{ pihole_api_group_description | default('') }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_group_create
+  when:
+    - pihole_api_group_operation == "create"
+    - pihole_api_group_name is defined
+
+- name: Get group details
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/groups/{{ pihole_api_group_name }}"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_group_get
+  when:
+    - pihole_api_group_operation == "get"
+    - pihole_api_group_name is defined
+
+- name: Update group
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/groups/{{ pihole_api_group_name }}"
+    method: PUT
+    body: "{{ pihole_api_group_updates }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_group_update
+  when:
+    - pihole_api_group_operation == "update"
+    - pihole_api_group_name is defined
+    - pihole_api_group_updates is defined
+
+- name: Delete group
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/groups/{{ pihole_api_group_name }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_group_delete
+  when:
+    - pihole_api_group_operation == "delete"
+    - pihole_api_group_name is defined
+
+- name: Batch delete groups
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/groups:batchDelete"
+    method: POST
+    body:
+      groups: "{{ pihole_api_group_names }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_group_batch_delete
+  when:
+    - pihole_api_group_operation == "batch_delete"
+    - pihole_api_group_names is defined

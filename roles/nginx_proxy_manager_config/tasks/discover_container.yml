@@ -1,0 +1,40 @@
+---
+# Discover NPM container in Docker Swarm
+# This finds the actual container running the NPM service
+
+- name: Get NPM service task node
+  ansible.builtin.shell: |
+    docker service ps {{ npm_config_service_name }} \
+      --filter "desired-state=running" \
+      --format '{{{{.Node}}}}'
+  register: npm_service_node
+  delegate_to: "{{ npm_config_swarm_manager }}"
+  changed_when: false
+
+- name: Set NPM container node fact
+  ansible.builtin.set_fact:
+    npm_container_node: "{{ npm_service_node.stdout | trim }}"
+
+- name: Get NPM container ID
+  ansible.builtin.shell: |
+    TASK_ID=$(docker service ps {{ npm_config_service_name }} \
+      --filter 'desired-state=running' \
+      --format '{{{{.ID}}}}' \
+      --no-trunc | head -n 1)
+    docker inspect "${TASK_ID}" \
+      --format '{{{{.Status.ContainerStatus.ContainerID}}}}' | head -c 12
+  register: npm_container_id_result
+  delegate_to: "{{ npm_config_swarm_manager }}"
+  changed_when: false
+
+- name: Set NPM container ID fact
+  ansible.builtin.set_fact:
+    npm_container_id: "{{ npm_container_id_result.stdout | trim }}"
+
+- name: Display discovered NPM container info
+  ansible.builtin.debug:
+    msg: |
+      NPM Container Discovery:
+      - Service: {{ npm_config_service_name }}
+      - Node: {{ npm_container_node }}
+      - Container ID: {{ npm_container_id }}

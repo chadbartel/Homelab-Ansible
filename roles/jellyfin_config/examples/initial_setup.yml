@@ -1,0 +1,84 @@
+---
+# Setup wizard completion example
+#
+# This playbook completes the Jellyfin initial setup wizard.
+# Idempotent - will skip if wizard already completed.
+#
+# Usage:
+#   ansible-playbook -i ../../inventory.yml examples/initial_setup.yml
+
+- name: Complete Jellyfin Setup Wizard
+  hosts: lenovo_server
+  gather_facts: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  
+  vars:
+    jellyfin_config_service_name: "jellyfin-stack_jellyfin"
+    jellyfin_config_web_port: 8096
+    jellyfin_config_server_name: "jellyfin"
+    jellyfin_config_admin_user: "{{ admin_user }}"
+    jellyfin_config_admin_password: "{{ vault_jellyfin_admin_password }}"
+    jellyfin_config_ui_culture: "en-US"
+    jellyfin_config_metadata_country: "US"
+    jellyfin_config_preferred_metadata_language: "en"
+    jellyfin_config_disable_remote_access: false
+  
+  pre_tasks:
+    - name: Ensure Jellyfin is accessible
+      ansible.builtin.wait_for:
+        host: "127.0.0.1"
+        port: "{{ jellyfin_config_web_port }}"
+        timeout: 60
+      tags:
+        - always
+  
+  tasks:
+    - name: Complete initial setup wizard
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: setup_wizard
+      tags:
+        - wizard
+        - setup
+    
+    - name: Test admin authentication
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ jellyfin_config_web_port }}/User/AuthenticateByName"
+        method: POST
+        body_format: json
+        body:
+          Username: "{{ jellyfin_config_admin_user }}"
+          Pw: "{{ jellyfin_config_admin_password }}"
+        status_code: [200]
+        validate_certs: false
+      register: auth_test
+      tags:
+        - test
+        - auth
+    
+    - name: Display setup completion
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          ✅ Jellyfin Setup Wizard Complete
+          ========================================
+          
+          🌐 URL: http://{{ ansible_host }}:{{ jellyfin_config_web_port }}
+          🖥️  Server Name: {{ jellyfin_config_server_name }}
+          🌍 UI Language: {{ jellyfin_config_ui_culture }}
+          📍 Country: {{ jellyfin_config_metadata_country }}
+          
+          👤 Admin User: {{ jellyfin_config_admin_user }}
+          🔐 Password: *** (stored in vault.yml)
+          ✅ Authentication: {{ 'Successful' if auth_test.status == 200 else 'Failed' }}
+          
+          💡 Next Steps:
+          1. Create API key for automation
+          2. Configure media libraries
+          3. Set up hardware acceleration (if available)
+          
+          ========================================
+      tags:
+        - always

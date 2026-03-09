@@ -1,0 +1,31 @@
+---
+# Service Readiness Tasks - Wait for OpenVPN Access Server to be fully ready
+# Now using the common wait_for_swarm_service task for consistency
+
+- name: Determine target IP for readiness checks
+  ansible.builtin.set_fact:
+    _openvpn_target_ip: >-
+      {%- if openvpn_config_target_host == 'localhost' -%}
+        127.0.0.1
+      {%- elif hostvars[openvpn_config_target_host] is defined and hostvars[openvpn_config_target_host]['ansible_host'] is defined -%}
+        {{ hostvars[openvpn_config_target_host]['ansible_host'] }}
+      {%- else -%}
+        {{ openvpn_config_target_host }}
+      {%- endif -%}
+
+- name: Wait for OpenVPN service using common task
+  ansible.builtin.include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "{{ openvpn_config_service_name }}"
+    wait_host: "{{ _openvpn_target_ip }}"
+    wait_port: "{{ openvpn_config_web_port }}"
+    wait_initial_pause: "{{ openvpn_config_startup_wait }}"
+    wait_delay: "{{ openvpn_config_readiness_delay }}"
+    wait_timeout: "{{ openvpn_config_readiness_timeout }}"
+    wait_swarm_manager: "{{ openvpn_config_swarm_manager | default(omit) }}"
+    wait_custom_command: "which sacli"
+    wait_container_id: "{{ openvpn_container_id.stdout }}"
+    wait_delegate_to: "{{ openvpn_config_target_host }}"
+    wait_custom_retries: 5
+    wait_custom_delay: 5
+    wait_display_results: true

@@ -1,0 +1,270 @@
+---
+# Main playbook for homelab deployment
+
+# Set dynamic facts for Swarm manager (decouples hardcoded node references)
+- name: Initialize dynamic infrastructure facts
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Load dynamic Swarm manager fact
+      ansible.builtin.include_tasks: tasks/common/set_swarm_manager.yml
+      tags: ["always"]
+
+- name: Apply common configuration and install Docker on all servers
+  hosts: homelab_servers
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Run initial setup tasks
+      ansible.builtin.include_tasks: tasks/initial_setup.yml
+      tags: ["initial", "setup"]
+
+    - name: Install and configure Docker
+      ansible.builtin.include_tasks: tasks/docker.yml
+      tags: ["docker", "setup"]
+
+    - name: Verify Docker service is running
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+      register: docker_service_status
+
+    - name: Wait for Docker socket to be available
+      ansible.builtin.wait_for:
+        path: /var/run/docker.sock
+        timeout: 30
+
+    - name: Test Docker daemon connectivity
+      ansible.builtin.command:
+        cmd: docker info
+      register: docker_info_test
+      changed_when: false
+      retries: 3
+      delay: 5
+
+    - name: Display Docker status
+      ansible.builtin.debug:
+        msg: |
+          Docker status on {{ inventory_hostname }}:
+          Service: {{ 'Running' if docker_service_status.status.ActiveState == 'active' else 'Failed' }}
+          Socket: Available
+          Daemon: Connected
+
+- name: Prepare SSD media drive on Storage Host (lenovo_server)
+  hosts: lenovo_server
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Include SSD media drive setup tasks
+      ansible.builtin.include_tasks: tasks/ssd_media_drive.yml
+      tags: ["ssd-media", "storage"]
+
+- name: Setup NFS server on Storage Host (lenovo_server)
+  hosts: lenovo_server
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Include NFS server tasks
+      ansible.builtin.include_tasks: tasks/nfs_server.yml
+      tags: ["nfs", "storage"]
+
+- name: Setup NFS clients on other nodes (mount SSD via NFS)
+  hosts: nfs_client_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Include NFS client tasks
+      ansible.builtin.include_tasks: tasks/nfs_client.yml
+      tags: ["nfs", "storage"]
+
+- name: Verify NFS mount on worker nodes
+  hosts: nfs_client_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Check if NFS mount is accessible
+      ansible.builtin.command:
+        cmd: ls -la {{ nfs_client_mount_path }}
+      register: nfs_mount_check
+      changed_when: false
+      failed_when: nfs_mount_check.rc != 0
+
+    - name: Display NFS mount contents
+      ansible.builtin.debug:
+        msg: |
+          ✅ NFS mount verified on {{ inventory_hostname }}!
+          Mount point: {{ nfs_client_mount_path }}
+          Contents:
+          {{ nfs_mount_check.stdout }}
+
+    - name: Verify music folder is visible
+      ansible.builtin.stat:
+        path: "{{ nfs_client_mount_path }}"
+      register: media_folder_check
+
+    - name: Display music folder status
+      ansible.builtin.debug:
+        msg: |
+          {% if media_folder_check.stat.exists %}
+          ✅ Media folder is accessible at {{ nfs_client_mount_path }}
+          {% else %}
+          ⚠️  Media folder not found - you may need to create it on the storage host
+          {% endif %}
+
+- name: Setup Docker Swarm cluster
+  hosts: manager_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Initialize Docker Swarm on manager node
+      community.docker.docker_swarm:
+        state: present
+      register: swarm_info
+
+    - name: Display Swarm join-token for worker nodes
+      ansible.builtin.debug:
+        msg: "To add a worker to this swarm, run the following command: {{ swarm_info.swarm_facts.JoinTokens.Worker }}"
+      when: swarm_info.changed
+
+- name: Join worker nodes to Swarm
+  hosts: worker_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Ensure Docker service is running on worker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Wait for Docker daemon to be ready on worker
+      ansible.builtin.wait_for:
+        path: /var/run/docker.sock
+        timeout: 30
+
+    - name: Test Docker connectivity on worker
+      ansible.builtin.command:
+        cmd: docker version
+      register: worker_docker_test
+      changed_when: false
+      retries: 3
+      delay: 5
+
+    - name: Check current Docker Swarm status
+      ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+      register: current_swarm_state
+      changed_when: false
+      retries: 3
+      delay: 5
+
+    - name: Get worker join token from manager
+      ansible.builtin.command: docker swarm join-token -q worker
+      register: worker_join_token
+      delegate_to: "{{ groups['manager_nodes'][0] }}"
+      when: current_swarm_state.stdout != "active"
+
+    - name: Join worker to Docker Swarm
+      community.docker.docker_swarm:
+        state: join
+        join_token: "{{ worker_join_token.stdout }}"
+        remote_addrs: 
+          - "{{ hostvars[groups['manager_nodes'][0]]['ansible_default_ipv4']['address'] }}"
+      when: current_swarm_state.stdout != "active"
+
+- name: Prepare Jellyfin volume directories on worker node
+  hosts: lenovo_server
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Ensure Jellyfin volume directories exist with correct ownership
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0755"
+        recurse: true
+      loop:
+        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_config/_data"
+        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_cache/_data"
+      tags: ["jellyfin", "volumes", "prepare"]
+
+    - name: Verify volume directory permissions
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_config/_data"
+        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_cache/_data"
+      register: volume_permissions
+      tags: ["jellyfin", "volumes", "verify"]
+
+    - name: Display volume permissions
+      ansible.builtin.debug:
+        msg: |
+          ✅ Jellyfin volume permissions verified:
+          {{ item.item }}: owner={{ item.stat.uid }}:{{ item.stat.gid }} mode={{ item.stat.mode }}
+      loop: "{{ volume_permissions.results }}"
+      when: item.stat.exists
+      tags: ["jellyfin", "volumes", "verify"]
+
+- name: Prepare Pi-hole shared memory volume on worker node
+  hosts: lenovo_server
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Ensure pihole_shm volume is a correctly-sized tmpfs
+      ansible.builtin.shell: |
+        if docker volume inspect pihole-stack_pihole_shm 2>/dev/null | grep -q '"type": "tmpfs"'; then
+          echo "ALREADY_CORRECT"
+        else
+          docker volume rm pihole-stack_pihole_shm 2>/dev/null || true
+          docker volume create \
+            --driver local \
+            --opt type=tmpfs \
+            --opt device=tmpfs \
+            --opt "o=size={{ pihole_shm_size | default(134217728) }},mode=1777" \
+            pihole-stack_pihole_shm
+          echo "CREATED"
+        fi
+      register: pihole_shm_result
+      changed_when: "'CREATED' in pihole_shm_result.stdout"
+      tags: ["pihole", "volumes", "prepare"]
+
+- name: Deploy Portainer and stacks to the manager node
+  hosts: manager_nodes
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Deploy Portainer
+      ansible.builtin.include_tasks: tasks/portainer.yml
+      tags: ["portainer", "deploy"]
+
+    - name: Deploy Docker Compose stacks
+      ansible.builtin.include_tasks: tasks/deploy_stacks.yml
+      tags: ["stacks", "deploy"]
+
+    - name: Run post-setup configuration
+      ansible.builtin.include_tasks: tasks/post_setup.yml
+      tags: ["post-setup", "configure"]

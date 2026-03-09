@@ -1,0 +1,70 @@
+---
+# Library management tasks for jellyctl
+
+- name: Build jellyctl base command
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ jellyctl_binary }} --url {{ jellyctl_url }}"
+
+- name: Add token to command if provided
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ _jellyctl_cmd }} --token {{ jellyctl_token }}"
+  when: jellyctl_token | length > 0
+
+# Scan libraries
+- name: Trigger library scan
+  ansible.builtin.command: "{{ _jellyctl_cmd }} library scan"
+  register: jellyctl_library_scan
+  when: jellyctl_library_operation == 'scan'
+  changed_when: jellyctl_library_scan.rc == 0
+
+- name: Display scan result
+  ansible.builtin.debug:
+    var: jellyctl_library_scan.stdout_lines
+  when: jellyctl_library_operation == 'scan'
+
+# List unscraped items
+- name: List unscraped media
+  ansible.builtin.command: >
+    {{ _jellyctl_cmd }} library unscraped
+    {{ '--json' if jellyctl_output_format == 'json' else '' }}
+    --types {{ jellyctl_library_types | join(' ') }}
+  register: jellyctl_library_unscraped
+  changed_when: false
+  when: jellyctl_library_operation == 'unscraped'
+
+- name: Display unscraped items
+  ansible.builtin.debug:
+    var: jellyctl_library_unscraped.stdout_lines
+  when: jellyctl_library_operation == 'unscraped'
+
+# Search library
+- name: Search library
+  ansible.builtin.command: >
+    {{ _jellyctl_cmd }} library search {{ jellyctl_library_search_term }}
+    {{ '--json' if jellyctl_output_format == 'json' else '' }}
+    --types {{ jellyctl_library_types | join(' ') }}
+  register: jellyctl_library_search
+  changed_when: false
+  when:
+    - jellyctl_library_operation == 'search'
+    - jellyctl_library_search_term is defined
+
+- name: Display search results
+  ansible.builtin.debug:
+    var: jellyctl_library_search.stdout_lines
+  when: jellyctl_library_operation == 'search'
+
+# List duplicates
+- name: List duplicate media
+  ansible.builtin.command: >
+    {{ _jellyctl_cmd }} library duplicates
+    {{ '--json' if jellyctl_output_format == 'json' else '' }}
+    --types {{ jellyctl_library_types | join(' ') }}
+  register: jellyctl_library_duplicates
+  changed_when: false
+  when: jellyctl_library_operation == 'duplicates'
+
+- name: Display duplicates
+  ansible.builtin.debug:
+    var: jellyctl_library_duplicates.stdout_lines
+  when: jellyctl_library_operation == 'duplicates'

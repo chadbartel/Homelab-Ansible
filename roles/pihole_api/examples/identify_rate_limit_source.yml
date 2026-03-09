@@ -1,0 +1,136 @@
+---
+# Example: Troubleshoot Pi-hole rate limiting - identify heavy clients
+
+- name: Identify Rate Limit Source (10.0.0.2)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    pihole_api_target_node: "lenovo_server"
+    pihole_api_web_port: 8081
+    pihole_api_password: "{{ vault_pihole_admin_password }}"
+    target_client_ip: "10.0.0.2"
+    
+  tasks:
+    - name: Authenticate with Pi-hole API
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "create_session"
+
+    - name: Get top query clients
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_top_clients"
+        pihole_api_metrics_query_params:
+          count: 20
+
+    - name: Display top clients
+      ansible.builtin.debug:
+        msg: |
+          Top Query Clients:
+          {% for client in pihole_stats_top_clients.response.top_clients %}
+          - {{ client.ip }}: {{ client.queries }} queries ({{ client.name | default('Unknown') }})
+          {% endfor %}
+
+    - name: Check if 10.0.0.2 is in top clients
+      ansible.builtin.set_fact:
+        target_client_found: "{{ pihole_stats_top_clients.response.top_clients | selectattr('ip', 'equalto', target_client_ip) | list | length > 0 }}"
+
+    - name: Get client history for 10.0.0.2
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_client_history"
+        pihole_api_metrics_query_params:
+          client: "{{ target_client_ip }}"
+      when: target_client_found
+
+    - name: Get real-time queries from target client
+      include_role:
+        name: pihole_api
+        tasks_from: metrics.yml
+      vars:
+        pihole_api_operation: "metrics"
+        pihole_api_metrics_operation: "get_queries"
+        pihole_api_metrics_query_params:
+          client: "{{ target_client_ip }}"
+          count: 100
+
+    - name: Get network devices to identify 10.0.0.2
+      include_role:
+        name: pihole_api
+        tasks_from: network.yml
+      vars:
+        pihole_api_operation: "network"
+        pihole_api_network_operation: "get_devices"
+
+    - name: Find device matching 10.0.0.2
+      ansible.builtin.set_fact:
+        target_device: "{{ pihole_network_devices.response.devices | selectattr('ip', 'equalto', target_client_ip) | first | default({}) }}"
+
+    - name: Display findings
+      ansible.builtin.debug:
+        msg: |
+          === RATE LIMIT INVESTIGATION RESULTS ===
+          
+          Target Client: {{ target_client_ip }}
+          Found in Top Clients: {{ target_client_found }}
+          
+          {% if target_device.name is defined %}
+          Device Name: {{ target_device.name }}
+          MAC Address: {{ target_device.mac | default('Unknown') }}
+          Hostname: {{ target_device.hostname | default('Unknown') }}
+          {% else %}
+          Device: NOT FOUND in Pi-hole network table
+          Possible causes:
+          - VPN client (check OpenVPN assignments)
+          - Docker network gateway (check: docker network inspect)
+          - External network device
+          {% endif %}
+          
+          {% if pihole_queries is defined and pihole_queries.response.queries is defined %}
+          Recent Query Count: {{ pihole_queries.response.queries | length }}
+          
+          Top Queried Domains from {{ target_client_ip }}:
+          {% for query in pihole_queries.response.queries[:10] %}
+          - {{ query.domain }} ({{ query.type }})
+          {% endfor %}
+          {% endif %}
+          
+          RECOMMENDATIONS:
+          {% if target_client_found and pihole_stats_top_clients.response.top_clients | selectattr('ip', 'equalto', target_client_ip) | map(attribute='queries') | first | default(0) > pihole_api_rate_limit_count %}
+          ⚠️  Client {{ target_client_ip }} exceeded rate limit!
+          - Current rate limit: {{ pihole_api_rate_limit_count }}/{{ pihole_api_rate_limit_interval }}s
+          - Consider creating client-specific rate limit override
+          - Or increase global rate limit
+          {% endif %}
+
+    - name: Get current rate limit configuration
+      include_role:
+        name: pihole_api
+        tasks_from: config.yml
+      vars:
+        pihole_api_operation: "config"
+        pihole_api_config_operation: "get_config"
+
+    - name: Display current rate limit
+      ansible.builtin.debug:
+        msg: |
+          Current Rate Limit: {{ pihole_config_result.response.dns.rateLimit.count }}/{{ pihole_config_result.response.dns.rateLimit.interval }}s
+
+    - name: Cleanup session
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "destroy_session"

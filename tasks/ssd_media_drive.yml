@@ -1,0 +1,47 @@
+---
+# Prepare SSD media drive on Storage Host (lenovo_server) for Jellyfin.
+# Uses host vars: ssd_media_device, ssd_media_format, ssd_media_mount_path.
+# Set ssd_media_device to empty string to skip.
+
+- name: Create SSD media mount directory
+  ansible.builtin.file:
+    path: "{{ ssd_media_mount_path }}"
+    state: directory
+    mode: "0755"
+  when: ssd_media_device | length > 0
+
+- name: Format SSD media partition as ext4 (destructive)
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ ssd_media_device }}"
+  when:
+    - ssd_media_device | length > 0
+    - ssd_media_format | default(false) | bool
+
+- name: Get UUID of SSD media partition
+  ansible.builtin.command:
+    cmd: blkid -s UUID -o value "{{ ssd_media_device }}"
+  register: ssd_media_uuid_result
+  changed_when: false
+  when: ssd_media_device | length > 0
+
+- name: Get filesystem type of SSD media partition
+  ansible.builtin.command:
+    cmd: blkid -s TYPE -o value "{{ ssd_media_device }}"
+  register: ssd_media_fstype_result
+  changed_when: false
+  when: ssd_media_device | length > 0
+
+- name: Mount SSD media and add to fstab (by UUID)
+  ansible.posix.mount:
+    path: "{{ ssd_media_mount_path }}"
+    src: "UUID={{ ssd_media_uuid_result.stdout }}"
+    fstype: "{{ ssd_media_fstype_result.stdout }}"
+    state: mounted
+    opts: defaults
+  when:
+    - ssd_media_device | length > 0
+    - ssd_media_uuid_result.stdout is defined
+    - ssd_media_uuid_result.stdout | length > 0
+    - ssd_media_fstype_result.stdout is defined
+    - ssd_media_fstype_result.stdout | length > 0

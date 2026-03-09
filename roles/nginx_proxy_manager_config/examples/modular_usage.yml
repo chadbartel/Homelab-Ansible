@@ -1,0 +1,50 @@
+---
+# Example: Using individual task files
+# This shows how to use specific tasks instead of the full role
+
+- name: Configure NPM using modular tasks
+  hosts: localhost
+  gather_facts: false
+  vars:
+    npm_config_service_name: "npm-stack_npm"
+    npm_config_swarm_manager: "pi4_01"
+    npm_config_target_node: "lenovo_server"
+    npm_config_web_port: 8181
+    npm_config_admin_email: "admin@example.com"
+    npm_config_admin_password: "{{ vault_npm_admin_password }}"
+    
+  tasks:
+    - name: Discover NPM container in Swarm
+      include_role:
+        name: nginx_proxy_manager_config
+        tasks_from: discover_container
+
+    - name: Wait for NPM service to be ready
+      include_role:
+        name: nginx_proxy_manager_config
+        tasks_from: wait_for_service
+
+    - name: Configure proxy hosts for Jellyfin and Pi-hole
+      include_role:
+        name: nginx_proxy_manager_config
+        tasks_from: proxy_hosts
+      vars:
+        npm_config_proxy_hosts:
+          - domain: "jellyfin.home.local"
+            forward_host: "192.168.1.12"
+            forward_port: 8096
+          - domain: "pihole.home.local"
+            forward_host: "192.168.1.12"
+            forward_port: 8081
+
+    - name: Configure additional proxy hosts with SSL
+      include_role:
+        name: nginx_proxy_manager_config
+        tasks_from: proxy_hosts
+      vars:
+        npm_config_default_ssl_cert_id: 2
+        npm_config_ssl_forced: true
+        npm_config_proxy_hosts:
+          - domain: "portainer.example.com"
+            forward_host: "192.168.1.10"
+            forward_port: 9000

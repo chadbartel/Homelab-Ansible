@@ -1,0 +1,15 @@
+---
+# Host variables for lenovo_server
+
+# SSD media drive for Jellyfin (Storage Host for NFS later)
+# Partition to use; set to empty string to skip SSD setup
+ssd_media_device: "/dev/sdb2"
+# Set true only when you intend to format (wipes the partition)
+ssd_media_format: false
+ssd_media_mount_path: "/mnt/ssd_media"
+
+proxy_hosts:
+  - domain: "{{ pihole_container_name }}.{{ local_domain }}"
+    host: "{{ pihole_container_name }}"
+    port: "{{ pihole_host_port }}"
+    scheme: "http"

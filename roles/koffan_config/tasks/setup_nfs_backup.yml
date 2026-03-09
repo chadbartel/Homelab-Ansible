@@ -1,0 +1,48 @@
+---
+# Koffan NFS backup configuration task (optional)
+#
+# Sets up NFS backup of the Koffan shopping.db database to the central NFS storage
+# This provides redundancy and centralized backup of the grocery database
+#
+# Required variables:
+#   - koffan_container_id: Container ID (from discover_container.yml)
+#   - nfs_export_path: NFS export mount path (default: /mnt/ssd_media)
+#
+# Usage:
+#   - include_tasks: setup_nfs_backup.yml
+
+- name: Ensure container facts are available
+  ansible.builtin.include_tasks: discover_container.yml
+  when: koffan_container_id is not defined
+
+- name: Create Koffan backup directory on NFS
+  ansible.builtin.file:
+    path: "{{ nfs_export_path }}/koffan"
+    state: directory
+    mode: "0755"
+  delegate_to: "{{ koffan_config_target_node }}"
+
+- name: Check if shopping.db exists in container
+  ansible.builtin.shell: |
+    docker exec {{ koffan_container_id }} test -f /data/shopping.db && echo "exists" || echo "not_found"
+  register: db_check
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ koffan_config_target_node }}"
+
+- name: Create initial backup of shopping.db
+  ansible.builtin.shell: |
+    docker exec {{ koffan_container_id }} cp /data/shopping.db /data/shopping.db.backup 2>/dev/null || true
+  changed_when: false
+  delegate_to: "{{ koffan_config_target_node }}"
+  when: db_check.stdout == "exists"
+
+- name: Display NFS backup configuration status
+  ansible.builtin.debug:
+    msg: |
+      Koffan NFS Backup Configuration:
+      ├─ Backup Directory: {{ nfs_export_path }}/koffan
+      ├─ Database File: /data/shopping.db
+      ├─ Status: {{ '✅ Ready for backup' if db_check.stdout == 'exists' else '⏳ Waiting for initial database creation' }}
+      └─ Note: Implement backup script in cron or systemd timer as needed
+  when: koffan_config_display_results | default(true)

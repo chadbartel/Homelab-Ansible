@@ -1,0 +1,13 @@
+---
+# Main entry point for nginx_proxy_manager_config role
+# This orchestrates all NPM configuration tasks
+
+- name: Include container discovery tasks
+  ansible.builtin.include_tasks: discover_container.yml
+
+- name: Include service readiness check tasks
+  ansible.builtin.include_tasks: wait_for_service.yml
+
+- name: Include proxy host configuration tasks
+  ansible.builtin.include_tasks: proxy_hosts.yml
+  when: npm_config_proxy_hosts | length > 0

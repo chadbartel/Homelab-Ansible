@@ -1,0 +1,30 @@
+---
+# OpenVPN Access Server Configuration Role - Main Tasks
+# This role provides idempotent post-deployment configuration for OpenVPN AS in Docker Swarm
+
+- name: Include container discovery tasks
+  ansible.builtin.include_tasks: discover_container.yml
+
+- name: Include service readiness tasks
+  ansible.builtin.include_tasks: wait_for_service.yml
+
+- name: Include initial setup tasks
+  ansible.builtin.include_tasks: initial_setup.yml
+
+- name: Include user management tasks
+  ansible.builtin.include_tasks: users.yml
+  when: openvpn_config_users | length > 0
+
+- name: Display OpenVPN Access Server configuration summary
+  ansible.builtin.debug:
+    msg: |
+      🔐 OpenVPN Access Server Configuration Complete
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      Container ID:   {{ openvpn_container_id.stdout[:12] }}
+      Target Host:    {{ openvpn_config_target_host }}
+      Admin UI:       https://{{ _openvpn_target_ip }}:{{ openvpn_config_web_port }}/admin
+      Client UI:      https://{{ _openvpn_target_ip }}:{{ openvpn_config_web_port }}/
+      Server:         {{ openvpn_config_server_hostname | default('Not configured') }}
+      Users:          {{ openvpn_config_users | map(attribute='username') | join(', ') if openvpn_config_users | length > 0 else 'None configured' }}
+      Configuration:  {{ 'Previously configured (idempotent)' if openvpn_already_configured.stdout == 'configured' else 'Newly configured' }}
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

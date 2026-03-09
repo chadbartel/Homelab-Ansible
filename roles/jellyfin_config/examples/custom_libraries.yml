@@ -1,0 +1,110 @@
+---
+# Custom library configuration example
+#
+# This playbook demonstrates advanced library configuration with:
+# - Multiple media paths per library
+# - Different library types (books, musicvideos, photos)
+# - Custom refresh settings
+#
+# Usage:
+#   ansible-playbook -i ../../inventory.yml examples/custom_libraries.yml
+
+- name: Configure Custom Jellyfin Libraries
+  hosts: lenovo_server
+  gather_facts: true
+  vars_files:
+    - ../../vars.yml
+    - ../../vault.yml
+  
+  vars:
+    jellyfin_config_web_port: 8096
+    jellyfin_config_api_token: "{{ vault_jellyfin_api_token }}"
+    
+    # Advanced library configurations
+    jellyfin_config_libraries:
+      # Standard movie library with multiple paths
+      - name: "Movies"
+        type: "movies"
+        paths:
+          - "/media/movies"
+          - "/media/movies_4k"
+          - "/media/classic_films"
+        refresh_on_create: true
+      
+      # TV Shows with multiple sources
+      - name: "TV Shows"
+        type: "tvshows"
+        paths:
+          - "/media/tvshows"
+          - "/media/anime"
+        refresh_on_create: true
+      
+      # Music videos and concerts
+      - name: "Music Videos"
+        type: "musicvideos"
+        paths:
+          - "/media/concerts"
+          - "/media/music_videos"
+        refresh_on_create: true
+      
+      # Audiobooks (books type)
+      - name: "Audiobooks"
+        type: "books"
+        paths:
+          - "/media/audiobooks"
+        refresh_on_create: false  # Don't scan immediately
+      
+      # Photo library
+      - name: "Family Photos"
+        type: "photos"
+        paths:
+          - "/media/photos"
+        refresh_on_create: false
+      
+      # Documentary collection
+      - name: "Documentaries"
+        type: "movies"
+        paths:
+          - "/media/documentaries"
+        refresh_on_create: true
+  
+  pre_tasks:
+    - name: Validate API token exists
+      ansible.builtin.assert:
+        that:
+          - vault_jellyfin_api_token is defined
+          - vault_jellyfin_api_token | length > 0
+        fail_msg: "API token required. Run api_key_creation.yml first."
+  
+  tasks:
+    - name: Configure custom libraries
+      ansible.builtin.import_role:
+        name: jellyfin_config
+        tasks_from: libraries
+    
+    - name: Display configured libraries
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          📚 Custom Library Configuration
+          ========================================
+          
+          Configured {{ jellyfin_config_libraries | length }} libraries:
+          
+          {% for lib in jellyfin_config_libraries %}
+          {{ loop.index }}. {{ lib.name }} ({{ lib.type }})
+             Paths:
+          {% for path in lib.paths %}
+             - {{ path }}
+          {% endfor %}
+             Auto-Refresh: {{ 'Yes' if lib.refresh_on_create else 'No' }}
+          
+          {% endfor %}
+          🎯 Library Types Used:
+          - movies: Feature films and documentaries
+          - tvshows: TV series and anime
+          - musicvideos: Concerts and music videos
+          - books: Audiobooks
+          - photos: Photo collections
+          
+          ========================================

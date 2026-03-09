@@ -1,0 +1,55 @@
+---
+# DNS blocking control tasks
+# GET /dns/blocking - Get current blocking status
+# POST /dns/blocking - Enable/disable DNS blocking
+
+- name: Get DNS blocking status
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/dns/blocking"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_blocking_status
+  when: pihole_api_dns_operation == "get_status"
+
+- name: Enable DNS blocking
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/dns/blocking"
+    method: POST
+    body:
+      blocking: true
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_blocking_enable
+  when: pihole_api_dns_operation == "enable"
+
+- name: Disable DNS blocking
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/dns/blocking"
+    method: POST
+    body:
+      blocking: false
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_blocking_disable
+  when: pihole_api_dns_operation == "disable"
+
+- name: Disable DNS blocking temporarily
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/dns/blocking"
+    method: POST
+    body:
+      blocking: false
+      timer: "{{ pihole_api_dns_timer | default(60) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_blocking_disable_timer
+  when: pihole_api_dns_operation == "disable_timer"

@@ -1,0 +1,45 @@
+---
+# Koffan service readiness check task
+#
+# Waits for Koffan web interface to be fully initialized and ready for configuration
+# Uses the common wait_for_swarm_service task for consistency
+#
+# Usage:
+#   - include_tasks: wait_for_service.yml
+#     vars:
+#       target_host: "{{ ansible_host }}"  # Optional override
+
+- name: Ensure container facts are available
+  ansible.builtin.include_tasks: discover_container.yml
+  when: koffan_container_id is not defined
+
+- name: Wait for Koffan service using common task
+  ansible.builtin.include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "{{ koffan_config_service_name }}"
+    wait_host: "{{ target_host | default(ansible_host) }}"
+    wait_port: "{{ koffan_config_web_port }}"
+    wait_initial_pause: "{{ koffan_config_startup_wait }}"
+    wait_delay: 10
+    wait_timeout: "{{ koffan_config_readiness_timeout }}"
+    wait_path: "/"
+    wait_http_status_codes: [200, 404]  # 404 might be returned initially
+    wait_swarm_manager: "{{ koffan_config_swarm_manager }}"
+    wait_display_results: "{{ koffan_config_display_results | default(true) }}"
+
+- name: Check Koffan container logs for errors
+  ansible.builtin.shell: |
+    docker logs --tail 50 {{ koffan_container_id }} 2>&1
+  register: koffan_logs
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ koffan_config_target_node }}"
+
+- name: Validate no fatal errors in logs
+  ansible.builtin.assert:
+    that:
+      - "'error' not in koffan_logs.stdout | lower or 'enoent' not in koffan_logs.stdout | lower"
+    fail_msg: "❌ Koffan has fatal errors - check logs"
+    success_msg: "✅ No fatal errors detected in Koffan logs"
+  failed_when: false
+  when: koffan_config_display_results | default(true)

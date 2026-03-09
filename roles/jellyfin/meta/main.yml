@@ -1,0 +1,30 @@
+---
+galaxy_info:
+  role_name: jellyfin
+  author: Homelab Ansible
+  description: Ansible role for interacting with Jellyfin API
+  license: GPL-3.0-or-later
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: EL
+      versions:
+        - all
+    - name: Fedora
+      versions:
+        - all
+  
+  galaxy_tags:
+    - jellyfin
+    - media
+    - api
+    - automation
+    - homelab
+
+dependencies: []

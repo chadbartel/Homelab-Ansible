@@ -1,0 +1,66 @@
+---
+# Debug playbook for troubleshooting homelab deployment
+- name: Debug information for all hosts
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Display host information
+      ansible.builtin.debug:
+        msg: |
+          Host: {{ inventory_hostname }}
+          IP: {{ ansible_host }}
+          Architecture: {{ ansible_architecture }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Python: {{ ansible_python_interpreter | default('default') }}
+
+    - name: Check Docker installation
+      ansible.builtin.command: docker --version
+      register: docker_version
+      ignore_errors: true
+
+    - name: Display Docker version
+      ansible.builtin.debug:
+        msg: "Docker version: {{ docker_version.stdout if docker_version.rc == 0 else 'Not installed' }}"
+
+    - name: Check Docker service status
+      ansible.builtin.systemd_service:
+        name: docker
+      register: docker_status
+      ignore_errors: true
+
+    - name: Display Docker service status
+      ansible.builtin.debug:
+        msg: "Docker service status: {{ docker_status.status.ActiveState if docker_status.status is defined else 'Unknown' }}"
+
+- name: Debug Docker Swarm information
+  hosts: manager_nodes
+  tasks:
+    - name: Check if Docker service is running
+      ansible.builtin.systemd_service:
+        name: docker
+      register: docker_service
+      ignore_errors: true
+
+    - name: Check Docker Swarm status (if Docker is running)
+      ansible.builtin.shell: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+      register: swarm_status
+      ignore_errors: true
+      when: docker_service.status is defined and docker_service.status.ActiveState == "active"
+
+    - name: Display Swarm information
+      ansible.builtin.debug:
+        msg: |
+          Docker Service: {{ docker_service.status.ActiveState if docker_service.status is defined else 'Unknown' }}
+          Swarm Status: {{ swarm_status.stdout if swarm_status.rc is defined and swarm_status.rc == 0 else 'Not available or not in swarm' }}
+
+- name: Debug running containers
+  hosts: homelab_servers
+  tasks:
+    - name: List running containers
+      ansible.builtin.shell: docker ps --format "table {% raw %}{{.Names}}\t{{.Status}}\t{{.Ports}}{% endraw %}"
+      register: container_list
+      ignore_errors: true
+
+    - name: Display running containers
+      ansible.builtin.debug:
+        msg: "Running containers:\n{{ container_list.stdout if container_list.rc == 0 else 'Docker not available or no containers running' }}"

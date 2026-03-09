@@ -1,0 +1,59 @@
+---
+# Backup management tasks for Jellyfin
+
+- name: List all backups
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Backups"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_backups_list
+  when: jellyfin_action == 'list'
+
+- name: Display backups
+  ansible.builtin.debug:
+    var: jellyfin_backups_list.response
+  when: jellyfin_action == 'list' and jellyfin_backups_list is defined
+
+- name: Create backup
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Backups"
+    method: POST
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_backup_created
+  when: jellyfin_action == 'create'
+
+- name: Download backup
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Backups/{{ jellyfin_backup_name }}"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_backup_downloaded
+  when: jellyfin_action == 'download' and jellyfin_backup_name is defined
+
+- name: Restore backup
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Backups/{{ jellyfin_backup_name }}/Restore"
+    method: POST
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_backup_restored
+  when: jellyfin_action == 'restore' and jellyfin_backup_name is defined

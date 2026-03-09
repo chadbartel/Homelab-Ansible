@@ -1,0 +1,117 @@
+---
+# Complete Pi-hole Configuration Example
+#
+# This playbook demonstrates a full Pi-hole setup including:
+# - Service readiness checks
+# - Adlist configuration
+# - Custom DNS entries
+# - Dnsmasq settings
+
+- name: Complete Pi-hole Configuration
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    # Service discovery settings
+    pihole_config_service_name: "pihole-stack_pihole"
+    pihole_config_swarm_manager: "pi4_01"
+    pihole_config_target_node: "lenovo_server"
+    
+    # Adlists - comprehensive block list collection
+    pihole_config_adlists:
+      # Basic ad blocking
+      - url: "https://adaway.org/hosts.txt"
+        comment: "AdAway - Mobile ad blocking"
+        enabled: true
+      
+      - url: "https://v.firebog.net/hosts/AdguardDNS.txt"
+        comment: "AdGuard DNS filter"
+        enabled: true
+      
+      - url: "https://v.firebog.net/hosts/Easylist.txt"
+        comment: "EasyList - Primary ad filter"
+        enabled: true
+      
+      # Privacy protection
+      - url: "https://v.firebog.net/hosts/Easyprivacy.txt"
+        comment: "EasyPrivacy - Tracking protection"
+        enabled: true
+      
+      - url: "https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt"
+        comment: "First-party trackers"
+        enabled: true
+      
+      # Malware protection
+      - url: "https://v.firebog.net/hosts/RPiList-Malware.txt"
+        comment: "RPiList Malware domains"
+        enabled: true
+      
+      - url: "https://urlhaus.abuse.ch/downloads/hostfile/"
+        comment: "URLhaus malware"
+        enabled: true
+      
+      # Phishing protection
+      - url: "https://phishing.army/download/phishing_army_blocklist_extended.txt"
+        comment: "Phishing Army blocklist"
+        enabled: true
+    
+    # Custom DNS entries for local services
+    pihole_config_custom_dns_entries:
+      - ip: "192.168.1.10"
+        hostname: "pihole.homelab.local"
+      
+      - ip: "192.168.1.10"
+        hostname: "portainer.homelab.local"
+      
+      - ip: "192.168.1.10"
+        hostname: "jellyfin.homelab.local"
+      
+      - ip: "192.168.1.10"
+        hostname: "npm.homelab.local"
+    
+    # Dnsmasq performance tuning
+    pihole_config_dnsmasq_settings:
+      - "dns-forward-max=300"
+      - "cache-size=10000"
+      - "min-cache-ttl=60"
+    
+    # Update gravity after adlist changes
+    pihole_config_update_gravity: true
+    
+    # Display detailed results
+    pihole_config_display_results: true
+  
+  tasks:
+    - name: Wait for Pi-hole service to be ready
+      import_role:
+        name: pihole_config
+        tasks_from: wait_for_service
+      tags: ['wait', 'readiness']
+    
+    - name: Configure Pi-hole adlists
+      import_role:
+        name: pihole_config
+        tasks_from: adlists
+      tags: ['adlists', 'blocklists']
+    
+    - name: Configure custom DNS entries
+      import_role:
+        name: pihole_config
+        tasks_from: custom_dns
+      tags: ['dns', 'custom-dns']
+    
+    - name: Configure dnsmasq settings
+      import_role:
+        name: pihole_config
+        tasks_from: dnsmasq
+      tags: ['dnsmasq', 'tuning']
+    
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: |
+          ✅ Pi-hole configuration complete!
+          
+          Configured:
+          ├─ {{ pihole_config_adlists | length }} adlists
+          ├─ {{ pihole_config_custom_dns_entries | length }} custom DNS entries
+          └─ {{ pihole_config_dnsmasq_settings | length }} dnsmasq settings

@@ -1,0 +1,39 @@
+---
+# Example: Using Ansible Vault for Credentials
+# This playbook demonstrates secure credential management
+
+- name: Jellyfin Operations with Vault
+  hosts: localhost
+  gather_facts: false
+  vars:
+    jellyfin_url: "{{ vault_jellyfin_url }}"
+    jellyfin_api_token: "{{ vault_jellyfin_api_token }}"
+  
+  tasks:
+    - name: Get system information
+      import_role:
+        name: jellyfin
+        tasks_from: system
+      vars:
+        jellyfin_action: info
+    
+    - name: Create user with vaulted password
+      import_role:
+        name: jellyfin
+        tasks_from: users
+      vars:
+        jellyfin_action: create
+        jellyfin_new_user_name: "secure_user"
+        jellyfin_new_user_password: "{{ vault_user_password }}"
+
+# To use this playbook:
+# 1. Create a vault file with your secrets:
+#    ansible-vault create group_vars/all/vault.yml
+#
+# 2. Add your secrets to the vault file:
+#    vault_jellyfin_url: "https://jellyfin.yourdomain.com"
+#    vault_jellyfin_api_token: "your-secure-api-token"
+#    vault_user_password: "SecureUserPassword123!"
+#
+# 3. Run the playbook with vault password:
+#    ansible-playbook -i inventory this_playbook.yml --ask-vault-pass
