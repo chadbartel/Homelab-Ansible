@@ -1,0 +1,13 @@
+---
+# Tailscale Role - Volume Task
+# Creates the named Docker volume that persists Tailscale daemon state across container restarts.
+
+- name: Create Tailscale data volume
+  community.docker.docker_volume:
+    name: "{{ tailscale_volume_name }}"
+    state: present
+  register: tailscale_volume_result
+
+- name: Display volume status
+  ansible.builtin.debug:
+    msg: "Volume '{{ tailscale_volume_name }}' {{ 'created' if tailscale_volume_result.changed else 'already exists' }} on {{ inventory_hostname }}"

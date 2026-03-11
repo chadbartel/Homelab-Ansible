@@ -161,6 +161,13 @@ pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'al
 #     comment: "Custom List"
 #     enabled: true
 
+# Tailscale Configuration
+tailscale_image: "tailscale/tailscale:latest"
+tailscale_container_name: "tailscale"
+tailscale_routes: "192.168.1.0/24"
+tailscale_volume_name: "tailscale_data"
+tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
+
 # Koffan configuration
 koffan_image: "ghcr.io/pansalut/koffan:v2.1.1"
 koffan_container_name: "grocery"

@@ -1,0 +1,52 @@
+---
+# Tailscale Role - Default Variables
+
+# ============================================================================
+# Container Configuration
+# ============================================================================
+
+# Tailscale Docker image
+tailscale_image: "tailscale/tailscale:latest"
+
+# Container name
+tailscale_container_name: "tailscale"
+
+# Hostname advertised to the Tailscale tailnet (unique per node via inventory_hostname)
+tailscale_hostname: "{{ inventory_hostname | replace('_', '-') }}"
+
+# ============================================================================
+# Tailscale Configuration
+# ============================================================================
+
+# Subnet routes to advertise to the tailnet (comma-separated CIDR blocks)
+tailscale_routes: "192.168.1.0/24"
+
+# Directory inside the container where Tailscale persists state
+tailscale_state_dir: "/var/lib/tailscale"
+
+# Auth key for automatic tailnet join (should be defined in vault.yml)
+# tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
+
+# ============================================================================
+# Volume Configuration
+# ============================================================================
+
+# Named Docker volume for persistent Tailscale daemon state
+tailscale_volume_name: "tailscale_data"
+
+# ============================================================================
+# System Devices
+# ============================================================================
+
+# TUN device path (required for Tailscale kernel networking)
+tailscale_tun_device: "/dev/net/tun"
+
+# ============================================================================
+# Container Lifecycle Settings
+# ============================================================================
+
+# Desired container state: started | stopped | absent | present
+tailscale_container_state: "started"
+
+# Container restart policy
+tailscale_restart_policy: "unless-stopped"

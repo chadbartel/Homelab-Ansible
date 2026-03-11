@@ -1,0 +1,23 @@
+---
+# Tailscale Role - Main Task Entry Point
+
+- name: Create Tailscale Docker volume
+  ansible.builtin.include_tasks: volume.yml
+
+- name: Deploy Tailscale container
+  ansible.builtin.include_tasks: container.yml
+
+- name: Display Tailscale deployment summary
+  ansible.builtin.debug:
+    msg: |
+      Tailscale Deployment Complete
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      Host:       {{ inventory_hostname }}
+      Container:  {{ tailscale_container_name }}
+      Hostname:   {{ tailscale_hostname }}
+      Routes:     {{ tailscale_routes }}
+      Volume:     {{ tailscale_volume_name }}
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      NOTE: Advertised subnet routes must be approved in
+      the Tailscale admin console before they are active:
+      https://login.tailscale.com/admin/machines
