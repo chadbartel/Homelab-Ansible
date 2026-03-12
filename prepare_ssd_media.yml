@@ -8,3 +8,6 @@
   tasks:
     - name: Include SSD media drive setup tasks
       ansible.builtin.include_tasks: tasks/ssd_media_drive.yml
+      loop: "{{ ssd_media_drives | default([]) }}"
+      loop_control:
+        loop_var: ssd_drive
