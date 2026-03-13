@@ -66,6 +66,8 @@
     jellyfin_action: "create"
     jellyfin_tuner_m3u_url: "{{ item.url }}"
     jellyfin_tuner_name: "{{ item.name }}"
+    jellyfin_container_id: "{{ jellyfin_container_id }}"
+    jellyfin_container_host: "{{ jellyfin_config_target_node }}"
   loop: "{{ jellyfin_iptv_playlists }}"
 
 # ========================================

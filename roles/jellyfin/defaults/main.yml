@@ -26,3 +26,10 @@ jellyfin_tuner_stream_looping: true
 jellyfin_tuner_count: 1
 jellyfin_tuner_user_agent: ""
 jellyfin_tuner_source: ""
+
+# Container info for idempotency check (read livetv.xml directly from container)
+# Set these when calling this role if the tuner create action is being used.
+# jellyfin_container_id is discovered by the jellyfin_config role's discover_container task.
+# jellyfin_container_host is the Ansible inventory hostname where the container runs.
+jellyfin_container_id: ""
+jellyfin_container_host: ""
