@@ -1,0 +1,34 @@
+---
+# Tailscale Role - Container Task
+# Deploys the Tailscale container with host networking and subnet routing enabled.
+# Mirrors the Docker Compose configuration exactly.
+
+- name: Deploy Tailscale container
+  community.docker.docker_container:
+    name: "{{ tailscale_container_name }}"
+    image: "{{ tailscale_image }}"
+    state: "{{ tailscale_container_state }}"
+    hostname: "{{ tailscale_hostname }}"
+    network_mode: host
+    restart_policy: "{{ tailscale_restart_policy }}"
+    env:
+      TS_ROUTES: "{{ tailscale_routes }}"
+      TS_STATE_DIR: "{{ tailscale_state_dir }}"
+      TS_AUTHKEY: "{{ tailscale_auth_key }}"
+    volumes:
+      - "{{ tailscale_volume_name }}:{{ tailscale_state_dir }}"
+      - "{{ tailscale_tun_device }}:{{ tailscale_tun_device }}"
+    capabilities:
+      - net_admin
+      - sys_module
+  register: tailscale_container_result
+  no_log: true  # Prevent auth key from appearing in logs
+
+- name: Display container deployment result
+  ansible.builtin.debug:
+    msg: |
+      Tailscale container: {{ 'deployed / updated' if tailscale_container_result.changed else 'already up-to-date' }}
+      Container Name:      {{ tailscale_container_name }}
+      Hostname:            {{ tailscale_hostname }}
+      Routes:              {{ tailscale_routes }}
+      State:               {{ tailscale_container_state }}

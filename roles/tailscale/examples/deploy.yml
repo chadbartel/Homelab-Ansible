@@ -1,0 +1,33 @@
+---
+# Example: Deploy Tailscale on all servers
+# Run: ansible-playbook roles/tailscale/examples/deploy.yml
+
+- name: Deploy Tailscale VPN on all homelab servers
+  hosts: homelab_servers
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Deploy Tailscale container
+      ansible.builtin.include_role:
+        name: tailscale
+      tags: ["tailscale", "deploy"]
+
+# ---
+# Single-node override example (lenovo_server only):
+#
+# - name: Deploy Tailscale on storage host only
+#   hosts: lenovo_server
+#   become: true
+#   vars_files:
+#     - vars.yml
+#     - vault.yml
+#   tasks:
+#     - name: Deploy Tailscale container
+#       ansible.builtin.include_role:
+#         name: tailscale
+#       vars:
+#         tailscale_hostname: "lenovo-homelab"
+#         tailscale_routes: "192.168.1.0/24"
+#       tags: ["tailscale", "deploy"]

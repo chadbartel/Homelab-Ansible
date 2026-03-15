@@ -54,6 +54,18 @@
           Socket: Available
           Daemon: Connected
 
+- name: Deploy Tailscale VPN on all servers
+  hosts: homelab_servers
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    - name: Deploy Tailscale container
+      ansible.builtin.include_role:
+        name: tailscale
+      tags: ["tailscale", "deploy"]
+
 - name: Prepare SSD media drive on Storage Host (lenovo_server)
   hosts: lenovo_server
   become: true

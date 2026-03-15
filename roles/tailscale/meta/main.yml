@@ -1,0 +1,44 @@
+---
+# Ansible Galaxy metadata for tailscale role
+
+galaxy_info:
+  role_name: tailscale
+  namespace: homelab
+  author: Homelab-Ansible
+  description: Deploys Tailscale as a standalone Docker container with subnet routing
+
+  license: MIT
+
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+    - name: EL
+      versions:
+        - 8
+        - 9
+
+  galaxy_tags:
+    - tailscale
+    - vpn
+    - docker
+    - networking
+    - security
+    - subnet-router
+    - configuration
+    - idempotent
+    - automation
+    - homelab
+    - infrastructure
+
+dependencies: []
