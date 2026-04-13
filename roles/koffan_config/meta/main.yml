@@ -26,7 +26,6 @@ galaxy_info:
   galaxy_tags:
     - docker
     - swarm
-    - koffan
     - grocery
     - automation
     - configuration
