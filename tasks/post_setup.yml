@@ -7,7 +7,7 @@
       
       Services available:
       - Portainer: https://{{ ansible_host }}:{{ portainer_host_port }}
-      - Pi-hole: http://{{ ansible_host }}:8081/admin
+      - Pi-hole: http://{{ hostvars[pihole_config_target_node]['ansible_host'] }}:8081/admin
       - NPM: http://{{ ansible_host }}:{{ proxy_host_port }}
       - OpenVPN: https://{{ ansible_host }}:{{ vpn_host_port }}
       - Jellyfin: http://{{ jellyfin_container_name }}.{{ local_domain }} (via NPM)

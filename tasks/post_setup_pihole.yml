@@ -7,7 +7,7 @@
     name: pihole_config
     tasks_from: wait_for_service
   vars:
-    target_host: "{{ ansible_host }}"
+    target_host: "{{ hostvars[pihole_config_target_node]['ansible_host'] }}"
 
 - name: Configure Pi-hole adlists (block lists)
   ansible.builtin.include_role:

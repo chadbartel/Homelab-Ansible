@@ -38,12 +38,6 @@
         paths:
           - "/media/tvshows"
         refresh_on_create: true
-      
-      - name: "Concerts"
-        type: "movies"
-        paths:
-          - "/media/concerts"
-        refresh_on_create: true
   
   pre_tasks:
     - name: Validate API token is provided

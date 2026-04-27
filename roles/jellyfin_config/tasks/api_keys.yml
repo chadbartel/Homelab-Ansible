@@ -41,7 +41,7 @@
     body_format: json
     body:
       Username: "{{ jellyfin_config_admin_user }}"
-      Pw: "{{ jellyfin_config_admin_password }}"
+      Password: "{{ jellyfin_config_admin_password }}"
     status_code: [200, 400, 401, 404]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: jellyfin_auth

@@ -87,7 +87,7 @@
       Password: (stored in vault.yml)
 
       📍 Deployment Details:
-      - Running on: {{ jellyfin_node_name | default(jellyfin_target_host) }} ({{ jellyfin_config_target_node }})
+      - Running on: {{ jellyfin_config_target_node }} ({{ hostvars[jellyfin_config_target_node].ansible_host }})
       - Container ID: {{ jellyfin_container_id | default('N/A') }}
       - Memory Limit: {{ jellyfin_memory_limit }}
       - Hardware Acceleration: {{ 'Enabled (Intel QSV)' if jellyfin_enable_hw_accel | default(false) else 'DISABLED (set jellyfin_enable_hw_accel: true to enable)' }}

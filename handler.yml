@@ -4,3 +4,8 @@
   ansible.builtin.systemd_service:
     name: ssh
     state: restarted
+
+- name: restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted

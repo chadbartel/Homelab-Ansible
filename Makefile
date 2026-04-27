@@ -1,7 +1,7 @@
 # Homelab Ansible Makefile
 # Convenience commands for managing the homelab deployment
 
-.PHONY: help install setup setup-ssh troubleshoot-ssh deploy deploy-roles destroy debug test lint validate clean
+.PHONY: help install setup setup-ssh troubleshoot-ssh deploy deploy-roles teardown-swarm destroy debug test lint validate clean
 
 # Default target
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "  setup-ssh        - Setup SSH agent and load keys"
 	@echo "  troubleshoot-ssh - Troubleshoot SSH connectivity issues"
 	@echo "  deploy           - Deploy using new role-based structure (main deployment)"
+	@echo "  teardown-swarm   - Remove all Swarm services/stacks (preserves volumes)"
 	@echo "  destroy          - 🔥 DESTROY all homelab infrastructure 🔥"
 	@echo "  debug            - Run debugging playbook"
 	@echo "  test             - Test connectivity to all hosts"

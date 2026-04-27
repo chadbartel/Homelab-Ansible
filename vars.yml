@@ -80,7 +80,7 @@ jellyfin_iptv_playlists:
 jellyfin_config_service_name: "jellyfin-stack_jellyfin"
 jellyfin_config_target_node: "lenovo_server"
 jellyfin_config_web_port: 8096
-jellyfin_config_admin_user: "{{ admin_user }}"
+jellyfin_config_admin_user: "{{ vault_admin_username | default('admin') }}"
 jellyfin_config_admin_password: "{{ vault_jellyfin_user1_password }}"
 jellyfin_config_api_key_app_name: "ansible_automation"
 jellyfin_config_libraries:
@@ -93,11 +93,6 @@ jellyfin_config_libraries:
     type: "movies"
     paths:
       - "/media/movies"
-    refresh_on_create: true
-  - name: "Concerts"
-    type: "movies"
-    paths:
-      - "/media/concerts"
     refresh_on_create: true
 
 # NGINX Proxy Manager Config Role Variables

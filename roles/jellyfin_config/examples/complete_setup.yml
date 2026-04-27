@@ -44,12 +44,6 @@
         paths:
           - "/media/movies"
         refresh_on_create: true
-      
-      - name: "Concerts"
-        type: "movies"
-        paths:
-          - "/media/concerts"
-        refresh_on_create: true
   
   tasks:
     - name: Step 1 - Wait for Jellyfin service to be ready

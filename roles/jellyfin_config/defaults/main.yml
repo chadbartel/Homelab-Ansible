@@ -39,11 +39,6 @@ jellyfin_config_libraries:
     paths:
       - "/media/movies"
     refresh_on_create: true
-  - name: "Concerts"
-    type: "movies"
-    paths:
-      - "/media/concerts"
-    refresh_on_create: true
 
 # Display control
 jellyfin_config_display_results: true
