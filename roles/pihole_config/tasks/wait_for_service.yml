@@ -9,9 +9,8 @@
 #     vars:
 #       target_host: "{{ ansible_host }}"  # Optional override
 
-- name: Ensure container facts are available
+- name: Refresh container facts before service check
   ansible.builtin.include_tasks: discover_container.yml
-  when: pihole_container_id is not defined
 
 - name: Wait for Pi-hole service using common task
   ansible.builtin.include_tasks: tasks/common/wait_for_swarm_service.yml

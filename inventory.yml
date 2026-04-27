@@ -16,7 +16,7 @@ all:
           ansible_python_interpreter: "/usr/bin/python3"
       vars:
         # We will define the root admin user here
-        admin_user: thatsmidnight
+        admin_user: "{{ vault_admin_username | default('admin') }}"
         python_version: "3.11"
         python_venv_name: "homelab-ansible"
         python_venv_path: "/opt/homelab-ansible"
@@ -74,4 +74,4 @@ all:
         x86_hosts:
       vars:
         # We will define the root admin user here
-        admin_user: thatsmidnight
+        admin_user: "{{ vault_admin_username | default('admin') }}"

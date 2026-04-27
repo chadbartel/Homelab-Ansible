@@ -419,7 +419,7 @@ MIT
 
 ## Author Information
 
-This role was created by thatsmidnight.
+This role was created by chadbartel.
 
 ## Notes
 

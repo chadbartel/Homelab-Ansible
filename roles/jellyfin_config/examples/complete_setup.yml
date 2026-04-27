@@ -26,7 +26,7 @@
     
     # Admin credentials
     jellyfin_config_admin_user: "{{ admin_user }}"
-    jellyfin_config_admin_password: "{{ vault_jellyfin_thatsmidnight_password }}"
+    jellyfin_config_admin_password: "{{ vault_jellyfin_user1_password }}"
     
     # API key
     jellyfin_config_api_key_app_name: "ansible_automation"

@@ -109,7 +109,7 @@ npm_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0])
 npm_target_node: "lenovo_server"
 
 # Pi-hole configuration
-pihole_image: "pihole/pihole:2025.11.1"
+pihole_image: "pihole/pihole:2026.04.1"
 pihole_config_path: "/opt/pihole/etc-pihole"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
 block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
@@ -134,8 +134,6 @@ pihole_config_custom_dns_entries:
     hostname: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
   - ip: "{{ manager_node_ip }}"
     hostname: "{{ openvpn_container_name }}.{{ local_domain }}"
-  - ip: "{{ manager_node_ip }}"
-    hostname: "{{ koffan_container_name }}.{{ local_domain }}"
 
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:
@@ -185,7 +183,7 @@ portainer_container_name: "portainer"
 nginx_proxy_container_name: "proxy"
 
 # Swarm node hostnames (differ from Ansible inventory names — see copilot-instructions.md)
-lenovo_swarm_hostname: "midnight-laptop"  # Swarm hostname for lenovo_server (192.168.1.12)
+lenovo_swarm_hostname: "{{ vault_lenovo_swarm_hostname }}"  # Swarm hostname for lenovo_server (192.168.1.12)
 
 # Network configuration
 homelab_network: "192.168.2.0/24"

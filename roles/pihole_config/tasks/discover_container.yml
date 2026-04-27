@@ -37,17 +37,17 @@
   delay: 10
   delegate_to: "{{ pihole_config_swarm_manager }}"
 
-- name: Get Pi-hole container ID from Swarm task
+- name: Get Pi-hole container ID from target node
   ansible.builtin.shell: |
-    TASK_ID="{{ pihole_task_id_result.stdout }}"
-    docker inspect "${TASK_ID}" \
-      --format '{%raw%}{{.Status.ContainerStatus.ContainerID}}{%endraw%}' | head -c 12
+    docker ps \
+      --filter 'label=com.docker.swarm.service.name={{ pihole_config_service_name }}' \
+      --format '{%raw%}{{.ID}}{%endraw%}' | head -n 1
   register: pihole_container_id_result
   changed_when: false
   until: pihole_container_id_result.rc == 0 and pihole_container_id_result.stdout != ""
   retries: 12
   delay: 10
-  delegate_to: "{{ pihole_config_swarm_manager }}"
+  delegate_to: "{{ pihole_config_target_node }}"
 
 - name: Set Pi-hole container facts
   ansible.builtin.set_fact:
