@@ -38,13 +38,10 @@ services:
     cap_add:
       - NET_ADMIN
     networks:
-      - proxy-network
+      - homelab-bridge
     deploy:
       mode: replicated
       replicas: 1
-      placement:
-        constraints:
-          - node.hostname == {{ pihole_target_host }}
 
 volumes:
   pihole_etc:
@@ -57,5 +54,6 @@ volumes:
       o: "size={{ pihole_shm_size | default(134217728) }},mode=1777"
 
 networks:
-  proxy-network:
+  homelab-bridge:
+    name: homelab-bridge
     external: true

@@ -56,7 +56,6 @@
     tasks_from: proxy_hosts
   vars:
     npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
-    npm_config_swarm_manager: "{{ npm_swarm_manager | default('pi4_01') }}"
     npm_config_target_node: "{{ npm_target_node | default('lenovo_server') }}"
     npm_config_web_port: "{{ proxy_host_port }}"
     npm_config_admin_email: "{{ admin_email }}"

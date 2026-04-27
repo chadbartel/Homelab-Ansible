@@ -27,7 +27,6 @@
         - setup_nfs_backup.yml: Configure NFS backup of shopping.db
       
       Service: {{ koffan_config_service_name }}
-      Swarm Manager: {{ koffan_config_swarm_manager }}
       Target Node: {{ koffan_config_target_node }}
   when: koffan_config_display_results | default(true)
 
@@ -35,7 +34,6 @@
   ansible.builtin.assert:
     that:
       - koffan_config_service_name is defined
-      - koffan_config_swarm_manager is defined
       - koffan_config_target_node is defined
     fail_msg: "Required variables not defined. Please check defaults/main.yml"
     success_msg: "All required variables are defined"

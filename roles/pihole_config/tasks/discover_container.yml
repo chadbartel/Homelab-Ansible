@@ -1,47 +1,18 @@
 ---
-# Pi-hole container discovery task
+# Pi-hole container discovery task (standalone Docker)
 #
-# This task discovers the Pi-hole container running in Docker Swarm and sets facts
-# about its location and ID for use in subsequent tasks.
+# Locates the Pi-hole container running on the target node using docker ps.
+# Container name is derived from the Compose project+service naming convention:
+#   pihole-stack_pihole  ->  pihole-stack-pihole-1
 #
-# Sets the following facts:
-#   - pihole_task_id: Swarm task ID
-#   - pihole_node_name: Swarm node hostname where container is running
+# Sets the following fact:
 #   - pihole_container_id: Docker container ID (short 12-char format)
-#
-# Usage:
-#   - include_tasks: discover_container.yml
-
-- name: Get Pi-hole task ID from Swarm service
-  ansible.builtin.shell: |
-    docker service ps {{ pihole_config_service_name }} \
-      --filter 'desired-state=running' \
-      --format '{%raw%}{{.ID}}{%endraw%}' \
-      --no-trunc | head -n 1
-  register: pihole_task_id_result
-  changed_when: false
-  until: pihole_task_id_result.rc == 0 and pihole_task_id_result.stdout != ""
-  retries: 18
-  delay: 10
-  delegate_to: "{{ pihole_config_swarm_manager }}"
-
-- name: Get Pi-hole node name from Swarm service
-  ansible.builtin.shell: |
-    docker service ps {{ pihole_config_service_name }} \
-      --filter 'desired-state=running' \
-      --format '{%raw%}{{.Node}}{%endraw%}' | head -n 1
-  register: pihole_node_name_result
-  changed_when: false
-  until: pihole_node_name_result.rc == 0 and pihole_node_name_result.stdout != ""
-  retries: 18
-  delay: 10
-  delegate_to: "{{ pihole_config_swarm_manager }}"
 
 - name: Get Pi-hole container ID from target node
   ansible.builtin.shell: |
     docker ps \
-      --filter 'label=com.docker.swarm.service.name={{ pihole_config_service_name }}' \
-      --format '{%raw%}{{.ID}}{%endraw%}' | head -n 1
+      --filter "name={{ pihole_config_service_name | replace('_', '-') }}" \
+      --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
   register: pihole_container_id_result
   changed_when: false
   until: pihole_container_id_result.rc == 0 and pihole_container_id_result.stdout != ""
@@ -49,10 +20,8 @@
   delay: 10
   delegate_to: "{{ pihole_config_target_node }}"
 
-- name: Set Pi-hole container facts
+- name: Set Pi-hole container ID fact
   ansible.builtin.set_fact:
-    pihole_task_id: "{{ pihole_task_id_result.stdout }}"
-    pihole_node_name: "{{ pihole_node_name_result.stdout }}"
     pihole_container_id: "{{ pihole_container_id_result.stdout }}"
     cacheable: true
 
@@ -60,7 +29,6 @@
   ansible.builtin.debug:
     msg: |
       Pi-hole Container Discovery:
-      ├─ Task ID: {{ pihole_task_id }}
-      ├─ Swarm Node: {{ pihole_node_name }}
+      ├─ Target Node: {{ pihole_config_target_node }}
       └─ Container ID: {{ pihole_container_id }}
   when: pihole_config_display_results | default(true)

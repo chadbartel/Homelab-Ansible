@@ -18,7 +18,7 @@ ansible_version: "2.18.6"
 x86_image_link: "https://mirror.pnl.gov/releases/noble/ubuntu-24.04.2-live-server-amd64.iso"
 arm_image_link: "https://downloads.raspberrypi.org/raspios_lite_arm64/archive/2025-05-13-08:03/"
 dietpi_image_link: "https://dietpi.com/downloads/images/DietPi_RPi234-ARMv8-Bookworm.img.xz"
-stack_deployer_backend: "direct"  # Default backend for stack deployment (can be overridden at runtime)
+stack_deployer_backend: "compose"  # Default backend for stack deployment (can be overridden at runtime)
 
 # Service passwords (should be stored in vault)
 portainer_admin_password: "{{ vault_portainer_admin_password }}"
@@ -35,8 +35,7 @@ openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
 # OpenVPN Config Role Variables
 openvpn_config_service_name: "vpn-stack_openvpn-as"
-openvpn_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
-openvpn_config_target_host: "lenovo_server"  # Ansible inventory name (used for delegate_to with docker exec)
+openvpn_config_target_host: "pi4_01"  # Ansible inventory name (pi4_01 runs OpenVPN)
 openvpn_config_admin_user: "{{ openvpn_container_name }}"
 openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
 openvpn_config_server_hostname: "{{ vault_openvpn_hostname }}"
@@ -51,8 +50,8 @@ openvpn_config_users:
 
 # Jellyfin configuration
 jellyfin_user1_password: "{{ vault_jellyfin_user1_password }}"
-jellyfin_enable_hw_accel: false  # Hardware acceleration not supported in Docker Swarm (device cgroups limitation)
-jellyfin_target_host: "{{ lenovo_swarm_hostname }}"  # Swarm node hostname (must match node.hostname in docker node ls)
+jellyfin_enable_hw_accel: false  # Hardware acceleration requires device passthrough; configurable per-host
+jellyfin_host: lenovo_server  # Ansible inventory hostname where Jellyfin runs
 jellyfin_image: "jellyfin/jellyfin:10"  # Official Jellyfin image
 jellyfin_container_name: "jellyfin"
 jellyfin_host_port: 8096
@@ -79,7 +78,6 @@ jellyfin_iptv_playlists:
 
 # Jellyfin Config Role Variables
 jellyfin_config_service_name: "jellyfin-stack_jellyfin"
-jellyfin_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
 jellyfin_config_target_node: "lenovo_server"
 jellyfin_config_web_port: 8096
 jellyfin_config_admin_user: "{{ admin_user }}"
@@ -105,8 +103,7 @@ jellyfin_config_libraries:
 # NGINX Proxy Manager Config Role Variables
 npm_image: "jc21/nginx-proxy-manager:2"
 npm_service_name: "npm-stack_npm"
-npm_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
-npm_target_node: "lenovo_server"
+npm_target_node: "pi4_01"
 
 # Pi-hole configuration
 pihole_image: "pihole/pihole:2026.04.1"
@@ -116,12 +113,11 @@ block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
 pihole_data_path: "/opt/pihole"
 pihole_web_port: 8081  # Port for Pi-hole web interface
 pihole_dns_port: 80  # Port for Pi-hole DNS service
-pihole_target_host: "{{ lenovo_swarm_hostname }}"  # Swarm node hostname (must match node.hostname in docker node ls)
+pihole_target_host: lenovo_server  # Ansible inventory hostname where Pi-hole runs
 pihole_shm_size: 134217728  # /dev/shm size in bytes (128MB); FTL exhausted the default 67MB
 
 # Pi-hole Config Role Variables
 pihole_config_service_name: "pihole-stack_pihole"
-pihole_config_swarm_manager: "{{ swarm_manager_node | default(groups['swarm_managers'][0]) }}"
 pihole_config_target_node: "lenovo_server"
 
 # Custom DNS entries for local services
@@ -159,16 +155,20 @@ pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'al
 #     comment: "Custom List"
 #     enabled: true
 
-# Docker Stacks Configuration for manager nodes
+# Docker Stacks Configuration
 portainer_stacks:
   - name: npm-stack
     compose_template: npm-compose.yml.j2
+    target_host: pi4_01
   - name: pihole-stack
     compose_template: pihole-compose.yml.j2
+    target_host: lenovo_server
   - name: vpn-stack
     compose_template: openvpn-compose.yml.j2
+    target_host: pi4_01
   - name: jellyfin-stack
     compose_template: jellyfin-compose.yml.j2
+    target_host: lenovo_server
 
 # NFS: Storage Host 192.168.1.12 (lenovo_server) exports /mnt/ssd_media to other nodes
 nfs_storage_host_ip: "192.168.1.12"
@@ -181,9 +181,6 @@ pihole_container_name: "pihole"
 openvpn_container_name: "vpn"
 portainer_container_name: "portainer"
 nginx_proxy_container_name: "proxy"
-
-# Swarm node hostnames (differ from Ansible inventory names — see copilot-instructions.md)
-lenovo_swarm_hostname: "{{ vault_lenovo_swarm_hostname }}"  # Swarm hostname for lenovo_server (192.168.1.12)
 
 # Network configuration
 homelab_network: "192.168.2.0/24"

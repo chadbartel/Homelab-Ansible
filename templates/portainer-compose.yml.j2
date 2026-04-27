@@ -1,0 +1,27 @@
+---
+version: "3.8"
+
+services:
+  portainer:
+    image: portainer/portainer-ce:lts
+    hostname: {{ portainer_container_name }}
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+      - "{{ portainer_host_port }}:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    environment:
+      - AGENT_SECRET={{ portainer_agent_secret }}
+    networks:
+      - homelab-bridge
+    restart: unless-stopped
+
+volumes:
+  portainer_data:
+
+networks:
+  homelab-bridge:
+    name: homelab-bridge
+    external: true

@@ -18,12 +18,13 @@ services:
       - npm_data:/data
       - npm_letsencrypt:/etc/letsencrypt
     networks:
-      - proxy-network
+      - homelab-bridge
 
 volumes:
   npm_data:
   npm_letsencrypt:
 
 networks:
-  proxy-network:
+  homelab-bridge:
+    name: homelab-bridge
     external: true

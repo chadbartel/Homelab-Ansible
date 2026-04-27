@@ -5,11 +5,11 @@ services:
   jellyfin:
     hostname: {{ jellyfin_container_name }}
     image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
-    user: "1000:1000"  # Standard user (hardware accel not supported in Swarm)
+    user: "1000:1000"
     ports:
       - "{{ jellyfin_host_port }}:8096"  # Publish port for direct access and API automation
     networks:
-      - proxy-network
+      - homelab-bridge
     dns:
       - 192.168.1.10  # Pi-hole (primary for ad-blocking)
       - 1.1.1.1  # Cloudflare DNS for reliable external stream resolution
@@ -32,9 +32,6 @@ services:
       JELLYFIN_FFmpeg__analyzeduration: '3000000'
     deploy:
       replicas: 1
-      placement:
-        constraints:
-          - node.hostname == {{ jellyfin_target_host }}
       resources:
         limits:
           memory: 4G
@@ -52,7 +49,7 @@ services:
   epg-updater:
     image: {{ jellyfin_epg_image | default('alpine:3.23') }}
     networks:
-      - proxy-network
+      - homelab-bridge
     volumes:
       - jellyfin_epg:/epg
     environment:
@@ -96,9 +93,6 @@ services:
         exec crond -f -l 2
     deploy:
       replicas: 1
-      placement:
-        constraints:
-          - node.hostname == {{ jellyfin_target_host }}
       resources:
         limits:
           memory: 64M
@@ -111,7 +105,8 @@ services:
         window: 120s
 
 networks:
-  proxy-network:
+  homelab-bridge:
+    name: homelab-bridge
     external: true
 
 volumes:

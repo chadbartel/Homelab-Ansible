@@ -21,7 +21,6 @@
     wait_delay: 15
     wait_timeout: "{{ pihole_config_readiness_timeout }}"
     wait_path: "/admin"
-    wait_swarm_manager: "{{ pihole_config_swarm_manager }}"
     wait_custom_command: "pihole status"
     wait_container_id: "{{ pihole_container_id }}"
     wait_delegate_to: "{{ pihole_config_target_node }}"

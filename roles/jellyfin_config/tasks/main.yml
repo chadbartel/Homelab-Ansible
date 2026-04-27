@@ -28,7 +28,6 @@
         - libraries.yml: Configure media libraries
       
       Service: {{ jellyfin_config_service_name }}
-      Swarm Manager: {{ jellyfin_config_swarm_manager }}
       Target Node: {{ jellyfin_config_target_node }}
       Web Port: {{ jellyfin_config_web_port }}
   when: jellyfin_config_display_results | default(true)
@@ -37,7 +36,6 @@
   ansible.builtin.assert:
     that:
       - jellyfin_config_service_name is defined
-      - jellyfin_config_swarm_manager is defined
       - jellyfin_config_target_node is defined
       - jellyfin_config_web_port is defined
     fail_msg: "Required variables not defined. Please check defaults/main.yml"

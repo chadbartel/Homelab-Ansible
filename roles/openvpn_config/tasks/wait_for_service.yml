@@ -22,7 +22,6 @@
     wait_initial_pause: "{{ openvpn_config_startup_wait }}"
     wait_delay: "{{ openvpn_config_readiness_delay }}"
     wait_timeout: "{{ openvpn_config_readiness_timeout }}"
-    wait_swarm_manager: "{{ openvpn_config_swarm_manager | default(omit) }}"
     wait_custom_command: "which sacli"
     wait_container_id: "{{ openvpn_container_id.stdout }}"
     wait_delegate_to: "{{ openvpn_config_target_host }}"

@@ -24,7 +24,6 @@
     wait_timeout: "{{ jellyfin_config_readiness_timeout }}"
     wait_path: "/health"
     wait_http_status_codes: [200, 204, 503]  # 503 is OK during startup
-    wait_swarm_manager: "{{ jellyfin_config_swarm_manager }}"
     wait_display_results: "{{ jellyfin_config_display_results | default(true) }}"
 
 - name: Check Jellyfin container logs for errors

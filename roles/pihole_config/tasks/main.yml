@@ -28,7 +28,6 @@
         - dnsmasq.yml: Configure dnsmasq settings
       
       Service: {{ pihole_config_service_name }}
-      Swarm Manager: {{ pihole_config_swarm_manager }}
       Target Node: {{ pihole_config_target_node }}
   when: pihole_config_display_results | default(true)
 
@@ -36,7 +35,6 @@
   ansible.builtin.assert:
     that:
       - pihole_config_service_name is defined
-      - pihole_config_swarm_manager is defined
       - pihole_config_target_node is defined
     fail_msg: "Required variables not defined. Please check defaults/main.yml"
     success_msg: "All required variables are defined"

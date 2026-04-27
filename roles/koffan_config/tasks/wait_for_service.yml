@@ -24,12 +24,11 @@
     wait_timeout: "{{ koffan_config_readiness_timeout }}"
     wait_path: "/"
     wait_http_status_codes: [200, 404]  # 404 might be returned initially
-    wait_swarm_manager: "{{ koffan_config_swarm_manager }}"
     wait_display_results: "{{ koffan_config_display_results | default(true) }}"
 
 - name: Check Koffan container logs for errors
   ansible.builtin.shell: |
-    docker logs --tail 50 {{ koffan_container_id }} 2>&1
+    docker logs --tail 50 {{ koffan_container_id.stdout }} 2>&1
   register: koffan_logs
   changed_when: false
   failed_when: false

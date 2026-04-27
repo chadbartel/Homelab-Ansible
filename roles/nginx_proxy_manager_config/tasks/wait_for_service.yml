@@ -14,5 +14,4 @@
     wait_initial_pause: 15
     wait_path: "/api/schema"
     wait_http_status_codes: [200, 401]  # 401 is OK before authentication
-    wait_swarm_manager: "{{ npm_config_swarm_manager }}"
     wait_display_results: true

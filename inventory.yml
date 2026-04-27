@@ -26,12 +26,16 @@ all:
         portainer_stacks:
           - name: npm-stack
             compose_template: npm-compose.yml.j2
+            target_host: pi4_01
           - name: pihole-stack
             compose_template: pihole-compose.yml.j2
+            target_host: lenovo_server
           - name: vpn-stack
             compose_template: openvpn-compose.yml.j2
+            target_host: pi4_01
           - name: jellyfin-stack
             compose_template: jellyfin-compose.yml.j2
+            target_host: lenovo_server
 
     # Nodes that mount the SSD via NFS (all except Storage Host 192.168.1.12)
     nfs_client_nodes:
@@ -48,25 +52,26 @@ all:
       hosts:
         lenovo_server:
 
+    # Primary host (pi4_01 manages NPM, OpenVPN, Portainer Server)
     manager_nodes:
       hosts:
         pi4_01:
 
-    # Swarm managers group (alias for manager_nodes)
-    swarm_managers:
+    # Portainer Server host
+    portainer_server_hosts:
       hosts:
         pi4_01:
+
+    # Portainer Agent hosts (lenovo_server and pi3_01)
+    portainer_agent_hosts:
+      hosts:
+        lenovo_server:
+        pi3_01:
 
     worker_nodes:
       hosts:
         lenovo_server:
-          node_labels:
-            hostname: "lenovo_server"
-            type: "x86_worker"
         pi3_01:
-          node_labels:
-            hostname: "pi3_01"
-            type: "arm_worker"
 
     homelab_servers:
       children:
