@@ -1,0 +1,42 @@
+---
+# Example: Activity Logging and Scheduled Tasks
+
+- name: Monitor Jellyfin Activity and Tasks
+  hosts: jellyfin_servers
+  vars_files:
+    - ../vault.yml  # Contains vault_jellyfin_api_token
+  
+  vars:
+    jellyctl_url: "http://jellyfin.local:8096"
+    jellyctl_token: "{{ vault_jellyfin_api_token }}"
+
+  tasks:
+    - name: View recent activity logs
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_activity_operation: "list"
+        jellyctl_activity_limit: 50
+        jellyctl_output_format: "json"
+
+    - name: View activity from last 24 hours
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_activity_operation: "list"
+        jellyctl_activity_limit: 100
+        jellyctl_activity_after: "{{ lookup('pipe', 'date -d \"1 day ago\" \"+%Y-%m-%d %H:%M:%S\"') }}"
+
+    - name: List all scheduled tasks
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_task_operation: "list"
+        jellyctl_output_format: "json"
+
+    - name: Trigger library scan task
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_task_operation: "start"
+        jellyctl_task_name: "LibraryScan"

@@ -1,0 +1,95 @@
+---
+# User management tasks for jellyctl
+
+- name: Build jellyctl base command
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ jellyctl_binary }} --url {{ jellyctl_url }}"
+
+- name: Add token to command if provided
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ _jellyctl_cmd }} --token {{ jellyctl_token }}"
+  when: jellyctl_token | length > 0
+
+# List users
+- name: List Jellyfin users
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user list {{ '--json' if jellyctl_output_format == 'json' else '' }}"
+  register: jellyctl_users_list
+  changed_when: false
+  when: jellyctl_user_operation == 'list'
+
+- name: Display user list
+  ansible.builtin.debug:
+    var: jellyctl_users_list.stdout_lines
+  when: jellyctl_user_operation == 'list'
+
+# Create user
+- name: Create Jellyfin user
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user create {{ jellyctl_username }}"
+  register: jellyctl_user_create
+  when:
+    - jellyctl_user_operation == 'create'
+    - jellyctl_username is defined
+  changed_when: jellyctl_user_create.rc == 0
+
+# Delete user
+- name: Delete Jellyfin user
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user delete {{ jellyctl_username }}"
+  register: jellyctl_user_delete
+  when:
+    - jellyctl_user_operation == 'delete'
+    - jellyctl_username is defined
+  changed_when: jellyctl_user_delete.rc == 0
+
+# Enable user
+- name: Enable Jellyfin user
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user enable {{ jellyctl_username }}"
+  register: jellyctl_user_enable
+  when:
+    - jellyctl_user_operation == 'enable'
+    - jellyctl_username is defined
+  changed_when: jellyctl_user_enable.rc == 0
+
+# Disable user
+- name: Disable Jellyfin user
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user disable {{ jellyctl_username }}"
+  register: jellyctl_user_disable
+  when:
+    - jellyctl_user_operation == 'disable'
+    - jellyctl_username is defined
+  changed_when: jellyctl_user_disable.rc == 0
+
+# Set admin
+- name: Promote user to admin
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user set-admin {{ jellyctl_username }}"
+  register: jellyctl_user_set_admin
+  when:
+    - jellyctl_user_operation == 'set-admin'
+    - jellyctl_username is defined
+  changed_when: jellyctl_user_set_admin.rc == 0
+
+# Unset admin
+- name: Revoke admin privileges
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user unset-admin {{ jellyctl_username }}"
+  register: jellyctl_user_unset_admin
+  when:
+    - jellyctl_user_operation == 'unset-admin'
+    - jellyctl_username is defined
+  changed_when: jellyctl_user_unset_admin.rc == 0
+
+# Set hidden
+- name: Hide user from login page
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user set-hidden {{ jellyctl_username }}"
+  register: jellyctl_user_set_hidden
+  when:
+    - jellyctl_user_operation == 'set-hidden'
+    - jellyctl_username is defined
+  changed_when: jellyctl_user_set_hidden.rc == 0
+
+# Unset hidden
+- name: Show user on login page
+  ansible.builtin.command: "{{ _jellyctl_cmd }} user unset-hidden {{ jellyctl_username }}"
+  register: jellyctl_user_unset_hidden
+  when:
+    - jellyctl_user_operation == 'unset-hidden'
+    - jellyctl_username is defined
+  changed_when: jellyctl_user_unset_hidden.rc == 0

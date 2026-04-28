@@ -1,0 +1,58 @@
+---
+# Stack Deployer - Compose Backend (community.docker.docker_compose_v2)
+# Deploys stacks as Docker Compose projects to their designated target hosts.
+#
+# Each stack in stack_deployer_stacks must have:
+#   - name: project name (must match old Swarm stack name to preserve named volumes)
+#   - compose_template: path to Jinja2 template under templates/
+#   - target_host: Ansible inventory hostname where the stack is deployed
+
+- name: Validate each stack has a target_host defined
+  ansible.builtin.fail:
+    msg: "Stack '{{ item.name }}' is missing required 'target_host' field"
+  loop: "{{ stack_deployer_stacks }}"
+  when: item.target_host is not defined
+
+- name: Ensure compose file staging directory exists on each target host
+  ansible.builtin.file:
+    path: "{{ stack_deployer_compose_dir }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ stack_deployer_stacks }}"
+  delegate_to: "{{ item.target_host }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.target_host }}"
+
+- name: Template compose files to target hosts
+  ansible.builtin.template:
+    src: "{{ item.compose_template }}"
+    dest: "{{ stack_deployer_compose_dir }}/{{ item.name }}.yml"
+    mode: "0644"
+  loop: "{{ stack_deployer_stacks }}"
+  delegate_to: "{{ item.target_host }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.target_host }}"
+
+- name: Deploy stacks via Docker Compose
+  community.docker.docker_compose_v2:
+    project_name: "{{ item.name }}"
+    project_src: "{{ stack_deployer_compose_dir }}"
+    files:
+      - "{{ item.name }}.yml"
+    state: present
+    remove_orphans: true
+  loop: "{{ stack_deployer_stacks }}"
+  delegate_to: "{{ item.target_host }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.target_host }}"
+  register: compose_deployment_result
+
+- name: Display compose deployment results
+  ansible.builtin.debug:
+    msg: |
+      Stack: {{ item.item.name }}
+      Host:  {{ item.item.target_host }}
+      Status: {{ 'Changed' if item.changed else 'Already up to date' }}
+  loop: "{{ compose_deployment_result.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"

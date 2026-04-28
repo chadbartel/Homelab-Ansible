@@ -1,0 +1,77 @@
+---
+# Example: Client-specific configuration and rate limits
+
+- name: Pi-hole Client Management
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    pihole_api_target_node: "lenovo_server"
+    pihole_api_web_port: 8081
+    pihole_api_password: "{{ vault_pihole_admin_password }}"
+    
+  tasks:
+    - name: Authenticate with Pi-hole API
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "create_session"
+
+    - name: Create client configuration for 10.0.0.2
+      include_role:
+        name: pihole_api
+        tasks_from: clients.yml
+      vars:
+        pihole_api_operation: "clients"
+        pihole_api_client_operation: "create"
+        pihole_api_client_ip: "10.0.0.2"
+        pihole_api_client_comment: "VPN gateway - higher rate limit needed"
+
+    - name: Get client details
+      include_role:
+        name: pihole_api
+        tasks_from: clients.yml
+      vars:
+        pihole_api_operation: "clients"
+        pihole_api_client_operation: "get"
+        pihole_api_client_identifier: "10.0.0.2"
+
+    - name: Update client with custom settings
+      include_role:
+        name: pihole_api
+        tasks_from: clients.yml
+      vars:
+        pihole_api_operation: "clients"
+        pihole_api_client_operation: "update"
+        pihole_api_client_identifier: "10.0.0.2"
+        pihole_api_client_updates:
+          comment: "VPN gateway - high query volume expected"
+          # Note: Client-specific rate limits may require different endpoint
+          # Use config endpoint for global rate limiting
+
+    - name: Get client suggestions (discovers clients from network)
+      include_role:
+        name: pihole_api
+        tasks_from: clients.yml
+      vars:
+        pihole_api_operation: "clients"
+        pihole_api_client_operation: "get_suggestions"
+
+    - name: Display discovered clients
+      ansible.builtin.debug:
+        msg: |
+          Discovered Clients:
+          {% for client in pihole_client_suggestions.response.suggestions %}
+          - {{ client.ip }}: {{ client.hostname | default('Unknown') }}
+          {% endfor %}
+
+    - name: Cleanup session
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "destroy_session"

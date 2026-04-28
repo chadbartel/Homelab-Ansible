@@ -1,0 +1,53 @@
+---
+# Example: Complete post-deployment setup
+# This integrates NPM configuration with full homelab deployment
+
+- name: Complete NPM post-deployment configuration
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Load from vars.yml
+    npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
+    npm_config_swarm_manager: "{{ manager_node }}"
+    npm_config_target_node: "{{ npm_target_node }}"
+    npm_config_web_port: "{{ proxy_host_port }}"
+    
+    # Authentication from vault
+    npm_config_admin_email: "{{ admin_email }}"
+    npm_config_admin_password: "{{ npm_admin_password }}"
+    
+    # SSL configuration
+    npm_config_default_ssl_cert_id: "{{ ssl_certificate_id }}"
+    npm_config_ssl_forced: true
+    npm_config_hsts_enabled: true
+    npm_config_http2_support: true
+    
+    # Proxy hosts from host_vars
+    npm_config_proxy_hosts: "{{ proxy_hosts }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - npm_config_admin_password is defined
+          - npm_config_admin_password | length > 0
+          - npm_config_proxy_hosts is defined
+          - npm_config_proxy_hosts | length > 0
+        fail_msg: "Missing required NPM configuration variables"
+
+  roles:
+    - nginx_proxy_manager_config
+
+  post_tasks:
+    - name: Display NPM access information
+      ansible.builtin.debug:
+        msg: |
+          ✅ NGINX Proxy Manager Configuration Complete
+          
+          Access NPM: http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}
+          Admin Email: {{ npm_config_admin_email }}
+          
+          Configured Proxy Hosts:
+          {% for host in npm_config_proxy_hosts %}
+          - {{ host.domain }} → {{ host.forward_scheme | default('http') }}://{{ host.forward_host }}:{{ host.forward_port }}
+          {% endfor %}

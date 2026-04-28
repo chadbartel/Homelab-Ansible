@@ -1,0 +1,95 @@
+---
+# List (adlist) management tasks
+# POST /lists - Create adlist
+# POST /lists:batchDelete - Delete multiple lists
+# GET /lists/{list} - Get list details
+# PUT /lists/{list} - Update list
+# DELETE /lists/{list} - Delete list
+# GET /search/{domain} - Search for domain in lists
+
+- name: Create adlist
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/lists"
+    method: POST
+    body:
+      url: "{{ pihole_api_list_url }}"
+      comment: "{{ pihole_api_list_comment | default('') }}"
+      enabled: "{{ pihole_api_list_enabled | default(true) }}"
+      groups: "{{ pihole_api_list_groups | default([]) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_list_create
+  when:
+    - pihole_api_list_operation == "create"
+    - pihole_api_list_url is defined
+
+- name: Get list details
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/lists/{{ pihole_api_list_id }}"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_list_get
+  when:
+    - pihole_api_list_operation == "get"
+    - pihole_api_list_id is defined
+
+- name: Update list
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/lists/{{ pihole_api_list_id }}"
+    method: PUT
+    body: "{{ pihole_api_list_updates }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_list_update
+  when:
+    - pihole_api_list_operation == "update"
+    - pihole_api_list_id is defined
+    - pihole_api_list_updates is defined
+
+- name: Delete list
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/lists/{{ pihole_api_list_id }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_list_delete
+  when:
+    - pihole_api_list_operation == "delete"
+    - pihole_api_list_id is defined
+
+- name: Batch delete lists
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/lists:batchDelete"
+    method: POST
+    body:
+      lists: "{{ pihole_api_list_ids }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_list_batch_delete
+  when:
+    - pihole_api_list_operation == "batch_delete"
+    - pihole_api_list_ids is defined
+
+- name: Search for domain in lists
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/search/{{ pihole_api_search_domain }}"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_list_search
+  when:
+    - pihole_api_list_operation == "search"
+    - pihole_api_search_domain is defined

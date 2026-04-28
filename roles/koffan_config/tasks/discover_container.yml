@@ -1,0 +1,24 @@
+---
+# Koffan container discovery task
+#
+# Finds the Koffan container on the target host using Docker CLI.
+#
+# Sets the following facts:
+#   - koffan_container_id: Docker container ID (short 12-char format)
+#
+# Usage:
+#   - include_tasks: discover_container.yml
+
+- name: Get Koffan container ID
+  ansible.builtin.shell: |
+    docker ps --filter "name={{ koffan_config_service_name | replace('_', '-') }}" \
+      --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
+  register: koffan_container_id
+  changed_when: false
+  failed_when: koffan_container_id.stdout == ""
+  delegate_to: "{{ koffan_config_target_node }}"
+
+- name: Display discovered Koffan container
+  ansible.builtin.debug:
+    msg: "Koffan container found: {{ koffan_container_id.stdout }} on {{ koffan_config_target_node }}"
+  when: koffan_config_display_results | default(true)

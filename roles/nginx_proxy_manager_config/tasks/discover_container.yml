@@ -1,0 +1,26 @@
+---
+# NPM container discovery task (standalone Docker)
+#
+# Locates the NPM container running on the target node using docker ps.
+# Container name is derived from the Compose project+service naming convention:
+#   npm-stack_npm  ->  npm-stack-npm-1
+
+- name: Get NPM container ID from target node
+  ansible.builtin.shell: |
+    docker ps \
+      --filter "name={{ npm_config_service_name | replace('_', '-') }}" \
+      --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
+  register: npm_container_id_result
+  delegate_to: "{{ npm_config_target_node }}"
+  changed_when: false
+
+- name: Set NPM container ID fact
+  ansible.builtin.set_fact:
+    npm_container_id: "{{ npm_container_id_result.stdout | trim }}"
+
+- name: Display discovered NPM container info
+  ansible.builtin.debug:
+    msg: |
+      NPM Container Discovery:
+      - Target Node: {{ npm_config_target_node }}
+      - Container ID: {{ npm_container_id }}

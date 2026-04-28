@@ -1,0 +1,98 @@
+---
+# Default variables for pihole_api role
+
+# API connection settings
+pihole_api_base_url: "http://{{ hostvars[pihole_api_target_node]['ansible_host'] }}:{{ pihole_api_web_port }}/api"
+pihole_api_web_port: 8081
+pihole_api_password: "{{ vault_pihole_admin_password }}"
+pihole_api_target_node: "lenovo_server"  # Ansible inventory hostname where Pi-hole runs
+pihole_api_validate_certs: false
+pihole_api_timeout: 30
+
+# Session management
+pihole_session_id: ""  # Set after authentication
+
+# Operation types (set which operation to perform)
+pihole_api_operation: ""  # Main operation: auth, metrics, config, dns_control, etc.
+
+# Sub-operation variables
+pihole_api_auth_operation: ""  # create_session, verify_session, destroy_session, list_sessions
+pihole_api_metrics_operation: ""  # get_summary, get_top_clients, get_top_domains, etc.
+pihole_api_config_operation: ""  # get_config, update_config, configure_rate_limit, etc.
+pihole_api_dns_operation: ""  # get_status, enable, disable, disable_timer
+pihole_api_group_operation: ""  # create, get, update, delete, batch_delete
+pihole_api_domain_operation: ""  # whitelist_exact, whitelist_regex, blocklist_exact, etc.
+pihole_api_client_operation: ""  # create, get, update, delete, get_suggestions, batch_delete
+pihole_api_list_operation: ""  # create, get, update, delete, batch_delete, search
+pihole_api_info_operation: ""  # get_ftl, get_host, get_system, get_version, etc.
+pihole_api_log_operation: ""  # get_dnsmasq, get_ftl, get_webserver
+pihole_api_network_operation: ""  # get_devices, delete_device, get_gateway, etc.
+pihole_api_action_operation: ""  # update_gravity, restart_dns, flush_logs, etc.
+pihole_api_teleporter_operation: ""  # export, import
+pihole_api_dhcp_operation: ""  # get_leases, delete_lease
+
+# Rate limiting configuration
+pihole_api_rate_limit_count: 10000  # queries per interval (10x default of 1000)
+pihole_api_rate_limit_interval: 60  # seconds
+
+# Query parameters for metrics/history endpoints
+pihole_api_metrics_query_params: {}
+
+# Configuration update body
+pihole_api_config_updates: {}
+pihole_api_config_element: ""
+pihole_api_config_value: ""
+
+# Group management
+pihole_api_group_name: ""
+pihole_api_group_description: ""
+pihole_api_group_updates: {}
+pihole_api_group_names: []
+
+# Domain management
+pihole_api_domain: ""
+pihole_api_domain_type: "allow"  # allow or deny
+pihole_api_domain_kind: "exact"  # exact or regex
+pihole_api_domain_comment: ""
+pihole_api_domain_groups: []
+pihole_api_domain_updates: {}
+pihole_api_domains: []
+
+# Client management
+pihole_api_client_ip: ""
+pihole_api_client_identifier: ""
+pihole_api_client_comment: ""
+pihole_api_client_groups: []
+pihole_api_client_updates: {}
+pihole_api_client_identifiers: []
+
+# List (adlist) management
+pihole_api_list_url: ""
+pihole_api_list_id: ""
+pihole_api_list_comment: ""
+pihole_api_list_enabled: true
+pihole_api_list_groups: []
+pihole_api_list_updates: {}
+pihole_api_list_ids: []
+pihole_api_search_domain: ""
+
+# Info/FTL operations
+pihole_api_message_id: ""
+
+# Log operations
+pihole_api_log_query_params: {}
+
+# Network operations
+pihole_api_device_id: ""
+
+# DNS control
+pihole_api_dns_timer: 60  # seconds for temporary disable
+
+# Teleporter
+pihole_api_teleporter_config: {}
+
+# DHCP operations
+pihole_api_dhcp_ip: ""
+
+# Auth operations
+pihole_api_target_session_id: ""

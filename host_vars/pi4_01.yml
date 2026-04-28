@@ -1,0 +1,29 @@
+---
+# Host variables for pi4_01
+# NPM runs on pi4_01. Services on the same host use container DNS names (homelab-bridge).
+# Services on lenovo_server (192.168.1.12) are referenced by host IP + published port.
+proxy_hosts:
+  - domain: "{{ pihole_container_name }}.{{ local_domain }}"
+    host: "{{ worker_node_ip2 }}"  # lenovo_server — cross-host, must use IP
+    port: "{{ pihole_web_port }}"  # published port (8081), NOT internal port (80)
+    scheme: "http"
+
+  - domain: "{{ openvpn_container_name }}.{{ local_domain }}"
+    host: "{{ openvpn_container_name }}"  # same host (pi4_01) — bridge DNS works
+    port: 943  # Internal OpenVPN admin web UI port
+    scheme: "https"
+
+  - domain: "{{ portainer_container_name }}.{{ local_domain }}"
+    host: "{{ portainer_container_name }}"  # same host (pi4_01) — bridge DNS works
+    port: 9000  # Internal Portainer web UI port (HTTP)
+    scheme: "http"
+
+  - domain: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
+    host: "{{ nginx_proxy_container_name }}"  # same host (pi4_01) — bridge DNS works
+    port: 81  # Internal NPM web interface port
+    scheme: "http"
+
+  - domain: "{{ jellyfin_container_name }}.{{ local_domain }}"
+    host: "{{ worker_node_ip2 }}"  # lenovo_server — cross-host, must use IP
+    port: "{{ jellyfin_host_port }}"  # published port (8096)
+    scheme: "http"

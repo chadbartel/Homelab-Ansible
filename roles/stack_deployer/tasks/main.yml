@@ -1,0 +1,35 @@
+---
+# Stack Deployer Role - Main Tasks
+# Dispatches to appropriate backend based on stack_deployer_backend
+
+- name: Validate stack_deployer_backend parameter
+  ansible.builtin.fail:
+    msg: "Invalid backend '{{ stack_deployer_backend }}'. Must be one of: compose, portainer, direct"
+  when: stack_deployer_backend not in ['compose', 'portainer', 'direct']
+
+- name: Display deployment backend information
+  ansible.builtin.debug:
+    msg: |
+      Stack Deployer Role
+      Backend: {{ stack_deployer_backend }}
+      Stacks to Deploy: {{ stack_deployer_stacks | length }}
+
+# Dispatch to backend-specific tasks
+- name: Deploy stacks via Docker Compose (standalone)
+  ansible.builtin.include_tasks: compose.yml
+  when: stack_deployer_backend == 'compose'
+
+- name: Deploy stacks via Portainer API
+  ansible.builtin.include_tasks: portainer.yml
+  when: stack_deployer_backend == 'portainer'
+
+- name: Deploy stacks directly via docker stack deploy
+  ansible.builtin.include_tasks: direct.yml
+  when: stack_deployer_backend == 'direct'
+
+- name: Display deployment summary
+  ansible.builtin.debug:
+    msg: |
+      Stack deployment completed
+      Backend: {{ stack_deployer_backend }}
+      Stacks deployed: {{ stack_deployer_stacks | map(attribute='name') | list | join(', ') }}

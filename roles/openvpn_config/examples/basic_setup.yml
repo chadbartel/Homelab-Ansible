@@ -1,0 +1,39 @@
+---
+# Basic OpenVPN Access Server Setup
+# This example shows minimal configuration for a standalone Docker deployment
+
+- name: Basic OpenVPN Configuration (Standalone Docker)
+  hosts: docker_hosts
+  gather_facts: yes
+  
+  vars:
+    # Standalone Docker discovery
+    openvpn_config_container_name: "openvpn-as"
+    openvpn_config_target_host: "{{ inventory_hostname }}"
+    
+    # Required configuration
+    openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
+    openvpn_config_server_hostname: "vpn.example.com"
+    openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
+    
+    # Create one VPN user
+    openvpn_config_users:
+      - username: "alice"
+        password: "{{ vault_openvpn_alice_password }}"
+        autologin: true
+  
+  tasks:
+    - name: Configure OpenVPN Access Server
+      ansible.builtin.include_role:
+        name: openvpn_config
+    
+    - name: Display access information
+      ansible.builtin.debug:
+        msg: |
+          OpenVPN Access Server is now configured!
+          
+          Access Points:
+          - Admin UI: https://{{ ansible_host }}:{{ openvpn_config_web_port | default(943) }}/admin
+          - Client UI: https://{{ ansible_host }}:{{ openvpn_config_web_port | default(943) }}/
+          
+          Login with your configured credentials to download VPN profiles.

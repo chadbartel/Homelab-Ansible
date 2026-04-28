@@ -1,0 +1,92 @@
+---
+# Client management tasks
+# POST /clients - Create client
+# POST /clients:batchDelete - Delete multiple clients
+# GET /clients/_suggestions - Get client suggestions
+# GET /clients/{client} - Get client details
+# PUT /clients/{client} - Update client
+# DELETE /clients/{client} - Delete client
+
+- name: Create Pi-hole client
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/clients"
+    method: POST
+    body:
+      ip: "{{ pihole_api_client_ip }}"
+      comment: "{{ pihole_api_client_comment | default('') }}"
+      groups: "{{ pihole_api_client_groups | default([]) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_client_create
+  when:
+    - pihole_api_client_operation == "create"
+    - pihole_api_client_ip is defined
+
+- name: Get client details
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/clients/{{ pihole_api_client_identifier }}"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_client_get
+  when:
+    - pihole_api_client_operation == "get"
+    - pihole_api_client_identifier is defined
+
+- name: Update client
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/clients/{{ pihole_api_client_identifier }}"
+    method: PUT
+    body: "{{ pihole_api_client_updates }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_client_update
+  when:
+    - pihole_api_client_operation == "update"
+    - pihole_api_client_identifier is defined
+    - pihole_api_client_updates is defined
+
+- name: Delete client
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/clients/{{ pihole_api_client_identifier }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_client_delete
+  when:
+    - pihole_api_client_operation == "delete"
+    - pihole_api_client_identifier is defined
+
+- name: Get client suggestions
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/clients/_suggestions"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_client_suggestions
+  when: pihole_api_client_operation == "get_suggestions"
+
+- name: Batch delete clients
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/clients:batchDelete"
+    method: POST
+    body:
+      clients: "{{ pihole_api_client_identifiers }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_client_batch_delete
+  when:
+    - pihole_api_client_operation == "batch_delete"
+    - pihole_api_client_identifiers is defined

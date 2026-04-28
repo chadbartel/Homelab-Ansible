@@ -1,0 +1,31 @@
+---
+# Disable systemd-resolved's stub DNS listener so Pi-hole can bind to port 53.
+# systemd-resolved continues to function for the host's own DNS resolution;
+# only the stub listener (0.0.0.0:53) is disabled.
+
+- name: Check if systemd-resolved is active
+  ansible.builtin.systemd:
+    name: systemd-resolved
+  register: _resolved_status
+  failed_when: false
+
+- name: Disable DNSStubListener in resolved.conf
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#?DNSStubListener='
+    line: 'DNSStubListener=no'
+    create: true
+    mode: '0644'
+  notify: restart systemd-resolved
+  when: _resolved_status.status.ActiveState is defined and _resolved_status.status.ActiveState == 'active'
+
+- name: Flush handlers to restart resolved immediately
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for port 53 to be released
+  ansible.builtin.wait_for:
+    port: 53
+    host: "0.0.0.0"
+    state: stopped
+    timeout: 15
+  failed_when: false

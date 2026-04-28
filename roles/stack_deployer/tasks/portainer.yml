@@ -1,0 +1,89 @@
+---
+# Stack Deployer - Portainer Backend
+# Deploys stacks via Portainer API (v2.33.7)
+# Reference: https://app.swaggerhub.com/apis-docs/portainer/portainer-ce/2.33.7
+
+- name: Authenticate with Portainer API
+  ansible.builtin.uri:
+    url: "{{ stack_deployer_portainer_url }}/api/auth"
+    method: POST
+    body_format: json
+    body:
+      username: "{{ stack_deployer_portainer_admin_user }}"
+      password: "{{ stack_deployer_portainer_admin_password }}"
+    validate_certs: "{{ stack_deployer_portainer_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ stack_deployer_portainer_api_timeout }}"
+  register: portainer_auth
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+  no_log: true
+
+- name: Set Portainer JWT token fact
+  ansible.builtin.set_fact:
+    portainer_jwt_token: "{{ portainer_auth.json.jwt }}"
+  no_log: true
+
+- name: Verify Portainer endpoint is accessible
+  ansible.builtin.uri:
+    url: "{{ stack_deployer_portainer_url }}/api/endpoints/{{ stack_deployer_portainer_endpoint_id }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ portainer_jwt_token }}"
+    validate_certs: "{{ stack_deployer_portainer_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ stack_deployer_portainer_api_timeout }}"
+  register: portainer_endpoint
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Display Portainer endpoint information
+  ansible.builtin.debug:
+    msg: |
+      ✅ Connected to Portainer API
+      Endpoint: {{ portainer_endpoint.json.Name }}
+      Type: {{ portainer_endpoint.json.Type }}
+      URL: {{ portainer_endpoint.json.URL }}
+
+- name: Get existing stacks from Portainer
+  ansible.builtin.uri:
+    url: "{{ stack_deployer_portainer_url }}/api/stacks"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ portainer_jwt_token }}"
+    validate_certs: "{{ stack_deployer_portainer_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ stack_deployer_portainer_api_timeout }}"
+  register: portainer_existing_stacks
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Create temporary directory for stack compose files
+  ansible.builtin.file:
+    path: "{{ stack_deployer_compose_dir }}"
+    state: directory
+    mode: '0755'
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Template stack compose files
+  ansible.builtin.template:
+    src: "{{ item.compose_template }}"
+    dest: "{{ stack_deployer_compose_dir }}/{{ item.name }}.yml"
+    mode: '0644'
+  loop: "{{ stack_deployer_stacks }}"
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+  register: compose_templating
+
+- name: Read compose file contents
+  ansible.builtin.slurp:
+    src: "{{ stack_deployer_compose_dir }}/{{ item.name }}.yml"
+  loop: "{{ stack_deployer_stacks }}"
+  register: compose_contents
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+
+- name: Process each stack (create or update)
+  ansible.builtin.include_tasks: portainer_deploy_stack.yml
+  loop: "{{ stack_deployer_stacks }}"
+  loop_control:
+    loop_var: stack_item
+    index_var: stack_index
+  vars:
+    stack_compose_content: "{{ compose_contents.results[stack_index].content | b64decode }}"
+    existing_stack: "{{ portainer_existing_stacks.json | selectattr('Name', 'equalto', stack_item.name) | list | first | default(none) }}"

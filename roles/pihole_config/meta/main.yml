@@ -1,0 +1,32 @@
+---
+galaxy_info:
+  role_name: pihole_config
+  author: Homelab Ansible
+  description: Ansible role for configuring Pi-hole in Docker Swarm environments
+  license: GPL-3.0-or-later
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: EL
+      versions:
+        - all
+    - name: Fedora
+      versions:
+        - all
+  
+  galaxy_tags:
+    - pihole
+    - dns
+    - docker
+    - swarm
+    - adblock
+    - homelab
+    - networking
+
+dependencies: []

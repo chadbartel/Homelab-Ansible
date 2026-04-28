@@ -1,0 +1,29 @@
+---
+# Example: API initialization only
+#
+# Only initialize and verify API connectivity without other configuration
+# Useful for verifying API is working after container starts
+#
+# Usage:
+#   ansible-playbook roles/koffan_config/examples/api_initialization_example.yml
+
+- name: Ensure container facts are available
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: discover_container
+  vars:
+    koffan_config_service_name: "koffan-stack_koffan"
+    koffan_config_swarm_manager: "pi4_01"
+
+- name: Initialize API and verify connectivity
+  ansible.builtin.import_role:
+    name: koffan_config
+    tasks_from: initialize_api
+  vars:
+    koffan_config_service_name: "koffan-stack_koffan"
+    koffan_config_api_port: 80
+    target_url: "http://192.168.1.12:80"
+
+- name: API is initialized
+  ansible.builtin.debug:
+    msg: "✅ Koffan API is initialized and responding at http://192.168.1.12:80/api"

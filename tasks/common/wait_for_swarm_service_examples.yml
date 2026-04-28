@@ -1,0 +1,150 @@
+---
+# Example: Using wait_for_swarm_service.yml common task
+#
+# This file demonstrates various usage patterns for the consolidated
+# service waiting task. Each example shows how to replace role-specific
+# wait logic with the common task.
+
+# ============================================================================
+# EXAMPLE 1: Basic Port Check (Minimal Configuration)
+# ============================================================================
+# Replaces simple wait_for blocks in roles
+
+- name: Wait for Pi-hole (basic)
+  include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "pihole-stack_pihole"
+    wait_host: "{{ ansible_host }}"
+    wait_port: 8081
+
+# ============================================================================
+# EXAMPLE 2: Port + HTTP Endpoint Check
+# ============================================================================
+# Replaces roles that check both port and HTTP responsiveness
+
+- name: Wait for NGINX Proxy Manager
+  include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "npm-stack_nginx-proxy-manager"
+    wait_host: "{{ ansible_host }}"
+    wait_port: 81
+    wait_path: "/api"
+    wait_http_status_codes: [200, 302, 401]
+    wait_retries: 10
+    wait_delay: 5
+
+# ============================================================================
+# EXAMPLE 3: Full Featured with Custom Validation
+# ============================================================================
+# Replaces complex waiting patterns with service-specific checks
+
+- name: Wait for Pi-hole with FTL validation
+  include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "pihole-stack_pihole"
+    wait_host: "{{ ansible_host }}"
+    wait_port: 8081
+    wait_path: "/admin"
+    wait_initial_pause: 15
+    wait_swarm_manager: "{{ swarm_manager_node }}"
+    wait_custom_command: "pihole status"
+    wait_container_id: "{{ pihole_container_id }}"
+    wait_delegate_to: "{{ pihole_config_target_node }}"
+    wait_custom_until_condition: "'Pi-hole blocking is enabled' in wait_custom_result.stdout or 'enabled' in wait_custom_result.stdout"
+    wait_custom_retries: 10
+    wait_custom_delay: 5
+
+# ============================================================================
+# EXAMPLE 4: Jellyfin with Swarm Status Check
+# ============================================================================
+# Includes Swarm service verification before waiting
+
+- name: Wait for Jellyfin service
+  include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "jellyfin-stack_jellyfin"
+    wait_host: "{{ hostvars[jellyfin_config_target_node].ansible_host }}"
+    wait_port: 8096
+    wait_path: "/health"
+    wait_swarm_manager: "{{ swarm_manager_node }}"
+    wait_initial_pause: 20
+    wait_timeout: 300
+    wait_retries: 15
+
+# ============================================================================
+# EXAMPLE 5: OpenVPN with HTTPS Validation
+# ============================================================================
+# For services that use HTTPS endpoints (note: HTTP check still uses http:// 
+# in the common task, so for HTTPS you'd use custom validation instead)
+
+- name: Wait for OpenVPN Access Server
+  include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "vpn-stack_openvpn-as"
+    wait_host: "{{ openvpn_target_ip }}"
+    wait_port: 943
+    wait_initial_pause: 30
+    wait_swarm_manager: "{{ swarm_manager_node }}"
+    wait_custom_command: "which sacli"
+    wait_container_id: "{{ openvpn_container_id }}"
+    wait_delegate_to: "{{ openvpn_config_target_host }}"
+    wait_custom_retries: 5
+
+# ============================================================================
+# EXAMPLE 6: Silent Mode (No Debug Output)
+# ============================================================================
+# Useful in production or when you want minimal output
+
+- name: Wait for service (silent)
+  include_tasks: tasks/common/wait_for_swarm_service.yml
+  vars:
+    service_name: "portainer-stack_portainer"
+    wait_host: "{{ ansible_host }}"
+    wait_port: 9000
+    wait_display_results: false
+
+# ============================================================================
+# MIGRATION GUIDE: Role wait_for_service.yml to Common Task
+# ============================================================================
+#
+# Before (in role tasks/wait_for_service.yml):
+# ----------------------------------------------------
+# - name: Wait for Pi-hole web interface
+#   ansible.builtin.wait_for:
+#     port: "{{ pihole_config_web_port }}"
+#     host: "{{ target_host | default(ansible_host) }}"
+#     delay: 15
+#     timeout: "{{ pihole_config_readiness_timeout }}"
+#
+# - name: Wait for Pi-hole FTL
+#   ansible.builtin.shell: |
+#     docker exec {{ pihole_container_id }} pihole status
+#   register: pihole_status
+#   until: "'enabled' in pihole_status.stdout"
+#   retries: 10
+#   delay: 5
+#
+# After (in role tasks/wait_for_service.yml):
+# ----------------------------------------------------
+# - name: Wait for Pi-hole using common task
+#   include_tasks: tasks/common/wait_for_swarm_service.yml
+#   vars:
+#     service_name: "{{ pihole_config_service_name }}"
+#     wait_host: "{{ target_host | default(ansible_host) }}"
+#     wait_port: "{{ pihole_config_web_port }}"
+#     wait_delay: 15
+#     wait_timeout: "{{ pihole_config_readiness_timeout }}"
+#     wait_custom_command: "pihole status"
+#     wait_container_id: "{{ pihole_container_id }}"
+#     wait_delegate_to: "{{ pihole_config_target_node }}"
+#     wait_custom_until_condition: "'enabled' in wait_custom_result.stdout"
+#     wait_custom_retries: 10
+#     wait_custom_delay: 5
+#
+# Benefits of Migration:
+# - Consistent behavior across all services
+# - Less code duplication
+# - Easier to maintain and update
+# - Built-in error handling and messaging
+# - Optional Swarm service status verification
+# - Standardized variable naming

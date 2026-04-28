@@ -1,0 +1,36 @@
+---
+# Default variables for jellyctl role
+
+# Jellyfin server URL
+jellyctl_url: "http://127.0.0.1:8096"
+
+# API token for authentication
+# It's recommended to use Ansible Vault for this
+jellyctl_token: ""
+
+# Path to jellyctl binary (leave empty for auto-detection)
+jellyctl_binary: "jellyctl"
+
+# Default limit for activity logs
+jellyctl_activity_limit: 15
+
+# Default start index for activity logs
+jellyctl_activity_start: 0
+
+# Default media types for library operations
+jellyctl_library_types:
+  - Movie
+  - Series
+
+# Output format (json or text)
+jellyctl_output_format: "text"
+
+# User management defaults
+jellyctl_user_state: "present"  # present or absent
+jellyctl_user_enabled: true
+jellyctl_user_is_admin: false
+jellyctl_user_is_hidden: false
+
+# System management
+jellyctl_backup_unfavorite: false
+jellyctl_backup_unplay: false

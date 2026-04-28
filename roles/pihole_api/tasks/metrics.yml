@@ -1,0 +1,153 @@
+---
+# Metrics and statistics tasks
+# GET /stats/summary - Overall statistics
+# GET /stats/top_clients - Top query clients
+# GET /stats/top_domains - Top queried domains
+# GET /stats/query_types - Query type distribution
+# GET /stats/upstreams - Upstream server statistics
+# GET /stats/recent_blocked - Recently blocked domains
+# GET /stats/database/* - Historical database stats
+# GET /history - Query history
+# GET /history/clients - Client history
+# GET /queries - Real-time queries
+
+- name: Get Pi-hole summary statistics
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/summary"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_summary
+  when: pihole_api_metrics_operation == "get_summary"
+
+- name: Get top query clients
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/top_clients"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_top_clients
+  when: pihole_api_metrics_operation == "get_top_clients"
+
+- name: Get top queried domains
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/top_domains"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_top_domains
+  when: pihole_api_metrics_operation == "get_top_domains"
+
+- name: Get query type statistics
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/query_types"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_query_types
+  when: pihole_api_metrics_operation == "get_query_types"
+
+- name: Get upstream server statistics
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/upstreams"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_upstreams
+  when: pihole_api_metrics_operation == "get_upstreams"
+
+- name: Get recently blocked domains
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/recent_blocked"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_recent_blocked
+  when: pihole_api_metrics_operation == "get_recent_blocked"
+
+- name: Get query history
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/history"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_history
+  when: pihole_api_metrics_operation == "get_history"
+
+- name: Get client history
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/history/clients"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_history_clients
+  when: pihole_api_metrics_operation == "get_client_history"
+
+- name: Get real-time queries
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/queries"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_queries
+  when: pihole_api_metrics_operation == "get_queries"
+
+- name: Get database summary statistics
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/database/summary"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_db_summary
+  when: pihole_api_metrics_operation == "get_database_summary"
+
+- name: Get database top clients
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/database/top_clients"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_db_top_clients
+  when: pihole_api_metrics_operation == "get_database_top_clients"
+
+- name: Get database top domains
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/stats/database/top_domains"
+    method: GET
+    query_params: "{{ pihole_api_metrics_query_params | default({}) }}"
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_stats_db_top_domains
+  when: pihole_api_metrics_operation == "get_database_top_domains"

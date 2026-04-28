@@ -1,0 +1,45 @@
+---
+# Example: System Management with jellyctl role
+# This playbook demonstrates system operations including backup/restore
+
+- name: Manage Jellyfin System
+  hosts: jellyfin_servers
+  vars_files:
+    - ../vault.yml  # Contains vault_jellyfin_api_token
+  
+  vars:
+    jellyctl_url: "http://jellyfin.local:8096"
+    jellyctl_token: "{{ vault_jellyfin_api_token }}"
+
+  tasks:
+    - name: Get system information
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_system_operation: "info"
+
+    - name: Create backup before maintenance
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_system_operation: "backup"
+      register: backup_result
+
+    - name: Restart Jellyfin server
+      ansible.builtin.include_role:
+        name: jellyctl
+      vars:
+        jellyctl_system_operation: "restart"
+
+    - name: Wait for Jellyfin to be ready
+      ansible.builtin.pause:
+        seconds: 30
+        prompt: "Waiting for Jellyfin to restart..."
+
+    # Restore example (commented out - use carefully!)
+    # - name: Restore from backup
+    #   ansible.builtin.include_role:
+    #     name: jellyctl
+    #   vars:
+    #     jellyctl_system_operation: "restore"
+    #     jellyctl_backup_file: "/path/to/backup.json"

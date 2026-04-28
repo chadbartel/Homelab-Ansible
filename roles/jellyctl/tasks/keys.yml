@@ -1,0 +1,48 @@
+---
+# API key management tasks for jellyctl
+
+- name: Build jellyctl base command
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ jellyctl_binary }} --url {{ jellyctl_url }}"
+
+- name: Add token to command if provided
+  ansible.builtin.set_fact:
+    _jellyctl_cmd: "{{ _jellyctl_cmd }} --token {{ jellyctl_token }}"
+  when: jellyctl_token | length > 0
+
+# List API keys
+- name: List API keys
+  ansible.builtin.command: "{{ _jellyctl_cmd }} key list {{ '--json' if jellyctl_output_format == 'json' else '' }}"
+  register: jellyctl_keys_list
+  changed_when: false
+  when: jellyctl_key_operation == 'list'
+
+- name: Display API keys
+  ansible.builtin.debug:
+    var: jellyctl_keys_list.stdout_lines
+  when: jellyctl_key_operation == 'list'
+
+# Create API key
+- name: Create API key
+  ansible.builtin.command: "{{ _jellyctl_cmd }} key create {{ jellyctl_key_name }}"
+  register: jellyctl_key_create
+  when:
+    - jellyctl_key_operation == 'create'
+    - jellyctl_key_name is defined
+  changed_when: jellyctl_key_create.rc == 0
+
+- name: Display created API key
+  ansible.builtin.debug:
+    var: jellyctl_key_create.stdout_lines
+  when:
+    - jellyctl_key_operation == 'create'
+    - jellyctl_key_create is defined
+
+# Delete API key
+- name: Delete API key
+  ansible.builtin.command: "{{ _jellyctl_cmd }} key delete {{ jellyctl_key_name }}"
+  register: jellyctl_key_delete
+  when:
+    - jellyctl_key_operation == 'delete'
+    - jellyctl_key_name is defined
+  changed_when: jellyctl_key_delete.rc == 0

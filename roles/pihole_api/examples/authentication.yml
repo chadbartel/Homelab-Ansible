@@ -1,0 +1,69 @@
+---
+# Example: Authentication and session management
+
+- name: Pi-hole Authentication Examples
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    pihole_api_target_node: "lenovo_server"
+    pihole_api_web_port: 8081
+    pihole_api_password: "{{ vault_pihole_admin_password }}"
+    
+  tasks:
+    - name: Create authentication session
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "create_session"
+    
+    - name: Display session ID
+      ansible.builtin.debug:
+        msg: "Session ID: {{ pihole_session_id }}"
+      no_log: true
+
+    - name: Verify session is valid
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "verify_session"
+
+    - name: List all active sessions
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "list_sessions"
+
+    - name: Display active sessions
+      ansible.builtin.debug:
+        var: pihole_auth_sessions_result.response
+
+    - name: Destroy current session
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "destroy_session"
+
+    - name: Verify session was destroyed
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "verify_session"
+      ignore_errors: true
+      register: verify_result
+
+    - name: Confirm session destroyed
+      ansible.builtin.debug:
+        msg: "Session successfully destroyed"
+      when: verify_result.failed

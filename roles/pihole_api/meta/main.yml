@@ -1,0 +1,27 @@
+---
+galaxy_info:
+  role_name: pihole_api
+  author: Homelab Ansible
+  description: Comprehensive Pi-hole API v6.0 management role with complete endpoint coverage
+  company: Homelab
+  license: GPL-3.0-or-later
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+  galaxy_tags:
+    - pihole
+    - dns
+    - adblock
+    - api
+    - networking
+    - homelab
+    - docker
+
+dependencies: []

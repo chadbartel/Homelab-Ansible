@@ -1,0 +1,54 @@
+---
+# Stack Deployer Role - Backend Switching Example
+# This example shows how to switch between backends at runtime
+
+- name: Deploy stacks with configurable backend
+  hosts: servers
+  gather_facts: true
+  
+  vars_files:
+    - ../../../vars.yml
+    - ../../../vault.yml
+  
+  vars:
+    # Backend can be overridden at runtime:
+    # ansible-playbook backend_switching.yml -e "deployment_backend=portainer"
+    deployment_backend: "{{ deployment_backend | default('direct') }}"
+    
+    stack_deployer_swarm_manager: "pi4_01"
+    
+    # Portainer configuration (used only when backend=portainer)
+    stack_deployer_portainer_admin_password: "{{ vault_portainer_admin_password }}"
+    
+    # Stacks to deploy
+    stack_deployer_stacks:
+      - name: "pihole-stack"
+        compose_template: "templates/pihole-compose.yml.j2"
+      
+      - name: "jellyfin-stack"
+        compose_template: "templates/jellyfin-compose.yml.j2"
+  
+  tasks:
+    - name: Display selected backend
+      ansible.builtin.debug:
+        msg: |
+          🚀 Stack Deployment Configuration
+          Backend: {{ deployment_backend }}
+          Manager Node: {{ stack_deployer_swarm_manager }}
+          Stacks: {{ stack_deployer_stacks | length }}
+
+    - name: Deploy stacks using selected backend
+      ansible.builtin.include_role:
+        name: stack_deployer
+      vars:
+        stack_deployer_backend: "{{ deployment_backend }}"
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ Deployment completed successfully
+          Backend used: {{ deployment_backend }}
+          
+          To switch backend, run:
+          ansible-playbook backend_switching.yml -e "deployment_backend=portainer"
+          ansible-playbook backend_switching.yml -e "deployment_backend=direct"

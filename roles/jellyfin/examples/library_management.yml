@@ -1,0 +1,121 @@
+---
+# Example: Library Management Operations
+# This playbook demonstrates library creation, management, and scanning
+
+- name: Manage Jellyfin Libraries
+  hosts: localhost
+  gather_facts: false
+  vars:
+    jellyfin_url: "http://localhost:8096"
+    jellyfin_api_token: "your-api-token-here"
+  
+  tasks:
+    - name: List all existing libraries
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: list
+    
+    - name: Create Movies library with multiple paths
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: create
+        jellyfin_library_name: "Movies"
+        jellyfin_library_type: "movies"
+        jellyfin_library_refresh_on_create: true
+        jellyfin_library_paths:
+          - Path: "/mnt/media/movies"
+          - Path: "/mnt/external/movies"
+    
+    - name: Create TV Shows library
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: create
+        jellyfin_library_name: "TV Shows"
+        jellyfin_library_type: "tvshows"
+        jellyfin_library_paths:
+          - Path: "/mnt/media/tv"
+    
+    - name: Create Music library
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: create
+        jellyfin_library_name: "Music"
+        jellyfin_library_type: "music"
+        jellyfin_library_paths:
+          - Path: "/mnt/media/music"
+    
+    - name: Create Photos library
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: create
+        jellyfin_library_name: "Photos"
+        jellyfin_library_type: "photos"
+        jellyfin_library_paths:
+          - Path: "/mnt/media/photos"
+    
+    - name: Add additional path to existing Movies library
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: add_path
+        jellyfin_library_name: "Movies"
+        jellyfin_media_path: "/mnt/new-drive/movies"
+        jellyfin_library_refresh_on_create: false
+    
+    - name: Wait for library scan to complete (optional)
+      pause:
+        seconds: 10
+        prompt: "Waiting for initial library scan..."
+    
+    - name: Trigger manual library scan
+      import_role:
+        name: jellyfin
+        tasks_from: libraries
+      vars:
+        jellyfin_action: scan
+    
+    - name: Get items from Movies library
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/Items"
+        method: GET
+        query_params:
+          Recursive: true
+          IncludeItemTypes: "Movie"
+          Fields: "Path,MediaSources,ProviderIds"
+      register: movies
+    
+    - name: Display movie count
+      debug:
+        msg: "Total movies found: {{ movies.response.TotalRecordCount | default(0) }}"
+      when: movies.response is defined
+    
+    - name: Get library statistics
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/Items/Counts"
+        method: GET
+      register: item_counts
+    
+    - name: Display library statistics
+      debug:
+        msg: |
+          Movies: {{ item_counts.response.MovieCount | default(0) }}
+          Series: {{ item_counts.response.SeriesCount | default(0) }}
+          Episodes: {{ item_counts.response.EpisodeCount | default(0) }}
+          Songs: {{ item_counts.response.SongCount | default(0) }}
+          Albums: {{ item_counts.response.AlbumCount | default(0) }}
+      when: item_counts.response is defined

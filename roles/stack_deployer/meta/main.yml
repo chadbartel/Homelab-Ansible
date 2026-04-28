@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  role_name: stack_deployer
+  author: Homelab-Ansible Project
+  description: Abstraction layer for deploying Docker Compose stacks via multiple backends (Portainer API, direct, Kompose)
+  license: MIT
+  min_ansible_version: "2.12"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+  
+  galaxy_tags:
+    - docker
+    - swarm
+    - portainer
+    - deployment
+    - orchestration
+
+dependencies: []

@@ -1,0 +1,28 @@
+---
+# DHCP lease management tasks
+# GET /dhcp/leases - Get DHCP leases
+# DELETE /dhcp/leases/{ip} - Delete DHCP lease
+
+- name: Get DHCP leases
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/dhcp/leases"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_dhcp_leases
+  when: pihole_api_dhcp_operation == "get_leases"
+
+- name: Delete DHCP lease
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/dhcp/leases/{{ pihole_api_dhcp_ip }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_dhcp_lease_delete
+  when:
+    - pihole_api_dhcp_operation == "delete_lease"
+    - pihole_api_dhcp_ip is defined

@@ -1,0 +1,70 @@
+---
+# Deploy or update a single stack via Portainer API
+# This file is included from portainer.yml for each stack
+
+- name: Debug stack deployment information
+  ansible.builtin.debug:
+    msg: |
+      Processing stack: {{ stack_item.name }}
+      Exists: {{ existing_stack is not none }}
+      {% if existing_stack is not none %}
+      Stack ID: {{ existing_stack.Id }}
+      {% endif %}
+
+# Create new stack if it doesn't exist
+- name: Create new stack via Portainer API
+  ansible.builtin.uri:
+    url: "{{ stack_deployer_portainer_url }}/api/stacks/create/swarm/string"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ portainer_jwt_token }}"
+    body_format: json
+    body:
+      name: "{{ stack_item.name }}"
+      stackFileContent: "{{ stack_compose_content }}"
+      swarmID: "{{ portainer_endpoint.json.Snapshots[0].Swarm.ID }}"
+      endpointId: "{{ stack_deployer_portainer_endpoint_id }}"
+    validate_certs: "{{ stack_deployer_portainer_validate_certs }}"
+    status_code: [200, 201]
+    timeout: "{{ stack_deployer_portainer_api_timeout }}"
+  register: stack_create_result
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+  when: existing_stack is none
+
+- name: Display stack creation result
+  ansible.builtin.debug:
+    msg: |
+      ✅ Created new stack: {{ stack_item.name }}
+      Stack ID: {{ stack_create_result.json.Id }}
+  when: 
+    - existing_stack is none
+    - stack_create_result is defined
+
+# Update existing stack
+- name: Update existing stack via Portainer API
+  ansible.builtin.uri:
+    url: "{{ stack_deployer_portainer_url }}/api/stacks/{{ existing_stack.Id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ portainer_jwt_token }}"
+    body_format: json
+    body:
+      stackFileContent: "{{ stack_compose_content }}"
+      prune: false
+      pullImage: false
+      endpointId: "{{ stack_deployer_portainer_endpoint_id }}"
+    validate_certs: "{{ stack_deployer_portainer_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ stack_deployer_portainer_api_timeout }}"
+  register: stack_update_result
+  delegate_to: "{{ stack_deployer_swarm_manager }}"
+  when: existing_stack is not none
+
+- name: Display stack update result
+  ansible.builtin.debug:
+    msg: |
+      ✅ Updated existing stack: {{ stack_item.name }}
+      Stack ID: {{ existing_stack.Id }}
+  when: 
+    - existing_stack is not none
+    - stack_update_result is defined

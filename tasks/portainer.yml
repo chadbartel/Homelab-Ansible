@@ -1,0 +1,60 @@
+---
+# Portainer deployment tasks (standalone Docker, pi4_01)
+# Deploys Portainer CE Server as a standalone Docker Compose project.
+# Portainer Agents are deployed separately via tasks/portainer_agent.yml.
+
+- name: Ensure Portainer compose staging directory exists
+  ansible.builtin.file:
+    path: /tmp/docker-stacks
+    state: directory
+    mode: "0755"
+
+- name: Template Portainer compose file
+  ansible.builtin.template:
+    src: portainer-compose.yml.j2
+    dest: /tmp/docker-stacks/portainer-stack.yml
+    mode: "0644"
+
+- name: Ensure portainer_data volume exists
+  community.docker.docker_volume:
+    name: portainer_data
+    state: present
+
+- name: Deploy Portainer CE Server via Docker Compose
+  community.docker.docker_compose_v2:
+    project_name: portainer-stack
+    project_src: /tmp/docker-stacks
+    files:
+      - portainer-stack.yml
+    state: present
+    remove_orphans: true
+  register: portainer_deployment
+
+- name: Wait for Portainer to be ready
+  ansible.builtin.wait_for:
+    port: "{{ portainer_host_port }}"
+    host: "{{ ansible_host }}"
+    delay: 10
+    timeout: 120
+
+- name: Display Portainer access information
+  ansible.builtin.debug:
+    msg: |
+      Portainer deployed successfully.
+      Web UI: https://{{ ansible_host }}:{{ portainer_host_port }}
+      Status: {{ 'Changed' if portainer_deployment.changed else 'Already up to date' }}
+
+
+- name: Initialize Portainer admin user
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:{{ portainer_host_port }}/api/users/admin/init"
+    method: POST
+    body_format: json
+    body:
+      username: "admin"
+      password: "{{ portainer_admin_password }}"
+    validate_certs: false
+    status_code: [200, 409]
+  register: portainer_init
+  retries: 5
+  delay: 10

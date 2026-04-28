@@ -1,0 +1,35 @@
+---
+# Default variables for Jellyfin role
+
+# Jellyfin server configuration
+jellyfin_url: "http://localhost:8096"
+jellyfin_api_token: ""
+jellyfin_username: ""
+jellyfin_password: ""
+
+# SSL/TLS certificate validation
+jellyfin_validate_certs: true
+
+# Request timeout (seconds)
+jellyfin_request_timeout: 30
+
+# Common operation defaults
+jellyfin_user_password_required: false
+jellyfin_library_refresh_on_create: true
+
+# LiveTV tuner defaults
+jellyfin_tuner_name: "IPTV"
+jellyfin_tuner_m3u_url: ""
+jellyfin_tuner_import_favorites: false
+jellyfin_tuner_hw_transcode: true
+jellyfin_tuner_stream_looping: true
+jellyfin_tuner_count: 1
+jellyfin_tuner_user_agent: ""
+jellyfin_tuner_source: ""
+
+# Container info for idempotency check (read livetv.xml directly from container)
+# Set these when calling this role if the tuner create action is being used.
+# jellyfin_container_id is discovered by the jellyfin_config role's discover_container task.
+# jellyfin_container_host is the Ansible inventory hostname where the container runs.
+jellyfin_container_id: ""
+jellyfin_container_host: ""

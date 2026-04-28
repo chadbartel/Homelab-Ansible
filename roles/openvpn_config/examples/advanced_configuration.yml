@@ -1,0 +1,115 @@
+---
+# Advanced Server Configuration
+# This example shows how to configure advanced OpenVPN server settings
+# Using Docker Swarm deployment
+
+- name: Advanced OpenVPN Server Configuration (Swarm)
+  hosts: localhost
+  gather_facts: no
+  
+  vars:
+    # Docker Swarm discovery
+    openvpn_config_service_name: "my-vpn-service"
+    openvpn_config_swarm_manager: "swarm-manager"
+    
+    # Basic setup
+    openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
+    openvpn_config_server_hostname: "vpn.corporate.com"
+    openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
+    
+    # Users
+    openvpn_config_users:
+      - username: "admin"
+        password: "{{ vault_openvpn_admin_user_password }}"
+        autologin: false
+    
+    # Advanced server configuration
+    openvpn_config_server_settings:
+      # Network routing - route multiple private networks
+      - key: "vpn.server.routing.private_network.0"
+        value: "192.168.1.0/24"
+      
+      - key: "vpn.server.routing.private_network.1"
+        value: "10.0.0.0/8"
+      
+      # DNS settings
+      - key: "vpn.client.routing.reroute_dns"
+        value: "true"
+      
+      - key: "vpn.server.dhcp_option.dns.0"
+        value: "192.168.1.1"
+      
+      # Protocol and port configuration
+      - key: "vpn.server.daemon.tcp.port"
+        value: "443"  # Use HTTPS port for better firewall traversal
+      
+      - key: "vpn.server.daemon.udp.port"
+        value: "1194"
+      
+      # Performance tuning
+      - key: "vpn.server.compressor"
+        value: "lz4"  # Modern compression algorithm
+      
+      - key: "vpn.server.max_clients"
+        value: "50"
+      
+      # Security settings
+      - key: "vpn.server.tls_version_min"
+        value: "1.2"  # Minimum TLS 1.2
+      
+      - key: "vpn.server.session_timeout"
+        value: "86400"  # 24-hour session timeout
+      
+      # Client behavior
+      - key: "vpn.client.routing.reroute_gw"
+        value: "true"  # Route all traffic through VPN
+      
+      - key: "vpn.server.group_pool.0"
+        value: "172.27.232.0/20"  # VPN IP pool
+      
+      # Web interface
+      - key: "vpn.server.web_service"
+        value: "true"
+      
+      # Logging
+      - key: "log.vpn.state_retention_days"
+        value: "30"
+    
+    # Force reconfiguration if needed
+    # openvpn_config_force_reconfigure: true
+  
+  tasks:
+    - name: Configure OpenVPN Access Server with advanced settings
+      ansible.builtin.include_role:
+        name: openvpn_config
+    
+    - name: Display configuration summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          Advanced OpenVPN Configuration Applied
+          ═══════════════════════════════════════════════════════════
+          
+          Network Configuration:
+          - Private Networks: 192.168.1.0/24, 10.0.0.0/8
+          - VPN IP Pool: 172.27.232.0/20
+          - DNS Rerouting: Enabled
+          
+          Protocol & Ports:
+          - TCP: 443 (HTTPS)
+          - UDP: 1194 (Standard)
+          
+          Performance:
+          - Compression: LZ4
+          - Max Clients: 50
+          
+          Security:
+          - TLS Version: 1.2 minimum
+          - Session Timeout: 24 hours
+          
+          Access Points:
+          - Admin UI: https://{{ _openvpn_target_ip }}:943/admin
+          - Client UI: https://{{ _openvpn_target_ip }}:943/
+          
+          Applied {{ openvpn_config_server_settings | length }} custom settings
+          ═══════════════════════════════════════════════════════════

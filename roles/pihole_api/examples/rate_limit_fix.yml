@@ -1,0 +1,59 @@
+---
+# Example: Fix Pi-hole rate limiting issue
+# This playbook increases the rate limit from default 1000 queries/60s to 10000 queries/60s
+# to prevent "Client X has been rate-limited" errors
+
+- name: Fix Pi-hole Rate Limiting
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    pihole_api_target_node: "lenovo_server"
+    pihole_api_web_port: 8081
+    pihole_api_password: "{{ vault_pihole_admin_password }}"
+    
+  tasks:
+    - name: Authenticate with Pi-hole API
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "create_session"
+
+    - name: Configure rate limiting (idempotent)
+      include_role:
+        name: pihole_api
+        tasks_from: config.yml
+      vars:
+        pihole_api_operation: "config"
+        pihole_api_config_operation: "configure_rate_limit"
+        pihole_api_rate_limit_count: 10000
+        pihole_api_rate_limit_interval: 60
+
+    - name: Get current configuration to verify
+      include_role:
+        name: pihole_api
+        tasks_from: config.yml
+      vars:
+        pihole_api_operation: "config"
+        pihole_api_config_operation: "get_config"
+
+    - name: Display rate limit configuration
+      ansible.builtin.debug:
+        msg: |
+          Current Rate Limit Configuration:
+          Count: {{ pihole_config_result.response.dns.rateLimit.count }}
+          Interval: {{ pihole_config_result.response.dns.rateLimit.interval }}s
+          
+          This means Pi-hole will allow up to {{ pihole_config_result.response.dns.rateLimit.count }}
+          queries per {{ pihole_config_result.response.dns.rateLimit.interval }} seconds from each client.
+
+    - name: Destroy session (cleanup)
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "destroy_session"

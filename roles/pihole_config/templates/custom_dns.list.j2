@@ -1,0 +1,5 @@
+# Pi-hole Custom DNS Entries
+# Managed by Ansible - Do not edit manually
+{% for entry in pihole_config_custom_dns_entries %}
+{{ entry.ip }} {{ entry.hostname }}
+{% endfor %}

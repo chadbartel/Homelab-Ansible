@@ -1,0 +1,130 @@
+---
+# Library management tasks for Jellyfin
+
+- name: Get all virtual folders (libraries)
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Library/VirtualFolders"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_libraries_list
+  when: jellyfin_action == 'list'
+
+- name: Display Jellyfin libraries
+  ansible.builtin.debug:
+    var: jellyfin_libraries_list.response
+  when: jellyfin_action == 'list' and jellyfin_libraries_list is defined
+
+- name: Create virtual folder (library)
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Library/VirtualFolders"
+    method: POST
+    query_params:
+      name: "{{ jellyfin_library_name }}"
+      collectionType: "{{ jellyfin_library_type }}"
+      refreshLibrary: "{{ jellyfin_library_refresh_on_create }}"
+    body:
+      LibraryOptions:
+        PathInfos: "{{ jellyfin_library_paths | default([]) }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_library_created
+  when: >
+    jellyfin_action == 'create' and
+    jellyfin_library_name is defined and
+    jellyfin_library_type is defined
+
+- name: Delete virtual folder (library)
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Library/VirtualFolders"
+    method: DELETE
+    query_params:
+      name: "{{ jellyfin_library_name }}"
+      refreshLibrary: true
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_library_deleted
+  when: jellyfin_action == 'delete' and jellyfin_library_name is defined
+
+- name: Scan library
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Library/Refresh"
+    method: POST
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_library_scan_started
+  when: jellyfin_action == 'scan'
+
+- name: Get library items
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Items"
+    method: GET
+    query_params:
+      ParentId: "{{ jellyfin_library_id | default(omit) }}"
+      Recursive: "{{ jellyfin_recursive | default(true) }}"
+      Fields: "{{ jellyfin_fields | default(omit) }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_library_items
+  when: jellyfin_action == 'get_items'
+
+- name: Add media path to library
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Library/VirtualFolders/Paths"
+    method: POST
+    query_params:
+      refreshLibrary: "{{ jellyfin_library_refresh_on_create }}"
+    body:
+      Path: "{{ jellyfin_media_path }}"
+      Name: "{{ jellyfin_library_name }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_library_path_added
+  when: >
+    jellyfin_action == 'add_path' and
+    jellyfin_library_name is defined and
+    jellyfin_media_path is defined
+
+- name: Remove media path from library
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/Library/VirtualFolders/Paths"
+    method: DELETE
+    query_params:
+      path: "{{ jellyfin_media_path }}"
+      name: "{{ jellyfin_library_name }}"
+      refreshLibrary: true
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_library_path_removed
+  when: >
+    jellyfin_action == 'remove_path' and
+    jellyfin_library_name is defined and
+    jellyfin_media_path is defined

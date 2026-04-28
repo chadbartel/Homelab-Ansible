@@ -1,0 +1,85 @@
+---
+# Example: Direct API Module Usage
+# This playbook shows how to use the jellyfin_api module directly for custom operations
+
+- name: Custom Jellyfin API Operations
+  hosts: localhost
+  gather_facts: false
+  vars:
+    jellyfin_url: "http://localhost:8096"
+    jellyfin_api_token: "your-api-token-here"
+  
+  tasks:
+    - name: Get all scheduled tasks
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/ScheduledTasks"
+        method: GET
+      register: scheduled_tasks
+    
+    - name: Display scheduled tasks
+      debug:
+        msg: "Task: {{ item.Name }} - Last run: {{ item.LastExecutionResult.EndTimeUtc | default('Never') }}"
+      loop: "{{ scheduled_tasks.response }}"
+      loop_control:
+        label: "{{ item.Name }}"
+    
+    - name: Get all installed plugins
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/Plugins"
+        method: GET
+      register: plugins
+    
+    - name: List installed plugins
+      debug:
+        msg: "Plugin: {{ item.Name }} v{{ item.Version }}"
+      loop: "{{ plugins.response }}"
+      loop_control:
+        label: "{{ item.Name }}"
+    
+    - name: Get server branding configuration
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/Branding/Configuration"
+        method: GET
+      register: branding
+    
+    - name: Display branding info
+      debug:
+        var: branding.response
+    
+    - name: Get all devices
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/Devices"
+        method: GET
+      register: devices
+    
+    - name: List connected devices
+      debug:
+        msg: "Device: {{ item.Name }} ({{ item.AppName }}) - Last active: {{ item.DateLastActivity }}"
+      loop: "{{ devices.response.Items }}"
+      loop_control:
+        label: "{{ item.Name }}"
+      when: devices.response.Items is defined
+    
+    - name: Get server configuration
+      jellyfin_api:
+        base_url: "{{ jellyfin_url }}"
+        api_token: "{{ jellyfin_api_token }}"
+        endpoint: "/System/Configuration"
+        method: GET
+      register: config
+    
+    - name: Show important config settings
+      debug:
+        msg: |
+          Server Name: {{ config.response.ServerName }}
+          UPnP Enabled: {{ config.response.EnableUPnP }}
+          Public Port: {{ config.response.PublicPort }}
+          Enable Metrics: {{ config.response.EnableMetrics }}

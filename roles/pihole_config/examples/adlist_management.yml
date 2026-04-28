@@ -1,0 +1,98 @@
+---
+# Pi-hole Adlist Management Example
+#
+# This playbook demonstrates how to manage Pi-hole adlists using the
+# pihole_config role. It shows different adlist categories and how to
+# enable/disable specific lists.
+
+- name: Manage Pi-hole Adlists
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    pihole_config_service_name: "pihole-stack_pihole"
+    pihole_config_swarm_manager: "pi4_01"
+    pihole_config_target_node: "lenovo_server"
+    
+    # Categorized adlists for easy management
+    pihole_config_adlists:
+      # === BASIC AD BLOCKING ===
+      - url: "https://adaway.org/hosts.txt"
+        comment: "AdAway"
+        enabled: true
+      
+      - url: "https://v.firebog.net/hosts/AdguardDNS.txt"
+        comment: "AdGuard DNS"
+        enabled: true
+      
+      - url: "https://v.firebog.net/hosts/Easylist.txt"
+        comment: "EasyList"
+        enabled: true
+      
+      - url: "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext"
+        comment: "Peter Lowe's List"
+        enabled: true
+      
+      # === PRIVACY / TRACKING ===
+      - url: "https://v.firebog.net/hosts/Easyprivacy.txt"
+        comment: "EasyPrivacy"
+        enabled: true
+      
+      - url: "https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt"
+        comment: "First-party Trackers"
+        enabled: true
+      
+      - url: "https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt"
+        comment: "Windows Spy Blocker"
+        enabled: true
+      
+      # === MALWARE PROTECTION ===
+      - url: "https://v.firebog.net/hosts/RPiList-Malware.txt"
+        comment: "RPiList Malware"
+        enabled: true
+      
+      - url: "https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-malware.txt"
+        comment: "NoTrack Malware"
+        enabled: true
+      
+      - url: "https://urlhaus.abuse.ch/downloads/hostfile/"
+        comment: "URLhaus Malware Distribution"
+        enabled: true
+      
+      # === PHISHING / FRAUD ===
+      - url: "https://phishing.army/download/phishing_army_blocklist_extended.txt"
+        comment: "Phishing Army"
+        enabled: true
+      
+      # === CRYPTO MINING ===
+      - url: "https://v.firebog.net/hosts/Prigent-Crypto.txt"
+        comment: "Prigent Crypto Mining"
+        enabled: true
+      
+      # === REGIONAL LISTS (optional, enable as needed) ===
+      - url: "https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts"
+        comment: "HostsVN - Vietnam ads"
+        enabled: false  # Disabled by default
+    
+    # Automatically update gravity after changes
+    pihole_config_update_gravity: true
+  
+  tasks:
+    - name: Discover Pi-hole container
+      import_role:
+        name: pihole_config
+        tasks_from: discover_container
+    
+    - name: Configure adlists
+      import_role:
+        name: pihole_config
+        tasks_from: adlists
+    
+    - name: Display adlist summary
+      ansible.builtin.debug:
+        msg: |
+          Pi-hole Adlist Configuration Summary:
+          ────────────────────────────────────
+          Total adlists: {{ pihole_config_adlists | length }}
+          Enabled: {{ pihole_config_adlists | selectattr('enabled', 'equalto', true) | list | length }}
+          Disabled: {{ pihole_config_adlists | selectattr('enabled', 'equalto', false) | list | length }}

@@ -1,0 +1,51 @@
+---
+# Action tasks (trigger operations)
+# POST /action/gravity - Update gravity (adlists)
+# POST /action/restartdns - Restart DNS resolver
+# POST /action/flush/logs - Flush query logs
+# POST /action/flush/network - Flush network table
+# POST /action/flush/arp - Flush ARP cache (DEPRECATED)
+
+- name: Update gravity (adlists)
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/action/gravity"
+    method: POST
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_action_gravity
+  when: pihole_api_action_operation == "update_gravity"
+
+- name: Restart DNS resolver
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/action/restartdns"
+    method: POST
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_action_restartdns
+  when: pihole_api_action_operation == "restart_dns"
+
+- name: Flush query logs
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/action/flush/logs"
+    method: POST
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_action_flush_logs
+  when: pihole_api_action_operation == "flush_logs"
+
+- name: Flush network table
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/action/flush/network"
+    method: POST
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_action_flush_network
+  when: pihole_api_action_operation == "flush_network"

@@ -1,0 +1,59 @@
+---
+# Main entry point for pihole_api role
+# Import specific task files based on the operation requested
+
+- name: Include authentication tasks
+  ansible.builtin.include_tasks: auth.yml
+  when: pihole_api_operation == "auth"
+
+- name: Include metrics tasks
+  ansible.builtin.include_tasks: metrics.yml
+  when: pihole_api_operation == "metrics"
+
+- name: Include DNS control tasks
+  ansible.builtin.include_tasks: dns_control.yml
+  when: pihole_api_operation == "dns_control"
+
+- name: Include group management tasks
+  ansible.builtin.include_tasks: groups.yml
+  when: pihole_api_operation == "groups"
+
+- name: Include domain management tasks
+  ansible.builtin.include_tasks: domains.yml
+  when: pihole_api_operation == "domains"
+
+- name: Include client management tasks
+  ansible.builtin.include_tasks: clients.yml
+  when: pihole_api_operation == "clients"
+
+- name: Include list management tasks
+  ansible.builtin.include_tasks: lists.yml
+  when: pihole_api_operation == "lists"
+
+- name: Include FTL information tasks
+  ansible.builtin.include_tasks: info.yml
+  when: pihole_api_operation == "info"
+
+- name: Include log access tasks
+  ansible.builtin.include_tasks: logs.yml
+  when: pihole_api_operation == "logs"
+
+- name: Include configuration tasks
+  ansible.builtin.include_tasks: config.yml
+  when: pihole_api_operation == "config"
+
+- name: Include network tasks
+  ansible.builtin.include_tasks: network.yml
+  when: pihole_api_operation == "network"
+
+- name: Include action tasks
+  ansible.builtin.include_tasks: actions.yml
+  when: pihole_api_operation == "actions"
+
+- name: Include teleporter tasks
+  ansible.builtin.include_tasks: teleporter.yml
+  when: pihole_api_operation == "teleporter"
+
+- name: Include DHCP tasks
+  ansible.builtin.include_tasks: dhcp.yml
+  when: pihole_api_operation == "dhcp"

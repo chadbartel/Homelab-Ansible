@@ -1,0 +1,7 @@
+---
+# OpenVPN Access Server post-deployment configuration
+# Uses the openvpn_config role for idempotent configuration
+
+- name: Configure OpenVPN Access Server using openvpn_config role
+  ansible.builtin.include_role:
+    name: openvpn_config

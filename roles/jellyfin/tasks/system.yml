@@ -1,0 +1,127 @@
+---
+# System information and configuration tasks for Jellyfin
+
+- name: Get system information
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Info"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_system_info
+  when: jellyfin_action == 'info'
+
+- name: Display system information
+  ansible.builtin.debug:
+    var: jellyfin_system_info.response
+  when: jellyfin_action == 'info' and jellyfin_system_info is defined
+
+- name: Get public system information
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Info/Public"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_system_info_public
+  when: jellyfin_action == 'public_info'
+
+- name: Get system configuration
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Configuration"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_system_config
+  when: jellyfin_action == 'get_config'
+
+- name: Update system configuration
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Configuration"
+    method: POST
+    body: "{{ jellyfin_system_config_data }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_system_config_updated
+  when: jellyfin_action == 'update_config' and jellyfin_system_config_data is defined
+
+- name: Restart system
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Restart"
+    method: POST
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_system_restarted
+  when: jellyfin_action == 'restart'
+
+- name: Shutdown system
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Shutdown"
+    method: POST
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_system_shutdown
+  when: jellyfin_action == 'shutdown'
+
+- name: Get activity log entries
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/ActivityLog/Entries"
+    method: GET
+    query_params:
+      startIndex: "{{ jellyfin_log_start_index | default(omit) }}"
+      limit: "{{ jellyfin_log_limit | default(omit) }}"
+      minDate: "{{ jellyfin_log_min_date | default(omit) }}"
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_activity_log
+  when: jellyfin_action == 'activity_log'
+
+- name: Get server logs
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    api_token: "{{ jellyfin_api_token | default(omit) }}"
+    username: "{{ jellyfin_username | default(omit) }}"
+    password: "{{ jellyfin_password | default(omit) }}"
+    endpoint: "/System/Logs"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_logs_list
+  when: jellyfin_action == 'logs'
+
+- name: Ping server
+  jellyfin_api:
+    base_url: "{{ jellyfin_url }}"
+    endpoint: "/System/Ping"
+    method: GET
+    validate_certs: "{{ jellyfin_validate_certs }}"
+    timeout: "{{ jellyfin_request_timeout }}"
+  register: jellyfin_ping
+  when: jellyfin_action == 'ping'
+  ignore_errors: true

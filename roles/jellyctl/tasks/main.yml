@@ -1,0 +1,59 @@
+---
+# Main tasks for jellyctl role
+
+- name: Check if jellyctl is installed
+  ansible.builtin.command: which {{ jellyctl_binary }}
+  register: jellyctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if jellyctl is not found
+  ansible.builtin.fail:
+    msg: >
+      jellyctl binary not found in PATH. Please install jellyctl manually before using this role.
+      Visit https://github.com/user/jellyctl for installation instructions.
+  when: jellyctl_check.rc != 0
+
+- name: Verify jellyctl version
+  ansible.builtin.command: "{{ jellyctl_binary }} --version"
+  register: jellyctl_version
+  changed_when: false
+  failed_when: false
+
+- name: Display jellyctl version
+  ansible.builtin.debug:
+    msg: "Found jellyctl: {{ jellyctl_version.stdout }}"
+  when: jellyctl_version.rc == 0
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - jellyctl_url is defined
+      - jellyctl_url | length > 0
+    fail_msg: "jellyctl_url must be defined and non-empty"
+    success_msg: "Configuration validated successfully"
+
+# Include task files based on what the user wants to do
+- name: Include user management tasks
+  ansible.builtin.include_tasks: users.yml
+  when: jellyctl_user_operation is defined
+
+- name: Include library management tasks
+  ansible.builtin.include_tasks: library.yml
+  when: jellyctl_library_operation is defined
+
+- name: Include API key management tasks
+  ansible.builtin.include_tasks: keys.yml
+  when: jellyctl_key_operation is defined
+
+- name: Include system management tasks
+  ansible.builtin.include_tasks: system.yml
+  when: jellyctl_system_operation is defined
+
+- name: Include scheduled task management tasks
+  ansible.builtin.include_tasks: tasks.yml
+  when: jellyctl_task_operation is defined
+
+- name: Include activity log tasks
+  ansible.builtin.include_tasks: activity.yml
+  when: jellyctl_activity_operation is defined

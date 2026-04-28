@@ -1,0 +1,64 @@
+---
+# Network information tasks
+# GET /network/devices - List network devices
+# DELETE /network/devices/{device_id} - Delete network device
+# GET /network/gateway - Get gateway information
+# GET /network/interfaces - Get network interfaces
+# GET /network/routes - Get network routes
+
+- name: Get network devices
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/network/devices"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_network_devices
+  when: pihole_api_network_operation == "get_devices"
+
+- name: Delete network device
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/network/devices/{{ pihole_api_device_id }}"
+    method: DELETE
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_network_device_delete
+  when:
+    - pihole_api_network_operation == "delete_device"
+    - pihole_api_device_id is defined
+
+- name: Get gateway information
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/network/gateway"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_network_gateway
+  when: pihole_api_network_operation == "get_gateway"
+
+- name: Get network interfaces
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/network/interfaces"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_network_interfaces
+  when: pihole_api_network_operation == "get_interfaces"
+
+- name: Get network routes
+  pihole_api:
+    base_url: "{{ pihole_api_base_url }}"
+    session_id: "{{ pihole_session_id }}"
+    endpoint: "/network/routes"
+    method: GET
+    validate_certs: "{{ pihole_api_validate_certs }}"
+    timeout: "{{ pihole_api_timeout }}"
+  register: pihole_network_routes
+  when: pihole_api_network_operation == "get_routes"

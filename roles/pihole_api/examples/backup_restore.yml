@@ -1,0 +1,78 @@
+---
+# Example: Backup and restore Pi-hole configuration via Teleporter
+
+- name: Pi-hole Backup and Restore
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    pihole_api_target_node: "lenovo_server"
+    pihole_api_web_port: 8081
+    pihole_api_password: "{{ vault_pihole_admin_password }}"
+    backup_path: "/tmp/pihole-backup-{{ ansible_date_time.iso8601_basic_short }}.json"
+    
+  tasks:
+    - name: Authenticate with Pi-hole API
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "create_session"
+
+    - name: Export Pi-hole configuration (Teleporter backup)
+      include_role:
+        name: pihole_api
+        tasks_from: teleporter.yml
+      vars:
+        pihole_api_operation: "teleporter"
+        pihole_api_teleporter_operation: "export"
+
+    - name: Save backup to file
+      ansible.builtin.copy:
+        content: "{{ pihole_teleporter_export.response | to_nice_json }}"
+        dest: "{{ backup_path }}"
+        mode: '0600'
+
+    - name: Display backup location
+      ansible.builtin.debug:
+        msg: |
+          Pi-hole configuration backed up to: {{ backup_path }}
+          
+          Backup includes:
+          - Domain lists (whitelist/blocklist)
+          - Adlists
+          - Client configurations
+          - Group assignments
+          - DNS settings
+          - Custom DNS records
+          
+          To restore, use the teleporter import operation with this file.
+
+    - name: Example - Restore from backup (commented out for safety)
+      ansible.builtin.debug:
+        msg: |
+          To restore from backup, uncomment and run:
+          
+          # - name: Load backup file
+          #   ansible.builtin.slurp:
+          #     src: "{{ backup_path }}"
+          #   register: backup_data
+          #
+          # - name: Import Pi-hole configuration
+          #   include_role:
+          #     name: pihole_api
+          #     tasks_from: teleporter.yml
+          #   vars:
+          #     pihole_api_operation: "teleporter"
+          #     pihole_api_teleporter_operation: "import"
+          #     pihole_api_teleporter_config: "{{ backup_data.content | b64decode | from_json }}"
+
+    - name: Cleanup session
+      include_role:
+        name: pihole_api
+        tasks_from: auth.yml
+      vars:
+        pihole_api_operation: "auth"
+        pihole_api_auth_operation: "destroy_session"

@@ -1,0 +1,138 @@
+---
+# Consolidated service waiting logic for Docker services
+#
+# This reusable task waits for a Docker service to be ready by checking:
+# 1. Port accessibility
+# 2. (Optional) HTTP endpoint responsiveness
+# 3. (Optional) Custom validation command
+#
+# Usage:
+#   - include_tasks: tasks/common/wait_for_swarm_service.yml
+#     vars:
+#       service_name: "pihole-stack_pihole"
+#       wait_host: "{{ ansible_host }}"
+#       wait_port: 8081
+#       wait_path: "/admin"  # Optional HTTP path check
+#       wait_timeout: 300  # Optional (default: 300 seconds)
+#       wait_delay: 15  # Optional (default: 10 seconds)
+#       wait_retries: 10  # Optional (default: 5 for HTTP checks)
+#       wait_http_status_codes: [200, 302]  # Optional (default: 200)
+#       wait_initial_pause: 20  # Optional initial wait in seconds
+#       wait_custom_command: "pihole status"  # Optional docker exec command
+#       wait_custom_retries: 10  # Optional (default: 5)
+#       wait_custom_delay: 5  # Optional (default: 10)
+#       wait_custom_until_condition: "'enabled' in wait_custom_result.stdout"
+#       wait_delegate_to: "lenovo_server"  # Optional for custom command execution
+#       wait_container_id: "{{ container_id }}"  # Required if using wait_custom_command
+#       wait_display_results: true  # Optional (default: true)
+#
+# Required Variables:
+#   - service_name: Docker service/project name (for display purposes)
+#   - wait_host: Hostname or IP to check port on
+#   - wait_port: Port number to wait for
+
+# ========================================
+# PHASE 0: Initialize default variables
+# ========================================
+- name: Set default values for wait parameters
+  ansible.builtin.set_fact:
+    _wait_timeout: "{{ wait_timeout | default(300) }}"
+    _wait_delay: "{{ wait_delay | default(10) }}"
+    _wait_retries: "{{ wait_retries | default(5) }}"
+    _wait_http_status_codes: "{{ wait_http_status_codes | default([200]) }}"
+    _wait_initial_pause: "{{ wait_initial_pause | default(0) }}"
+    _wait_custom_retries: "{{ wait_custom_retries | default(5) }}"
+    _wait_custom_delay: "{{ wait_custom_delay | default(10) }}"
+    _wait_display_results: "{{ wait_display_results | default(true) }}"
+
+# ========================================
+# PHASE 1: Initial stabilization wait
+# ========================================
+- name: Initial wait for service to stabilize
+  ansible.builtin.pause:
+    seconds: "{{ _wait_initial_pause | int }}"
+    prompt: "Waiting for {{ service_name }} to stabilize..."
+  when:
+    - _wait_initial_pause | int > 0
+    - _wait_display_results | bool
+
+# ========================================
+# PHASE 2: Port accessibility check
+# ========================================
+- name: Wait for service port to be accessible
+  ansible.builtin.wait_for:
+    port: "{{ wait_port }}"
+    host: "{{ wait_host }}"
+    delay: "{{ _wait_delay | int }}"
+    timeout: "{{ _wait_timeout | int }}"
+    msg: "{{ service_name }} port {{ wait_port }} did not become accessible within {{ _wait_timeout }} seconds"
+
+- name: Display port ready status
+  ansible.builtin.debug:
+    msg: "{{ service_name }} port {{ wait_port }} is accessible on {{ wait_host }}"
+  when: _wait_display_results | bool
+
+# ========================================
+# PHASE 3: HTTP endpoint check (optional)
+# ========================================
+- name: Wait for HTTP endpoint to respond
+  ansible.builtin.uri:
+    url: "http://{{ wait_host }}:{{ wait_port }}{{ wait_path }}"
+    method: GET
+    status_code: "{{ _wait_http_status_codes }}"
+    timeout: 10
+    validate_certs: no
+  register: _wait_http_check
+  retries: "{{ _wait_retries | int }}"
+  delay: "{{ _wait_delay | int }}"
+  until: _wait_http_check is success
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: wait_path is defined
+
+- name: Display HTTP endpoint ready status
+  ansible.builtin.debug:
+    msg: "{{ service_name }} HTTP endpoint {{ wait_path }} is responding ({{ _wait_http_check.status }})"
+  when:
+    - wait_path is defined
+    - _wait_display_results | bool
+    - _wait_http_check is defined
+
+# ========================================
+# PHASE 4: Custom validation command (optional)
+# ========================================
+- name: Execute custom validation command
+  docker_swarm_container_exec:
+    container_id: "{{ wait_container_id }}"
+    command: "{{ wait_custom_command }}"
+  register: wait_custom_result
+  until: "{{ wait_custom_until_condition | default('wait_custom_result.rc == 0') }}"
+  retries: "{{ _wait_custom_retries | int }}"
+  delay: "{{ _wait_custom_delay | int }}"
+  changed_when: false
+  delegate_to: "{{ wait_delegate_to }}"
+  when:
+    - wait_custom_command is defined
+    - wait_container_id is defined
+    - wait_delegate_to is defined
+
+- name: Display custom validation result
+  ansible.builtin.debug:
+    msg: "{{ service_name }} custom validation passed: {{ wait_custom_command }}"
+  when:
+    - wait_custom_command is defined
+    - _wait_display_results | bool
+    - wait_custom_result is defined
+
+# ========================================
+# PHASE 5: Summary
+# ========================================
+- name: Display readiness summary
+  ansible.builtin.debug:
+    msg: |
+      {{ service_name }} is ready.
+      Host: {{ wait_host }}:{{ wait_port }}
+      {% if wait_path is defined %}HTTP Path: {{ wait_path }}{% endif %}
+      {% if wait_custom_command is defined %}Custom Check: Passed{% endif %}
+  when: _wait_display_results | bool

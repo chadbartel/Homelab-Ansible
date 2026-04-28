@@ -1,0 +1,45 @@
+---
+# Ansible Galaxy metadata for openvpn_config role
+
+galaxy_info:
+  role_name: openvpn_config
+  namespace: homelab
+  author: Homelab-Ansible
+  description: Idempotent post-deployment configuration for OpenVPN Access Server in Docker Swarm
+  
+  license: MIT
+  
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+    
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    
+    - name: EL
+      versions:
+        - 8
+        - 9
+  
+  galaxy_tags:
+    - openvpn
+    - vpn
+    - docker
+    - swarm
+    - networking
+    - security
+    - access-server
+    - configuration
+    - idempotent
+    - automation
+    - homelab
+    - infrastructure
+
+dependencies: []

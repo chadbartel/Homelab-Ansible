@@ -1,0 +1,32 @@
+---
+# Portainer Agent deployment tasks (standalone Docker)
+# Deploys Portainer Agent on agent hosts (lenovo_server, pi3_01).
+# Runs in the context of the target host (no delegation needed).
+
+- name: Ensure Portainer Agent compose staging directory exists
+  ansible.builtin.file:
+    path: /tmp/docker-stacks
+    state: directory
+    mode: "0755"
+
+- name: Template Portainer Agent compose file
+  ansible.builtin.template:
+    src: portainer-agent-compose.yml.j2
+    dest: /tmp/docker-stacks/portainer-agent-stack.yml
+    mode: "0644"
+
+- name: Deploy Portainer Agent via Docker Compose
+  community.docker.docker_compose_v2:
+    project_name: portainer-agent-stack
+    project_src: /tmp/docker-stacks
+    files:
+      - portainer-agent-stack.yml
+    state: present
+    remove_orphans: true
+  register: portainer_agent_deployment
+
+- name: Display Portainer Agent deployment status
+  ansible.builtin.debug:
+    msg: |
+      Portainer Agent deployed on {{ inventory_hostname }}.
+      Status: {{ 'Changed' if portainer_agent_deployment.changed else 'Already up to date' }}
