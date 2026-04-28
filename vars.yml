@@ -125,6 +125,8 @@ pihole_config_custom_dns_entries:
     hostname: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
   - ip: "{{ manager_node_ip }}"
     hostname: "{{ openvpn_container_name }}.{{ local_domain }}"
+  - ip: "{{ manager_node_ip }}"
+    hostname: "{{ jellyfin_container_name }}.{{ local_domain }}"
 
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:
