@@ -49,22 +49,7 @@
     tasks_from: wait_for_service
 
 # ========================================
-# PHASE 2: SSL Certificate Provisioning
-# ========================================
-- name: Provision SSL certificate for homelab domain
-  ansible.builtin.include_role:
-    name: nginx_proxy_manager_config
-    tasks_from: certificates
-  vars:
-    npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
-    npm_config_target_node: "{{ npm_target_node | default('pi4_01') }}"
-    npm_config_web_port: "{{ proxy_host_port }}"
-    npm_config_admin_email: "{{ admin_email }}"
-    npm_config_admin_password: "{{ npm_admin_password }}"
-    npm_config_cert_domain: "{{ local_domain }}"
-
-# ========================================
-# PHASE 3: Proxy Host Configuration
+# PHASE 2: Proxy Host Configuration
 # ========================================
 - name: Configure reverse proxy hosts (idempotent)
   ansible.builtin.include_role:
