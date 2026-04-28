@@ -27,3 +27,4 @@ proxy_hosts:
     host: "{{ worker_node_ip2 }}"  # lenovo_server — cross-host, must use IP
     port: "{{ jellyfin_host_port }}"  # published port (8096)
     scheme: "http"
+    block_exploits: false  # Jellyfin mobile app sends non-browser API requests that trigger exploit blocks
