@@ -73,6 +73,7 @@
       -subj "/O=Homelab/CN=*.{{ npm_config_cert_domain }}"
       -addext "subjectAltName=DNS:*.{{ npm_config_cert_domain }},DNS:{{ npm_config_cert_domain }}"
   delegate_to: localhost
+  become: false
   run_once: true
   when: npm_ssl_cert_id is not defined
 
@@ -80,6 +81,7 @@
   ansible.builtin.slurp:
     src: /tmp/npm-homelab-cert.pem
   delegate_to: localhost
+  become: false
   register: npm_cert_pem
   when: npm_ssl_cert_id is not defined
 
@@ -87,6 +89,7 @@
   ansible.builtin.slurp:
     src: /tmp/npm-homelab-key.pem
   delegate_to: localhost
+  become: false
   register: npm_key_pem
   when: npm_ssl_cert_id is not defined
 
@@ -142,6 +145,7 @@
     path: "{{ item }}"
     state: absent
   delegate_to: localhost
+  become: false
   loop:
     - /tmp/npm-homelab-cert.pem
     - /tmp/npm-homelab-key.pem
