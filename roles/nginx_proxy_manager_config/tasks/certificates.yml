@@ -1,0 +1,153 @@
+---
+# Ensure an SSL certificate exists in NPM for the homelab domain.
+#
+# Idempotent: on first run it generates a self-signed wildcard cert and uploads
+# it; on subsequent runs it finds the existing cert and reuses its ID.
+#
+# Output fact: npm_ssl_cert_id  (integer cert ID to use on proxy hosts)
+#
+# Dependencies: openssl must be available on the Ansible controller node.
+
+- name: Authenticate with NPM API for certificate management
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/tokens"
+    method: POST
+    body_format: json
+    body:
+      identity: "{{ npm_config_admin_email }}"
+      secret: "{{ npm_config_admin_password }}"
+    return_content: yes
+    status_code: 200
+  register: npm_cert_auth
+  retries: 5
+  delay: 5
+  until: npm_cert_auth.status == 200
+  become: false
+  no_log: true
+
+- name: Set NPM auth token for certificate tasks
+  ansible.builtin.set_fact:
+    npm_auth_token: "{{ npm_cert_auth.json.token }}"
+  no_log: true
+
+- name: List existing SSL certificates from NPM
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/certificates"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    return_content: yes
+    status_code: 200
+  register: npm_existing_certs
+  become: false
+
+# Search for any cert whose domain_names list contains either *.domain or domain.
+- name: Find existing cert covering the homelab domain
+  ansible.builtin.set_fact:
+    npm_ssl_cert_id: "{{ item.id | int }}"
+  loop: "{{ npm_existing_certs.json }}"
+  when:
+    - item.domain_names is defined
+    - >-
+      ('*.' + npm_config_cert_domain) in item.domain_names
+      or npm_config_cert_domain in item.domain_names
+  no_log: true
+
+- name: Display cert discovery result
+  ansible.builtin.debug:
+    msg: >-
+      {{
+        'Found existing SSL cert (ID ' + (npm_ssl_cert_id | string) + ') for ' + npm_config_cert_domain
+        if npm_ssl_cert_id is defined
+        else 'No SSL cert found for ' + npm_config_cert_domain + ' — generating self-signed cert'
+      }}
+
+# ── Self-signed cert provisioning (runs only when no cert was found above) ──
+
+- name: Generate self-signed wildcard certificate
+  ansible.builtin.command:
+    cmd: >-
+      openssl req -x509 -nodes -days 3650 -newkey rsa:2048
+      -keyout /tmp/npm-homelab-key.pem
+      -out /tmp/npm-homelab-cert.pem
+      -subj "/O=Homelab/CN=*.{{ npm_config_cert_domain }}"
+      -addext "subjectAltName=DNS:*.{{ npm_config_cert_domain }},DNS:{{ npm_config_cert_domain }}"
+  delegate_to: localhost
+  run_once: true
+  when: npm_ssl_cert_id is not defined
+
+- name: Read generated certificate
+  ansible.builtin.slurp:
+    src: /tmp/npm-homelab-cert.pem
+  delegate_to: localhost
+  register: npm_cert_pem
+  when: npm_ssl_cert_id is not defined
+
+- name: Read generated private key
+  ansible.builtin.slurp:
+    src: /tmp/npm-homelab-key.pem
+  delegate_to: localhost
+  register: npm_key_pem
+  when: npm_ssl_cert_id is not defined
+
+- name: Create custom certificate entry in NPM
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/certificates"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    body_format: json
+    body:
+      provider: "other"
+      nice_name: "homelab-selfsigned-{{ npm_config_cert_domain }}"
+      domain_names:
+        - "*.{{ npm_config_cert_domain }}"
+        - "{{ npm_config_cert_domain }}"
+    return_content: yes
+    status_code: [200, 201]
+  register: npm_new_cert
+  become: false
+  when: npm_ssl_cert_id is not defined
+
+- name: Upload certificate and key to NPM
+  ansible.builtin.uri:
+    url: >-
+      http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port
+      }}/api/nginx/certificates/{{ npm_new_cert.json.id }}/upload
+    method: POST
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    body_format: form-multipart
+    body:
+      certificate:
+        content: "{{ npm_cert_pem.content | b64decode }}"
+        filename: cert.pem
+        mime_type: application/x-pem-file
+      certificate_key:
+        content: "{{ npm_key_pem.content | b64decode }}"
+        filename: key.pem
+        mime_type: application/x-pem-file
+    return_content: yes
+    status_code: [200, 201]
+  become: false
+  when: npm_ssl_cert_id is not defined
+
+- name: Set cert ID from newly provisioned certificate
+  ansible.builtin.set_fact:
+    npm_ssl_cert_id: "{{ npm_new_cert.json.id | int }}"
+  when: npm_ssl_cert_id is not defined
+
+- name: Remove temporary certificate files from controller
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  delegate_to: localhost
+  loop:
+    - /tmp/npm-homelab-cert.pem
+    - /tmp/npm-homelab-key.pem
+  when: npm_new_cert is defined and npm_new_cert is not skipped
+  failed_when: false
+
+- name: Display final SSL certificate status
+  ansible.builtin.debug:
+    msg: "SSL cert ID {{ npm_ssl_cert_id }} will be applied to all proxy hosts for {{ npm_config_cert_domain }}"

@@ -12,13 +12,6 @@ proxy_hosts:
     host: "{{ openvpn_container_name }}"  # same host (pi4_01) — bridge DNS works
     port: 943  # Internal OpenVPN admin web UI port
     scheme: "https"
-    # OpenVPN AS admin panel sends absolute redirects using its configured host.name
-    # (e.g. covlovebaby.ddns.net:943/admin/). Since NPM sets proxy_redirect off,
-    # those leak to the browser verbatim and fail. This rule rewrites any absolute
-    # redirect on port 943 back to a root-relative path so the browser stays on
-    # the proxied domain.
-    advanced_config: |
-      proxy_redirect ~*^https?://[^/]+:943(/.*)$ $1;
 
   - domain: "{{ portainer_container_name }}.{{ local_domain }}"
     host: "{{ portainer_container_name }}"  # same host (pi4_01) — bridge DNS works

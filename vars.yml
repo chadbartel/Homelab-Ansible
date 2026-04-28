@@ -193,7 +193,7 @@ proxy_host_port: 8181
 pihole_host_port: 80
 vpn_host_port: 943
 portainer_host_port: 9443
-ssl_certificate_id: 2  # Change this to 0 on initial deployment
+ssl_certificate_id: 0  # Fallback only; cert provisioning is now automated via certificates.yml
 
 # Miscellaneous
 timezone: "America/Los_Angeles"
