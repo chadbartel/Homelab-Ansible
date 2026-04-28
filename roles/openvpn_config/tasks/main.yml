@@ -26,5 +26,5 @@
       Client UI:      https://{{ _openvpn_target_ip }}:{{ openvpn_config_web_port }}/
       Server:         {{ openvpn_config_server_hostname | default('Not configured') }}
       Users:          {{ openvpn_config_users | map(attribute='username') | join(', ') if openvpn_config_users | length > 0 else 'None configured' }}
-      Configuration:  {{ 'Previously configured (idempotent)' if openvpn_already_configured.stdout == 'configured' else 'Newly configured' }}
+      Configuration:  {{ 'Previously configured (idempotent)' if openvpn_already_configured.stdout | trim == 'configured' else 'Newly configured' }}
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
