@@ -1,0 +1,57 @@
+---
+# Idempotently ensure EnableRemoteAccess is true on the live Jellyfin instance.
+#
+# Required variables (set by api_keys.yml or passed in):
+#   - jellyfin_config_api_token: valid API token
+#   - jellyfin_target_url: base URL (set by api_keys phase)
+#
+# This task is needed because the setup wizard only runs once (on first deploy).
+# If EnableRemoteAccess was incorrectly set to false during wizard completion,
+# this task corrects it via the main /System/Configuration API.
+
+- name: Set target Jellyfin URL
+  ansible.builtin.set_fact:
+    jellyfin_target_url: "{{ target_url | default('http://127.0.0.1:' + (jellyfin_config_web_port | string)) }}"
+
+- name: Get current Jellyfin system configuration
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/System/Configuration"
+    method: GET
+    headers:
+      X-Emby-Token: "{{ jellyfin_config_api_token }}"
+    status_code: [200]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  register: jellyfin_system_config
+  become: false
+
+- name: Check if EnableRemoteAccess needs to be corrected
+  ansible.builtin.set_fact:
+    jellyfin_remote_access_needs_fix: "{{ not (jellyfin_system_config.json.EnableRemoteAccess | default(true) | bool) }}"
+
+- name: Debug remote access state
+  ansible.builtin.debug:
+    msg: >-
+      EnableRemoteAccess is currently
+      {{ jellyfin_system_config.json.EnableRemoteAccess | default('undefined') }}.
+      {{ 'Will fix.' if jellyfin_remote_access_needs_fix else 'No change needed.' }}
+  when: jellyfin_config_display_results | default(true)
+
+- name: Re-enable remote access via system configuration
+  ansible.builtin.uri:
+    url: "{{ jellyfin_target_url }}/System/Configuration"
+    method: POST
+    headers:
+      X-Emby-Token: "{{ jellyfin_config_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ jellyfin_system_config.json | combine({'EnableRemoteAccess': true}) }}"
+    status_code: [200, 204]
+    validate_certs: "{{ jellyfin_config_validate_certs }}"
+  when: jellyfin_remote_access_needs_fix
+  become: false
+  register: jellyfin_network_fix
+
+- name: Confirm remote access state after update
+  ansible.builtin.debug:
+    msg: "EnableRemoteAccess {{ 'corrected to true' if jellyfin_network_fix is changed else 'was already true — no change' }}"
+  when: jellyfin_config_display_results | default(true)

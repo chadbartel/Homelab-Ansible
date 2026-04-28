@@ -44,7 +44,17 @@
     target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
-# PHASE 4: Library Configuration
+# PHASE 4: Network Configuration
+# ========================================
+- name: Ensure remote access is enabled
+  ansible.builtin.import_role:
+    name: jellyfin_config
+    tasks_from: network_config
+  vars:
+    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+
+# ========================================
+# PHASE 5: Library Configuration
 # ========================================
 - name: Configure media libraries
   ansible.builtin.import_role:
@@ -54,7 +64,7 @@
     target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
-# PHASE 5: TV Tuner Setup
+# PHASE 6: TV Tuner Setup
 # ========================================
 - name: Create IPTV tuner device(s)
   ansible.builtin.include_role:
@@ -70,7 +80,7 @@
   loop: "{{ jellyfin_iptv_playlists }}"
 
 # ========================================
-# PHASE 6: Final Information Display
+# PHASE 7: Final Information Display
 # ========================================
 - name: Display Jellyfin deployment summary
   ansible.builtin.debug:

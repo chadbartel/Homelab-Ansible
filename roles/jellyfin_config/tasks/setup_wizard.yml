@@ -95,7 +95,7 @@
     method: POST
     body_format: json
     body:
-      EnableRemoteAccess: "{{ jellyfin_config_disable_remote_access | bool }}"
+      EnableRemoteAccess: "{{ not (jellyfin_config_disable_remote_access | bool) }}"
     status_code: [200, 204]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   when: wizard_needs_completion
