@@ -61,6 +61,7 @@ jellyfin_container_media_path: "/media"  # Path inside container where media is 
 jellyfin_external_url: "http://{{ jellyfin_container_name }}.{{ local_domain }}"  # External URL via proxy
 jellyfin_epg_image: "alpine:3.23"
 jellyfin_epg_schedule: "0 1 * * *"  # Cron format: 1:00 AM daily
+jellyfin_config_force_password_reset: true  # Force password reset on first login for security
 
 # EPG (Electronic Program Guide) channel guide files
 jellyfin_epg_files:
