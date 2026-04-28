@@ -34,7 +34,17 @@
     target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
-# PHASE 3: API Key Generation
+# PHASE 3: Password Hash Repair
+# ========================================
+- name: Repair admin password hash if empty (Jellyfin version upgrade side-effect)
+  ansible.builtin.import_role:
+    name: jellyfin_config
+    tasks_from: fix_password
+  vars:
+    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+
+# ========================================
+# PHASE 4: API Key Generation
 # ========================================
 - name: Create or retrieve API key (idempotent)
   ansible.builtin.import_role:
@@ -44,7 +54,7 @@
     target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
-# PHASE 4: Network Configuration
+# PHASE 5: Network Configuration
 # ========================================
 - name: Ensure remote access is enabled
   ansible.builtin.import_role:
@@ -54,7 +64,7 @@
     target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
-# PHASE 5: Library Configuration
+# PHASE 6: Library Configuration
 # ========================================
 - name: Configure media libraries
   ansible.builtin.import_role:
@@ -64,7 +74,7 @@
     target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
-# PHASE 6: TV Tuner Setup
+# PHASE 7: TV Tuner Setup
 # ========================================
 - name: Create IPTV tuner device(s)
   ansible.builtin.include_role:
@@ -80,7 +90,7 @@
   loop: "{{ jellyfin_iptv_playlists }}"
 
 # ========================================
-# PHASE 7: Final Information Display
+# PHASE 8: Final Information Display
 # ========================================
 - name: Display Jellyfin deployment summary
   ansible.builtin.debug:
