@@ -37,6 +37,7 @@
       forward_scheme: "{{ item.scheme | default('http') }}"
       forward_host: "{{ item.host }}"
       forward_port: "{{ item.port | int }}"
+      advanced_config: "{{ item.advanced_config | default('') }}"
   loop: "{{ proxy_hosts }}"
 
 # ========================================

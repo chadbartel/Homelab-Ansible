@@ -100,6 +100,7 @@
       block_exploits: "{{ item.block_exploits | default(npm_config_block_exploits) }}"
       caching_enabled: "{{ item.caching_enabled | default(npm_config_caching_enabled) }}"
       allow_websocket_upgrade: "{{ item.websocket_upgrade | default(npm_config_allow_websocket_upgrade) }}"
+      advanced_config: "{{ item.advanced_config | default('') }}"
       enabled: true
     status_code: [200, 201]
   loop: "{{ npm_config_proxy_hosts }}"
@@ -129,6 +130,7 @@
       block_exploits: "{{ item.block_exploits | default(npm_config_block_exploits) }}"
       caching_enabled: "{{ item.caching_enabled | default(npm_config_caching_enabled) }}"
       allow_websocket_upgrade: "{{ item.websocket_upgrade | default(npm_config_allow_websocket_upgrade) }}"
+      advanced_config: "{{ item.advanced_config | default('') }}"
       enabled: true
     status_code: [200]
   loop: "{{ npm_config_proxy_hosts }}"
