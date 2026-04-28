@@ -46,7 +46,7 @@
     msg: |
       ✅ Pi-hole is configured successfully!
       
-      🌐 Access Information (via Swarm ingress - accessible from ANY node):
+      🌐 Access Information:
       Web Interface: http://{{ ansible_host }}:{{ pihole_web_port }}/admin
       DNS Server: {{ ansible_host }}:53
       Password: {{ pihole_web_password }}
