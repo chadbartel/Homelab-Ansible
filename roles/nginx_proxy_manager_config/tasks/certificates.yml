@@ -88,7 +88,7 @@
         dns_challenge: true
         dns_provider: "duckdns"
         dns_provider_credentials: "dns_duckdns_token={{ npm_config_duckdns_token }}"
-        propagation_seconds: 0
+        propagation_seconds: 120
     return_content: yes
     status_code: [200, 201]
     timeout: 180
