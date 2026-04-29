@@ -62,7 +62,7 @@
 - name: Install certbot-dns-duckdns plugin in NPM container
   community.docker.docker_container_exec:
     container: "{{ npm_container_name }}"
-    command: pip3 install --no-cache-dir certbot-dns-duckdns
+    command: /opt/certbot/bin/pip3 install --no-cache-dir certbot-dns-duckdns
   delegate_to: "{{ npm_target_node | default('pi4_01') }}"
   become: true
   register: npm_pip_install
