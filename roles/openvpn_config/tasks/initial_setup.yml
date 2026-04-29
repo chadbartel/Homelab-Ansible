@@ -13,12 +13,12 @@
 - name: Display configuration status
   ansible.builtin.debug:
     msg: |
-      Configuration status: {{ openvpn_already_configured.stdout }}
+      Configuration status: {{ openvpn_already_configured.stdout | trim }}
       Force reconfigure: {{ openvpn_config_force_reconfigure }}
-      Will configure: {{ openvpn_already_configured.stdout == 'not_configured' or openvpn_config_force_reconfigure }}
+      Will configure: {{ openvpn_already_configured.stdout | trim == 'not_configured' or openvpn_config_force_reconfigure }}
 
 - name: Initial server configuration block
-  when: openvpn_already_configured.stdout == 'not_configured' or openvpn_config_force_reconfigure
+  when: openvpn_already_configured.stdout | trim == 'not_configured' or openvpn_config_force_reconfigure
   delegate_to: "{{ openvpn_config_target_host }}"
   block:
     - name: Set OpenVPN admin password
@@ -109,7 +109,7 @@
   ansible.builtin.debug:
     msg: "OpenVPN Access Server already configured - skipping initial setup (idempotent)"
   when: 
-    - openvpn_already_configured.stdout == 'configured'
+    - openvpn_already_configured.stdout | trim == 'configured'
     - not openvpn_config_force_reconfigure
 
 # ============================================================================

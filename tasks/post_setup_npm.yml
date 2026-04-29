@@ -32,11 +32,20 @@
   ansible.builtin.set_fact:
     npm_proxy_hosts_config: "{{ npm_proxy_hosts_config + [transformed_host] }}"
   vars:
-    transformed_host:
-      domain: "{{ item.domain }}"
-      forward_scheme: "{{ item.scheme | default('http') }}"
-      forward_host: "{{ item.host }}"
-      forward_port: "{{ item.port | int }}"
+    transformed_host: >-
+      {{
+        {
+          'domain': item.domain,
+          'forward_scheme': item.scheme | default('http'),
+          'forward_host': item.host,
+          'forward_port': item.port | int,
+          'advanced_config': item.advanced_config | default('')
+        }
+        | combine({'block_exploits': item.block_exploits} if item.block_exploits is defined else {})
+        | combine({'websocket_upgrade': item.websocket_upgrade} if item.websocket_upgrade is defined else {})
+        | combine({'ssl_forced': item.ssl_forced} if item.ssl_forced is defined else {})
+        | combine({'hsts_enabled': item.hsts_enabled} if item.hsts_enabled is defined else {})
+      }}
   loop: "{{ proxy_hosts }}"
 
 # ========================================
@@ -48,6 +57,34 @@
     tasks_from: wait_for_service
 
 # ========================================
+# PHASE 2: Plugin Installation
+# ========================================
+- name: Install certbot-dns-duckdns plugin in NPM container
+  community.docker.docker_container_exec:
+    container: "{{ npm_container_name }}"
+    command: /opt/certbot/bin/pip3 install --no-cache-dir certbot-dns-duckdns
+  delegate_to: "{{ npm_target_node | default('pi4_01') }}"
+  become: true
+  register: npm_pip_install
+  changed_when: "'Successfully installed' in npm_pip_install.stdout"
+
+# ========================================
+# PHASE 3: SSL Certificate Provisioning
+# ========================================
+- name: Provision Let's Encrypt wildcard certificate via DNS-01
+  ansible.builtin.include_role:
+    name: nginx_proxy_manager_config
+    tasks_from: certificates
+  vars:
+    npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
+    npm_config_target_node: "{{ npm_target_node | default('pi4_01') }}"
+    npm_config_web_port: "{{ proxy_host_port }}"
+    npm_config_admin_email: "{{ admin_email }}"
+    npm_config_admin_password: "{{ npm_admin_password }}"
+    npm_config_cert_domain: "{{ local_domain }}"
+    npm_config_duckdns_token: "{{ vault_duckdns_token }}"
+
+# ========================================
 # PHASE 2: Proxy Host Configuration
 # ========================================
 - name: Configure reverse proxy hosts (idempotent)
@@ -56,18 +93,18 @@
     tasks_from: proxy_hosts
   vars:
     npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
-    npm_config_target_node: "{{ npm_target_node | default('lenovo_server') }}"
+    npm_config_target_node: "{{ npm_target_node | default('pi4_01') }}"
     npm_config_web_port: "{{ proxy_host_port }}"
     npm_config_admin_email: "{{ admin_email }}"
     npm_config_admin_password: "{{ npm_admin_password }}"
-    npm_config_default_ssl_cert_id: "{{ ssl_certificate_id | int }}"
-    npm_config_ssl_forced: "{{ true if ssl_certificate_id | int > 0 else false }}"
-    npm_config_hsts_enabled: "{{ true if ssl_certificate_id | int > 0 else false }}"
-    npm_config_http2_support: "{{ true if ssl_certificate_id | int > 0 else false }}"
+    npm_config_default_ssl_cert_id: "{{ npm_ssl_cert_id | default(ssl_certificate_id) | int }}"
+    npm_config_ssl_forced: "{{ true if (npm_ssl_cert_id | default(ssl_certificate_id) | int) > 0 else false }}"
+    npm_config_hsts_enabled: "{{ true if (npm_ssl_cert_id | default(ssl_certificate_id) | int) > 0 else false }}"
+    npm_config_http2_support: "{{ true if (npm_ssl_cert_id | default(ssl_certificate_id) | int) > 0 else false }}"
     npm_config_proxy_hosts: "{{ npm_proxy_hosts_config }}"
 
 # ========================================
-# PHASE 3: Display Summary
+# PHASE 4: Display Summary
 # ========================================
 - name: Display NPM configuration summary
   ansible.builtin.debug:
@@ -84,7 +121,7 @@
       {% endfor %}
       
       🔒 SSL Configuration:
-      - Certificate ID: {{ ssl_certificate_id }}
-      - SSL Forced: {{ 'Yes' if ssl_certificate_id | int > 0 else 'No' }}
-      - HSTS Enabled: {{ 'Yes' if ssl_certificate_id | int > 0 else 'No' }}
-      - HTTP/2 Support: {{ 'Yes' if ssl_certificate_id | int > 0 else 'No' }}
+      - Certificate ID: {{ npm_ssl_cert_id | default(ssl_certificate_id) }}
+      - SSL Forced: {{ 'Yes' if (npm_ssl_cert_id | default(ssl_certificate_id) | int) > 0 else 'No' }}
+      - HSTS Enabled: {{ 'Yes' if (npm_ssl_cert_id | default(ssl_certificate_id) | int) > 0 else 'No' }}
+      - HTTP/2 Support: {{ 'Yes' if (npm_ssl_cert_id | default(ssl_certificate_id) | int) > 0 else 'No' }}

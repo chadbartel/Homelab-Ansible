@@ -61,6 +61,7 @@ jellyfin_container_media_path: "/media"  # Path inside container where media is 
 jellyfin_external_url: "http://{{ jellyfin_container_name }}.{{ local_domain }}"  # External URL via proxy
 jellyfin_epg_image: "alpine:3.23"
 jellyfin_epg_schedule: "0 1 * * *"  # Cron format: 1:00 AM daily
+jellyfin_config_force_password_reset: true  # Force password reset on first login for security
 
 # EPG (Electronic Program Guide) channel guide files
 jellyfin_epg_files:
@@ -99,6 +100,7 @@ jellyfin_config_libraries:
 npm_image: "jc21/nginx-proxy-manager:2"
 npm_service_name: "npm-stack_npm"
 npm_target_node: "pi4_01"
+npm_container_name: "npm-stack-npm-1"  # Docker Compose v2 name: project-service-instance
 
 # Pi-hole configuration
 pihole_image: "pihole/pihole:2026.04.1"
@@ -125,6 +127,8 @@ pihole_config_custom_dns_entries:
     hostname: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
   - ip: "{{ manager_node_ip }}"
     hostname: "{{ openvpn_container_name }}.{{ local_domain }}"
+  - ip: "{{ manager_node_ip }}"
+    hostname: "{{ jellyfin_container_name }}.{{ local_domain }}"
 
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:
@@ -140,8 +144,13 @@ pihole_upstream_dns_servers:
   - "1.1.1.1"  # Cloudflare primary
   - "8.8.8.8"  # Google DNS fallback
 
-# Pi-hole DNS listening mode (security hardening)
-pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'all')
+# Pi-hole DNS listening mode
+# Must be "all" when running in Docker with bridge networking so that dnsmasq
+# accepts queries forwarded from the host LAN (e.g. the router at 192.168.1.1).
+# With "local", dnsmasq only answers queries from networks directly attached to
+# the container (the Docker bridge), causing every LAN query to be silently
+# dropped with "ignoring query from non-local network".
+pihole_dns_listening_mode: "all"
 
 # Note: pihole_config_adlists uses defaults from role (roles/pihole_config/defaults/main.yml)
 # Override here if needed:
@@ -188,7 +197,7 @@ proxy_host_port: 8181
 pihole_host_port: 80
 vpn_host_port: 943
 portainer_host_port: 9443
-ssl_certificate_id: 2  # Change this to 0 on initial deployment
+ssl_certificate_id: 0  # Fallback only; cert provisioning is now automated via certificates.yml
 
 # Miscellaneous
 timezone: "America/Los_Angeles"
