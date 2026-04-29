@@ -62,9 +62,9 @@
   ansible.builtin.debug:
     msg: >-
       {{
-        'Found existing Let\'s Encrypt cert (ID ' + (npm_ssl_cert_id | string) + ') for ' + npm_config_cert_domain
+        "Found existing Let's Encrypt cert (ID " + (npm_ssl_cert_id | string) + ") for " + npm_config_cert_domain
         if npm_ssl_cert_id is defined
-        else 'No Let\'s Encrypt cert found for ' + npm_config_cert_domain + ' — requesting via DNS-01 challenge'
+        else "No Let's Encrypt cert found for " + npm_config_cert_domain + " — requesting via DNS-01 challenge"
       }}
 
 # ── Let's Encrypt DNS-01 provisioning (runs only when no LE cert was found) ──
@@ -85,18 +85,16 @@
         - "*.{{ npm_config_cert_domain }}"
         - "{{ npm_config_cert_domain }}"
       meta:
-        letsencrypt_email: "{{ npm_config_admin_email }}"
-        letsencrypt_agree: true
         dns_challenge: true
         dns_provider: "duckdns"
         dns_provider_credentials: "dns_duckdns_token={{ npm_config_duckdns_token }}"
-        propagation_seconds: ""
+        propagation_seconds: 0
     return_content: yes
     status_code: [200, 201]
     timeout: 180
   register: npm_new_cert
   become: false
-  no_log: true
+  no_log: false
   when: npm_ssl_cert_id is not defined
 
 # Poll until expires_on is populated, which confirms certbot finished and the
