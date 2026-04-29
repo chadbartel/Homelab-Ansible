@@ -31,6 +31,7 @@ npm_config_proxy_hosts: []
 
 # SSL certificate settings
 npm_config_cert_domain: ""           # Domain to provision/find a wildcard cert for (e.g. "example.com")
+npm_config_duckdns_token: ""         # DuckDNS API token; override with vault_duckdns_token
 npm_config_default_ssl_cert_id: 0   # Fallback SSL certificate ID (0 = no SSL); overridden by certificates.yml
 npm_config_ssl_forced: false
 npm_config_hsts_enabled: false

@@ -1,12 +1,15 @@
 ---
-# Ensure an SSL certificate exists in NPM for the homelab domain.
+# Ensure a Let's Encrypt SSL certificate exists in NPM for the homelab domain.
 #
-# Idempotent: on first run it generates a self-signed wildcard cert and uploads
-# it; on subsequent runs it finds the existing cert and reuses its ID.
+# Idempotent: on first run it requests a wildcard cert via NPM's built-in
+# DNS-01 challenge (DuckDNS); on subsequent runs it finds the existing cert
+# and reuses its ID. NPM handles renewal automatically.
 #
 # Output fact: npm_ssl_cert_id  (integer cert ID to use on proxy hosts)
 #
-# Dependencies: openssl must be available on the Ansible controller node.
+# Required vars:
+#   npm_config_cert_domain   - base domain (e.g. "chadbartel.duckdns.org")
+#   npm_config_duckdns_token - DuckDNS API token (from vault_duckdns_token)
 
 - name: Authenticate with NPM API for certificate management
   ansible.builtin.uri:
@@ -41,13 +44,15 @@
   register: npm_existing_certs
   become: false
 
-# Search for any cert whose domain_names list contains either *.domain or domain.
-- name: Find existing cert covering the homelab domain
+# Search for a Let's Encrypt cert whose domain_names list covers the wildcard.
+# Excludes self-signed certs (provider: other) to avoid reusing an untrusted cert.
+- name: Find existing Let's Encrypt cert covering the homelab domain
   ansible.builtin.set_fact:
     npm_ssl_cert_id: "{{ item.id | int }}"
   loop: "{{ npm_existing_certs.json }}"
   when:
     - item.domain_names is defined
+    - item.provider == 'letsencrypt'
     - >-
       ('*.' + npm_config_cert_domain) in item.domain_names
       or npm_config_cert_domain in item.domain_names
@@ -57,43 +62,16 @@
   ansible.builtin.debug:
     msg: >-
       {{
-        'Found existing SSL cert (ID ' + (npm_ssl_cert_id | string) + ') for ' + npm_config_cert_domain
+        'Found existing Let\'s Encrypt cert (ID ' + (npm_ssl_cert_id | string) + ') for ' + npm_config_cert_domain
         if npm_ssl_cert_id is defined
-        else 'No SSL cert found for ' + npm_config_cert_domain + ' — generating self-signed cert'
+        else 'No Let\'s Encrypt cert found for ' + npm_config_cert_domain + ' — requesting via DNS-01 challenge'
       }}
 
-# ── Self-signed cert provisioning (runs only when no cert was found above) ──
+# ── Let's Encrypt DNS-01 provisioning (runs only when no LE cert was found) ──
+# NPM delegates the ACME flow to certbot inside the container; this call
+# blocks until certbot completes or the timeout is reached.
 
-- name: Generate self-signed wildcard certificate
-  ansible.builtin.command:
-    cmd: >-
-      openssl req -x509 -nodes -days 3650 -newkey rsa:2048
-      -keyout /tmp/npm-homelab-key.pem
-      -out /tmp/npm-homelab-cert.pem
-      -subj "/O=Homelab/CN=*.{{ npm_config_cert_domain }}"
-      -addext "subjectAltName=DNS:*.{{ npm_config_cert_domain }},DNS:{{ npm_config_cert_domain }}"
-  delegate_to: localhost
-  become: false
-  run_once: true
-  when: npm_ssl_cert_id is not defined
-
-- name: Read generated certificate
-  ansible.builtin.slurp:
-    src: /tmp/npm-homelab-cert.pem
-  delegate_to: localhost
-  become: false
-  register: npm_cert_pem
-  when: npm_ssl_cert_id is not defined
-
-- name: Read generated private key
-  ansible.builtin.slurp:
-    src: /tmp/npm-homelab-key.pem
-  delegate_to: localhost
-  become: false
-  register: npm_key_pem
-  when: npm_ssl_cert_id is not defined
-
-- name: Create custom certificate entry in NPM
+- name: Request Let's Encrypt wildcard certificate via DNS-01 (DuckDNS)
   ansible.builtin.uri:
     url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/certificates"
     method: POST
@@ -101,57 +79,51 @@
       Authorization: "Bearer {{ npm_auth_token }}"
     body_format: json
     body:
-      provider: "other"
-      nice_name: "homelab-selfsigned-{{ npm_config_cert_domain }}"
+      provider: "letsencrypt"
+      nice_name: "letsencrypt-wildcard-{{ npm_config_cert_domain }}"
       domain_names:
         - "*.{{ npm_config_cert_domain }}"
         - "{{ npm_config_cert_domain }}"
+      meta:
+        letsencrypt_email: "{{ npm_config_admin_email }}"
+        letsencrypt_agree: true
+        dns_challenge: true
+        dns_provider: "duckdns"
+        dns_provider_credentials: "dns_duckdns_token={{ npm_config_duckdns_token }}"
+        propagation_seconds: ""
     return_content: yes
     status_code: [200, 201]
+    timeout: 180
   register: npm_new_cert
   become: false
+  no_log: true
   when: npm_ssl_cert_id is not defined
 
-- name: Upload certificate and key to NPM
+# Poll until expires_on is populated, which confirms certbot finished and the
+# cert is stored. Covers cases where NPM returns before certbot fully commits.
+- name: Wait for Let's Encrypt certificate to be issued
   ansible.builtin.uri:
-    url: >-
-      http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port
-      }}/api/nginx/certificates/{{ npm_new_cert.json.id }}/upload
-    method: POST
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/certificates/{{ npm_new_cert.json.id }}"
+    method: GET
     headers:
       Authorization: "Bearer {{ npm_auth_token }}"
-    body_format: form-multipart
-    body:
-      certificate:
-        content: "{{ npm_cert_pem.content | b64decode }}"
-        filename: cert.pem
-        mime_type: application/x-pem-file
-      certificate_key:
-        content: "{{ npm_key_pem.content | b64decode }}"
-        filename: key.pem
-        mime_type: application/x-pem-file
     return_content: yes
-    status_code: [200, 201]
+    status_code: 200
+  register: npm_cert_status
+  retries: 18
+  delay: 10
+  until: >-
+    npm_cert_status.json.expires_on is defined
+    and npm_cert_status.json.expires_on != ''
+    and npm_cert_status.json.expires_on != None
   become: false
   when: npm_ssl_cert_id is not defined
 
-- name: Set cert ID from newly provisioned certificate
+- name: Set cert ID from newly provisioned Let's Encrypt certificate
   ansible.builtin.set_fact:
     npm_ssl_cert_id: "{{ npm_new_cert.json.id | int }}"
   when: npm_ssl_cert_id is not defined
 
-- name: Remove temporary certificate files from controller
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  delegate_to: localhost
-  become: false
-  loop:
-    - /tmp/npm-homelab-cert.pem
-    - /tmp/npm-homelab-key.pem
-  when: npm_new_cert is defined and npm_new_cert is not skipped
-  failed_when: false
-
 - name: Display final SSL certificate status
   ansible.builtin.debug:
-    msg: "SSL cert ID {{ npm_ssl_cert_id }} will be applied to all proxy hosts for {{ npm_config_cert_domain }}"
+    msg: "Let's Encrypt cert ID {{ npm_ssl_cert_id }} will be applied to all proxy hosts for {{ npm_config_cert_domain }}"
