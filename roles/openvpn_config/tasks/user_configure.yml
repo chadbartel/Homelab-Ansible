@@ -26,6 +26,7 @@
   delay: 5
   until: user_password_result.rc == 0
   no_log: true  # Don't log password
+  when: not user_exists
 
 - name: Configure auto-login for user - {{ user.username }}
   docker_swarm_container_exec:
@@ -36,13 +37,13 @@
   retries: 3
   delay: 5
   until: user_autologin_result.rc == 0
-  when: user.autologin is defined
+  when: user.autologin is defined and not user_exists
 
 - name: Display user configuration status
   ansible.builtin.debug:
     msg: |
       {% if user_exists %}
-      ↻ User '{{ user.username }}' already exists - password updated
+      ↻ User '{{ user.username }}' already exists - skipped (idempotent)
       {% else %}
       ✓ User '{{ user.username }}' created
       {% endif %}
