@@ -32,18 +32,24 @@
     loop_var: user
     label: "{{ user.username }}"
 
-- name: Restart OpenVPN to persist user changes
+- name: Determine which configured users are new (not yet present in the server)
+  ansible.builtin.set_fact:
+    _openvpn_new_users: >-
+      {{ openvpn_config_users | map(attribute='username') | list
+         | difference(existing_users.stdout_lines) }}
+
+- name: Restart OpenVPN to persist new user changes
   docker_swarm_container_exec:
     container_id: "{{ openvpn_container_id.stdout }}"
     command: "sacli start"
   register: openvpn_user_restart
   delegate_to: "{{ openvpn_config_target_host }}"
-  when: openvpn_users_changed | default(false)
+  when: _openvpn_new_users | length > 0
 
 - name: Wait for OpenVPN to reload after user changes
   ansible.builtin.pause:
     seconds: 10
-  when: openvpn_users_changed | default(false)
+  when: _openvpn_new_users | length > 0
 
 - name: Verify users were created successfully
   docker_swarm_container_exec:
