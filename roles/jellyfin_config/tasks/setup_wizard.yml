@@ -45,19 +45,17 @@
     body_format: json
     body:
       Username: "{{ jellyfin_config_admin_user }}"
-      Password: "{{ jellyfin_config_admin_password }}"
+      Pw: "{{ jellyfin_config_admin_password }}"
     status_code: [200, 400, 401, 404]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: jellyfin_wizard_auth_check
   failed_when: false
-  when: 
+  when:
     - jellyfin_startup_check.status != 200
-    - jellyfin_users_check.json is defined
-    - jellyfin_users_check.json | length > 0
 
 - name: Determine if wizard needs to be run
   ansible.builtin.set_fact:
-    wizard_needs_completion: "{{ jellyfin_startup_check.status == 200 or (jellyfin_users_check.json | default([]) | length == 0) or (jellyfin_wizard_auth_check.status | default(0)) == 404 }}"
+    wizard_needs_completion: "{{ jellyfin_startup_check.status == 200 or (jellyfin_wizard_auth_check.status | default(404)) == 404 }}"
 
 - name: Display setup wizard status
   ansible.builtin.debug:
