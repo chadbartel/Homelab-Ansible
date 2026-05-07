@@ -143,7 +143,7 @@ pihole_upstream_dns_servers:
   - "8.8.8.8"  # Google DNS fallback
 
 # Pi-hole DNS listening mode (security hardening)
-pihole_dns_listening_mode: "local"  # Only listen on container network (was: 'all')
+pihole_dns_listening_mode: "all"  # Listen on all interfaces to accept queries from LAN clients and router
 
 # Note: pihole_config_adlists uses defaults from role (roles/pihole_config/defaults/main.yml)
 # Override here if needed:
