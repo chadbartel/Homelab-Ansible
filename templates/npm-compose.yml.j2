@@ -19,6 +19,7 @@ services:
       - npm_letsencrypt:/etc/letsencrypt
     networks:
       - homelab-bridge
+    restart: unless-stopped
 
 volumes:
   npm_data:
