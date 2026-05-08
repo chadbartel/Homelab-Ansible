@@ -36,6 +36,7 @@
 # ========================================
 - name: Set default values for wait parameters
   ansible.builtin.set_fact:
+    _service_name: "{{ service_name | default('service') }}"
     _wait_timeout: "{{ wait_timeout | default(300) }}"
     _wait_delay: "{{ wait_delay | default(10) }}"
     _wait_retries: "{{ wait_retries | default(5) }}"
@@ -51,7 +52,7 @@
 - name: Initial wait for service to stabilize
   ansible.builtin.pause:
     seconds: "{{ _wait_initial_pause | int }}"
-    prompt: "Waiting for {{ service_name }} to stabilize..."
+    prompt: "Waiting for {{ _service_name }} to stabilize..."
   when:
     - _wait_initial_pause | int > 0
     - _wait_display_results | bool
@@ -65,11 +66,11 @@
     host: "{{ wait_host }}"
     delay: "{{ _wait_delay | int }}"
     timeout: "{{ _wait_timeout | int }}"
-    msg: "{{ service_name }} port {{ wait_port }} did not become accessible within {{ _wait_timeout }} seconds"
+    msg: "{{ _service_name }} port {{ wait_port }} did not become accessible within {{ _wait_timeout }} seconds"
 
 - name: Display port ready status
   ansible.builtin.debug:
-    msg: "{{ service_name }} port {{ wait_port }} is accessible on {{ wait_host }}"
+    msg: "{{ _service_name }} port {{ wait_port }} is accessible on {{ wait_host }}"
   when: _wait_display_results | bool
 
 # ========================================
@@ -93,7 +94,7 @@
 
 - name: Display HTTP endpoint ready status
   ansible.builtin.debug:
-    msg: "{{ service_name }} HTTP endpoint {{ wait_path }} is responding ({{ _wait_http_check.status }})"
+    msg: "{{ _service_name }} HTTP endpoint {{ wait_path }} is responding ({{ _wait_http_check.status }})"
   when:
     - wait_path is defined
     - _wait_display_results | bool
@@ -119,7 +120,7 @@
 
 - name: Display custom validation result
   ansible.builtin.debug:
-    msg: "{{ service_name }} custom validation passed: {{ wait_custom_command }}"
+    msg: "{{ _service_name }} custom validation passed: {{ wait_custom_command }}"
   when:
     - wait_custom_command is defined
     - _wait_display_results | bool
@@ -131,7 +132,7 @@
 - name: Display readiness summary
   ansible.builtin.debug:
     msg: |
-      {{ service_name }} is ready.
+      {{ _service_name }} is ready.
       Host: {{ wait_host }}:{{ wait_port }}
       {% if wait_path is defined %}HTTP Path: {{ wait_path }}{% endif %}
       {% if wait_custom_command is defined %}Custom Check: Passed{% endif %}
