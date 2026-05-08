@@ -4,22 +4,8 @@
 # ============================================================================
 # Container Discovery Configuration
 # ============================================================================
-# Deployment mode is auto-detected based on which variables are provided:
-# - If 'openvpn_config_container_id' is set → Use container directly
-# - If 'openvpn_config_service_name' + 'openvpn_config_swarm_manager' → Use Swarm discovery
-# - If 'openvpn_config_container_name' + 'openvpn_config_target_host' → Use standalone Docker
-
-# Direct container ID (if known) - highest priority
-# openvpn_config_container_id: ""
-
-# Docker Swarm service name (for Swarm deployments)
-# openvpn_config_service_name: "vpn-stack_openvpn-as"
-
-# Swarm manager node hostname (required for Swarm deployments)
-# openvpn_config_swarm_manager: "swarm-manager-01"
-
-# Container name (for standalone Docker deployments)
-# openvpn_config_container_name: "openvpn-as"
+# Container name as set in the compose file (container_name: field)
+openvpn_config_container_name: "openvpn-as"
 
 # Target host where container runs (Ansible inventory hostname or 'localhost')
 # Required for command execution, defaults to first inventory host if not specified

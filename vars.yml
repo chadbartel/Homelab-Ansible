@@ -34,9 +34,9 @@ openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
 openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
 # OpenVPN Config Role Variables
-openvpn_config_service_name: "vpn-stack_openvpn-as"
+openvpn_config_container_name: "{{ openvpn_container_name }}-as"
 openvpn_config_target_host: "pi4_01"  # Ansible inventory name (pi4_01 runs OpenVPN)
-openvpn_config_admin_user: "{{ openvpn_container_name }}"
+openvpn_config_admin_user: "openvpn"
 openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
 openvpn_config_server_hostname: "{{ vault_openvpn_hostname }}"
 openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
