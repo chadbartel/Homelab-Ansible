@@ -11,7 +11,7 @@
 - name: Get OpenVPN container ID from target host
   ansible.builtin.shell: |
     docker ps \
-      --filter "name={{ openvpn_config_service_name | replace('_', '-') }}" \
+      --filter "name={{ openvpn_config_container_name }}" \
       --filter "status=running" \
       --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
   register: openvpn_container_id
@@ -24,4 +24,5 @@
     msg: |
       OpenVPN Container Discovery:
       - Target Host: {{ openvpn_config_target_host }}
+      - Container Name: {{ openvpn_config_container_name }}
       - Container ID: {{ openvpn_container_id.stdout }}

@@ -177,26 +177,49 @@
     - vars.yml
     - vault.yml
   tasks:
+    - name: Check if Swarm migration has already been performed
+      ansible.builtin.stat:
+        path: /etc/ansible/.openvpn-swarm-migration-done
+      register: _ovpn_migration_marker
+
     - name: Check if openvpn_data volume exists
       ansible.builtin.command: docker volume inspect vpn-stack_openvpn_data
       register: _ovpn_vol_check
       changed_when: false
       failed_when: false
+      when: not _ovpn_migration_marker.stat.exists
 
-    - name: Check if volume is in a broken state (has data but etc is missing/symlink)
+    - name: Check if volume is in a broken state (dangling Swarm symlink)
       ansible.builtin.stat:
         path: "/var/lib/docker/volumes/vpn-stack_openvpn_data/_data/etc"
         follow: false
       register: _ovpn_etc_stat
-      when: _ovpn_vol_check.rc == 0
+      when:
+        - not _ovpn_migration_marker.stat.exists
+        - _ovpn_vol_check.rc | default(1) == 0
+
+    - name: Check if the etc symlink target is accessible (dangling = truly broken)
+      ansible.builtin.stat:
+        path: "/var/lib/docker/volumes/vpn-stack_openvpn_data/_data/etc"
+        follow: true
+      register: _ovpn_etc_stat_follow
+      when:
+        - not _ovpn_migration_marker.stat.exists
+        - _ovpn_vol_check.rc | default(1) == 0
+        - _ovpn_etc_stat is defined
+        - _ovpn_etc_stat.stat.exists | default(false)
+        - _ovpn_etc_stat.stat.islnk | default(false)
 
     - name: Stop and remove any containers using the broken volume
       ansible.builtin.shell: |
         docker ps -a --filter "volume=vpn-stack_openvpn_data" --quiet | xargs -r docker rm -f
       when:
-        - _ovpn_vol_check.rc == 0
+        - not _ovpn_migration_marker.stat.exists
+        - _ovpn_vol_check.rc | default(1) == 0
         - _ovpn_etc_stat is defined
-        - _ovpn_etc_stat.stat.exists and _ovpn_etc_stat.stat.islnk
+        - _ovpn_etc_stat.stat.exists | default(false)
+        - _ovpn_etc_stat.stat.islnk | default(false)
+        - not _ovpn_etc_stat_follow.stat.exists | default(true)
       register: _ovpn_container_cleanup
       changed_when: _ovpn_container_cleanup.stdout != ""
       tags: ["openvpn", "volumes", "prepare"]
@@ -209,10 +232,27 @@
       # fully reconfigures everything (initial_setup, users) from vault variables.
       ansible.builtin.command: docker volume rm vpn-stack_openvpn_data
       when:
-        - _ovpn_vol_check.rc == 0
+        - not _ovpn_migration_marker.stat.exists
+        - _ovpn_vol_check.rc | default(1) == 0
         - _ovpn_etc_stat is defined
-        - _ovpn_etc_stat.stat.exists and _ovpn_etc_stat.stat.islnk
+        - _ovpn_etc_stat.stat.exists | default(false)
+        - _ovpn_etc_stat.stat.islnk | default(false)
+        - not _ovpn_etc_stat_follow.stat.exists | default(true)
       tags: ["openvpn", "volumes", "prepare"]
+
+    - name: Ensure /etc/ansible directory exists for migration markers
+      ansible.builtin.file:
+        path: /etc/ansible
+        state: directory
+        mode: "0755"
+      when: not _ovpn_migration_marker.stat.exists
+
+    - name: Mark Swarm migration cleanup as complete
+      ansible.builtin.file:
+        path: /etc/ansible/.openvpn-swarm-migration-done
+        state: touch
+        mode: "0644"
+      when: not _ovpn_migration_marker.stat.exists
 
 - name: Create homelab-bridge network on service hosts
   hosts: manager_nodes:lenovo_server

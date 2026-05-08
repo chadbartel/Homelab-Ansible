@@ -16,7 +16,7 @@
 - name: Wait for OpenVPN service using common task
   ansible.builtin.include_tasks: tasks/common/wait_for_swarm_service.yml
   vars:
-    service_name: "{{ openvpn_config_service_name }}"
+    service_name: "{{ openvpn_config_container_name }}"
     wait_host: "{{ _openvpn_target_ip }}"
     wait_port: "{{ openvpn_config_web_port }}"
     wait_initial_pause: "{{ openvpn_config_startup_wait }}"

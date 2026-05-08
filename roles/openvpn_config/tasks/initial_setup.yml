@@ -134,6 +134,7 @@
     container_id: "{{ openvpn_container_id.stdout }}"
     command: "sacli --key 'host.name' --value '{{ openvpn_config_server_hostname }}' ConfigPut"
   register: _openvpn_hostname_enforced
+  changed_when: true
   delegate_to: "{{ openvpn_config_target_host }}"
   when:
     - openvpn_config_server_hostname is defined

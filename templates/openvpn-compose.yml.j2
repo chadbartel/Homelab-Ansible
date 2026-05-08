@@ -4,7 +4,9 @@ version: "3.8"
 services:
   openvpn-as:
     image: {{ openvpn_image }}
+    container_name: {{ openvpn_container_name }}-as
     hostname: {{ openvpn_container_name }}
+    restart: unless-stopped
     cap_add:
       - NET_ADMIN
     devices:
@@ -22,15 +24,6 @@ services:
       - homelab-bridge
     sysctls:
       - net.ipv4.ip_forward=1
-    deploy:
-      replicas: 1
-      update_config:
-        order: start-first
-        failure_action: rollback
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
 
 volumes:
   openvpn_data:
