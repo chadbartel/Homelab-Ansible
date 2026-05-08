@@ -240,6 +240,13 @@
         - not _ovpn_etc_stat_follow.stat.exists | default(true)
       tags: ["openvpn", "volumes", "prepare"]
 
+    - name: Ensure /etc/ansible directory exists for migration markers
+      ansible.builtin.file:
+        path: /etc/ansible
+        state: directory
+        mode: "0755"
+      when: not _ovpn_migration_marker.stat.exists
+
     - name: Mark Swarm migration cleanup as complete
       ansible.builtin.file:
         path: /etc/ansible/.openvpn-swarm-migration-done
