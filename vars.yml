@@ -144,13 +144,8 @@ pihole_upstream_dns_servers:
   - "1.1.1.1"  # Cloudflare primary
   - "8.8.8.8"  # Google DNS fallback
 
-# Pi-hole DNS listening mode
-# Must be "all" when running in Docker with bridge networking so that dnsmasq
-# accepts queries forwarded from the host LAN (e.g. the router at 192.168.1.1).
-# With "local", dnsmasq only answers queries from networks directly attached to
-# the container (the Docker bridge), causing every LAN query to be silently
-# dropped with "ignoring query from non-local network".
-pihole_dns_listening_mode: "all"
+# Pi-hole DNS listening mode (security hardening)
+pihole_dns_listening_mode: "all"  # Listen on all interfaces to accept queries from LAN clients and router
 
 # Note: pihole_config_adlists uses defaults from role (roles/pihole_config/defaults/main.yml)
 # Override here if needed:
@@ -197,7 +192,7 @@ proxy_host_port: 8181
 pihole_host_port: 80
 vpn_host_port: 943
 portainer_host_port: 9443
-ssl_certificate_id: 0  # Fallback only; cert provisioning is now automated via certificates.yml
+ssl_certificate_id: 0  # 0 = auto-detect Let's Encrypt cert at deploy time (ID resolved dynamically in nginx_proxy_manager_config role)
 
 # Miscellaneous
 timezone: "America/Los_Angeles"

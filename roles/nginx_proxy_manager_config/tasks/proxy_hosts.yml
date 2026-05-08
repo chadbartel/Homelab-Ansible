@@ -24,6 +24,36 @@
     npm_auth_token: "{{ npm_auth.json.token }}"
   no_log: true
 
+- name: Fetch all certificates from NPM
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/certificates"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    return_content: yes
+    status_code: 200
+  register: npm_certificates
+  become: false
+
+- name: Resolve SSL certificate ID dynamically
+  ansible.builtin.set_fact:
+    _npm_le_cert_id: "{{ (le_certs | first).id if le_certs | length > 0 else npm_config_default_ssl_cert_id }}"
+    _npm_le_ssl_active: "{{ le_certs | length > 0 }}"
+  vars:
+    le_certs: "{{ npm_certificates.json | selectattr('provider', 'equalto', 'letsencrypt') | list }}"
+
+- name: Debug - Show resolved SSL certificate
+  ansible.builtin.debug:
+    msg: |
+      🔒 SSL Certificate Resolution:
+      {% set le_certs = npm_certificates.json | selectattr('provider', 'equalto', 'letsencrypt') | list %}
+      {% if le_certs | length > 0 %}
+      ✅ Found Let's Encrypt cert: ID {{ _npm_le_cert_id }} ({{ le_certs[0].nice_name }}, expires {{ le_certs[0].expires_on }})
+      {% else %}
+      ⚠️  No Let's Encrypt cert found — using fallback cert ID {{ _npm_le_cert_id }}
+      {% endif %}
+  when: npm_config_display_results | default(true)
+
 - name: Get existing proxy hosts from NPM
   ansible.builtin.uri:
     url: "http://{{ hostvars[npm_config_target_node]['ansible_host'] }}:{{ npm_config_web_port }}/api/nginx/proxy-hosts"
@@ -92,11 +122,11 @@
       forward_host: "{{ item.forward_host }}"
       forward_port: "{{ item.forward_port | int }}"
       access_list_id: "{{ item.access_list_id | default(npm_config_access_list_id) }}"
-      certificate_id: "{{ item.ssl_certificate_id | default(npm_config_default_ssl_cert_id) | int }}"
-      ssl_forced: "{{ item.ssl_forced | default(npm_config_ssl_forced) }}"
-      hsts_enabled: "{{ item.hsts_enabled | default(npm_config_hsts_enabled) }}"
+      certificate_id: "{{ item.ssl_certificate_id | default(_npm_le_cert_id) | int }}"
+      ssl_forced: "{{ item.ssl_forced | default(_npm_le_ssl_active | bool) }}"
+      hsts_enabled: "{{ item.hsts_enabled | default(_npm_le_ssl_active | bool) }}"
       hsts_subdomains: "{{ item.hsts_subdomains | default(npm_config_hsts_subdomains) }}"
-      http2_support: "{{ item.http2_support | default(npm_config_http2_support) }}"
+      http2_support: "{{ item.http2_support | default(_npm_le_ssl_active | bool) }}"
       block_exploits: "{{ item.block_exploits | default(npm_config_block_exploits) }}"
       caching_enabled: "{{ item.caching_enabled | default(npm_config_caching_enabled) }}"
       allow_websocket_upgrade: "{{ item.websocket_upgrade | default(npm_config_allow_websocket_upgrade) }}"
@@ -122,11 +152,11 @@
       forward_host: "{{ item.forward_host }}"
       forward_port: "{{ item.forward_port | int }}"
       access_list_id: "{{ item.access_list_id | default(npm_config_access_list_id) }}"
-      certificate_id: "{{ item.ssl_certificate_id | default(npm_config_default_ssl_cert_id) | int }}"
-      ssl_forced: "{{ item.ssl_forced | default(npm_config_ssl_forced) }}"
-      hsts_enabled: "{{ item.hsts_enabled | default(npm_config_hsts_enabled) }}"
+      certificate_id: "{{ item.ssl_certificate_id | default(_npm_le_cert_id) | int }}"
+      ssl_forced: "{{ item.ssl_forced | default(_npm_le_ssl_active | bool) }}"
+      hsts_enabled: "{{ item.hsts_enabled | default(_npm_le_ssl_active | bool) }}"
       hsts_subdomains: "{{ item.hsts_subdomains | default(npm_config_hsts_subdomains) }}"
-      http2_support: "{{ item.http2_support | default(npm_config_http2_support) }}"
+      http2_support: "{{ item.http2_support | default(_npm_le_ssl_active | bool) }}"
       block_exploits: "{{ item.block_exploits | default(npm_config_block_exploits) }}"
       caching_enabled: "{{ item.caching_enabled | default(npm_config_caching_enabled) }}"
       allow_websocket_upgrade: "{{ item.websocket_upgrade | default(npm_config_allow_websocket_upgrade) }}"

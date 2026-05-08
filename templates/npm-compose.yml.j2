@@ -14,11 +14,16 @@ services:
       INITIAL_ADMIN_EMAIL: "{{ admin_email }}"
       INITIAL_ADMIN_PASSWORD: "{{ npm_admin_password }}"
       DISABLE_IPV6: 'true'
+    dns:
+      - 192.168.1.12  # Pi-hole on lenovo_server (primary)
+      - 1.1.1.1       # Cloudflare fallback
+      - 8.8.8.8       # Google fallback
     volumes:
       - npm_data:/data
       - npm_letsencrypt:/etc/letsencrypt
     networks:
       - homelab-bridge
+    restart: unless-stopped
 
 volumes:
   npm_data:

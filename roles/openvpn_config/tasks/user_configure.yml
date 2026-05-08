@@ -48,7 +48,7 @@
   ansible.builtin.debug:
     msg: |
       {% if user_exists %}
-      ↻ User '{{ user.username }}' already exists - skipping (idempotent)
+      ↻ User '{{ user.username }}' already exists - skipped (idempotent)
       {% else %}
       ✓ User '{{ user.username }}' created
       {% endif %}

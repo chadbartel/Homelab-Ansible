@@ -15,11 +15,7 @@ services:
       FTLCONF_webserver_api_password: '{{ pihole_web_password }}'
       # Upstream DNS servers (prevents query failures and timeouts)
       FTLCONF_dns_upstreams: '{{ pihole_upstream_dns_servers | default(["1.1.1.1", "8.8.8.8"]) | join(";") }}'
-      # DNS listening mode - 'all' is required when running in Docker bridge
-      # networking so dnsmasq accepts queries forwarded from the host LAN.
-      # 'local' mode only serves directly-attached container networks, which
-      # causes LAN queries to be dropped with "ignoring query from non-local
-      # network".
+      # DNS listening mode - must be 'all' to accept queries from LAN clients (router, devices)
       FTLCONF_dns_listeningMode: '{{ pihole_dns_listening_mode | default("all") }}'
       # Rate limiting configuration (prevents "Client X has been rate-limited" errors)
       # Note: These are startup defaults; can be overridden via API at runtime

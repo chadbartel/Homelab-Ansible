@@ -47,14 +47,15 @@
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: jellyfin_wizard_auth_check
   failed_when: false
-  no_log: true
+  when:
+    - jellyfin_startup_check.status != 200
 
 - name: Determine if wizard needs to be run
   # Wizard runs ONLY if the admin user does not exist (auth returns 404).
   # 200 = auth OK, 400 = empty hash (fix_password handles), 401 = wrong password (fix_password handles).
   # Do NOT use /Startup/Configuration status — it returns 200 regardless of wizard completion.
   ansible.builtin.set_fact:
-    wizard_needs_completion: "{{ (jellyfin_wizard_auth_check.status | default(0)) == 404 }}"
+    wizard_needs_completion: "{{ jellyfin_startup_check.status == 200 or (jellyfin_wizard_auth_check.status | default(404)) == 404 }}"
 
 - name: Display setup wizard status
   ansible.builtin.debug:

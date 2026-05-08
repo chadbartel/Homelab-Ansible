@@ -11,7 +11,7 @@ services:
     networks:
       - homelab-bridge
     dns:
-      - 192.168.1.10  # Pi-hole (primary for ad-blocking)
+      - 192.168.1.12  # Pi-hole on lenovo_server (primary for ad-blocking)
       - 1.1.1.1  # Cloudflare DNS for reliable external stream resolution
       - 8.8.8.8  # Google DNS fallback
     dns_search:
