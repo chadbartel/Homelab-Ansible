@@ -1,0 +1,81 @@
+---
+# Monolith group variables for consolidated single-host deployment
+
+# SSD media drives mounted locally on monolith (moved from host_vars/lenovo_server.yml)
+ssd_media_drives:
+  - device: "/dev/sda2"
+    format: false
+    mount_path: "/mnt/ssd_media"
+  - device: "/dev/sdc1"
+    format: false
+    mount_path: "/mnt/ssd_media2"
+
+# Nginx Proxy Manager configuration (monolith acts as both upstream server and proxy)
+proxy_hosts:
+  # Pi-hole: use container name on homelab-bridge network
+  - domain: "{{ pihole_container_name }}.{{ local_domain }}"
+    host: "{{ pihole_container_name }}"  # Container DNS name instead of IP
+    port: 80  # Internal port (Pi-hole web UI)
+    scheme: "http"
+
+  # OpenVPN: use container name on homelab-bridge network
+  - domain: "{{ openvpn_container_name }}.{{ local_domain }}"
+    host: "{{ openvpn_container_name }}"
+    port: 943  # Internal OpenVPN admin web UI port
+    scheme: "https"
+
+  # Portainer: use container name on homelab-bridge network
+  - domain: "{{ portainer_container_name }}.{{ local_domain }}"
+    host: "{{ portainer_container_name }}"
+    port: 9000  # Internal Portainer web UI port (HTTP)
+    scheme: "http"
+
+  # NPM itself: use container name on homelab-bridge network
+  - domain: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
+    host: "{{ nginx_proxy_container_name }}"
+    port: 81  # Internal NPM web interface port
+    scheme: "http"
+
+  # Jellyfin: use container name on homelab-bridge network
+  - domain: "{{ jellyfin_container_name }}.{{ local_domain }}"
+    host: "{{ jellyfin_container_name }}"
+    port: 8096  # Internal Jellyfin port
+    scheme: "http"
+    block_exploits: false  # Jellyfin mobile app sends non-browser API requests that trigger exploit blocks
+
+# Directories to create/prepare during bootstrap phase (before containers start)
+# These ensure state directories exist for rsync migration
+bootstrap_state_dirs:
+  - path: "/opt/pihole/etc-pihole"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  - path: "/opt/pihole"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  - path: "/opt/npm/data"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  - path: "/opt/npm/letsencrypt"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  - path: "/opt/jellyfin/config"
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+  - path: "/mnt/ssd_media"
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+
+# Tailscale IP forwarding (required for Tailscale subnet router / exit node capability)
+enable_ipv4_forwarding: true
+enable_ipv6_forwarding: false  # Set to true if running Tailscale subnet router with IPv6
+
+# Jellyfin GPU configuration (NVIDIA RTX 2070 SUPER via Compose V2 device reservations)
+jellyfin_gpu_enabled: true  # NVIDIA driver installed and verified with Docker GPU access working
+jellyfin_gpu_device_count: 1
+jellyfin_gpu_capabilities: ["gpu"]

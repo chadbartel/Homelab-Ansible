@@ -70,6 +70,14 @@
 # ── Let's Encrypt DNS-01 provisioning (runs only when no LE cert was found) ──
 # NPM delegates the ACME flow to certbot inside the container; this call
 # blocks until certbot completes or the timeout is reached.
+# DuckDNS note: requesting wildcard+apex in a single order can fail because
+# only one TXT value may be reliably presented at a time for _acme-challenge.
+# The role therefore defaults to wildcard-only unless explicitly overridden.
+
+- name: Build certificate domain list for Let's Encrypt request
+  ansible.builtin.set_fact:
+    npm_cert_domain_names: "{{ ['*.' ~ npm_config_cert_domain] + ([npm_config_cert_domain] if (npm_config_include_apex_domain_in_cert | default(false) | bool) else []) }}"
+  when: npm_ssl_cert_id is not defined
 
 - name: Request Let's Encrypt wildcard certificate via DNS-01 (DuckDNS)
   ansible.builtin.uri:
@@ -81,9 +89,7 @@
     body:
       provider: "letsencrypt"
       nice_name: "letsencrypt-wildcard-{{ npm_config_cert_domain }}"
-      domain_names:
-        - "*.{{ npm_config_cert_domain }}"
-        - "{{ npm_config_cert_domain }}"
+      domain_names: "{{ npm_cert_domain_names }}"
       meta:
         dns_challenge: true
         dns_provider: "duckdns"

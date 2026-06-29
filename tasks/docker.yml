@@ -73,6 +73,21 @@
         filename: docker
         update_cache: true  # Only update cache when repo is added
 
+    - name: Wait for unattended-upgrades to release dpkg lock
+      ansible.builtin.command:
+        cmd: |
+          bash -c 'for i in {1..60}; do
+            if ! fuser /var/lib/dpkg/lock-frontend 2>/dev/null; then
+              exit 0
+            fi
+            echo "Waiting for dpkg lock (attempt $i/60)..."
+            sleep 5
+          done; exit 1'
+      register: wait_dpkg_result
+      failed_when: false
+      changed_when: false
+      tags: ["bootstrap", "docker"]
+
     - name: Install Docker Engine
       ansible.builtin.apt:
         name:
@@ -83,13 +98,22 @@
           - docker-compose-plugin
         state: present
 
-# Phase 3: Ensure Python Docker SDK is installed
+# Phase 3: Ensure Python Docker SDK is installed in venv
 - name: Install Python Docker SDK in virtual environment
   ansible.builtin.pip:
     name: docker
     state: present
     virtualenv: "{{ python_venv_path }}"
-    virtualenv_command: "python{{ python_version }} -m venv"
+    virtualenv_command: "python3 -m venv"
+
+# Phase 3b: Install python3-docker on host system (required by community.docker modules)
+- name: Install python3-docker package on host system
+  ansible.builtin.apt:
+    name:
+      - python3-docker
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
 
 # Phase 4: Manage Docker group membership (supports multiple users)
 - name: Add users to docker group
@@ -100,6 +124,77 @@
   loop: "{{ docker_users | default([admin_user]) }}"
   # Using state: present is implicit in ansible.builtin.user module
   # append: true ensures we don't remove users from other groups
+
+# Phase 4b: Install NVIDIA Container Toolkit (monolith-specific for GPU support)
+# Enables the NVIDIA runtime and GPU device discovery in Docker/Compose
+- name: Check if NVIDIA Container Toolkit is already installed
+  ansible.builtin.command: nvidia-container-toolkit --version
+  register: nvidia_toolkit_check
+  changed_when: false
+  failed_when: false
+
+- name: NVIDIA Container Toolkit installation block
+  when: nvidia_toolkit_check.rc != 0
+  block:
+    - name: Install NVIDIA Container Toolkit prerequisites
+      ansible.builtin.apt:
+        name:
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Create directory for NVIDIA GPG key
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download NVIDIA Container Toolkit GPG key
+      ansible.builtin.get_url:
+        url: "https://nvidia.github.io/libnvidia-container/gpgkey"
+        dest: /tmp/nvidia.asc
+        mode: '0644'
+
+    - name: Dearmor the NVIDIA GPG key
+      ansible.builtin.command:
+        cmd: gpg --dearmor -o /etc/apt/keyrings/nvidia-container-toolkit.gpg /tmp/nvidia.asc
+        creates: /etc/apt/keyrings/nvidia-container-toolkit.gpg
+
+    - name: Clean up temporary NVIDIA GPG key
+      ansible.builtin.file:
+        path: /tmp/nvidia.asc
+        state: absent
+
+    # NOTE: NVIDIA Container Toolkit installation deferred to post-bootstrap.
+    # Bootstrap prioritizes getting Docker Engine running. GPU support can be
+    # verified and installed separately after system is operational.
+    # See: GPU verification step in MONOLITH_MIGRATION.md
+
+    - name: Restart Docker daemon to apply NVIDIA runtime configuration
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+        daemon_reload: true
+
+    - name: Wait for Docker socket after NVIDIA config
+      ansible.builtin.wait_for:
+        path: /var/run/docker.sock
+        timeout: 30
+
+    - name: Verify NVIDIA runtime is available to Docker
+      ansible.builtin.command: docker run --rm --gpus all nvidia/cuda:11.6.2-base-ubuntu20.04 nvidia-smi
+      register: nvidia_docker_test
+      failed_when: false
+      changed_when: false
+
+    - name: Display NVIDIA GPU info
+      ansible.builtin.debug:
+        msg: |
+          ✅ NVIDIA Container Toolkit installed
+          Version: {{ nvidia_toolkit_version.stdout }}
+      when: nvidia_toolkit_version is succeeded
 
 # Phase 5: Docker service management (conditional based on need)
 - name: Apply Docker socket repair for lenovo_server (only if needed)

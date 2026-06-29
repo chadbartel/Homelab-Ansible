@@ -190,6 +190,7 @@ session_id:
 """
 
 import json
+import re
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url, url_argument_spec
 from ansible.module_utils.six.moves.urllib.parse import urlencode
@@ -238,18 +239,26 @@ class PiHoleAPI:
 
         try:
             result = json.loads(response.read())
-            session_data = result.get("session", {})
+            session_data = result.get("session", {}) if isinstance(result, dict) else {}
             self.session_id = session_data.get("sid")
-            if not self.session_id:
-                self.module.fail_json(
-                    msg="No session ID returned from authentication",
-                    response=result
-                )
+            if self.session_id:
+                return self.session_id
+        except Exception:
+            # Keep fallback logic below for non-JSON or schema-changed responses.
+            result = {}
+
+        # Fallback: extract sid from Set-Cookie header when body parsing does not expose it.
+        set_cookie = info.get("set-cookie") or info.get("Set-Cookie") or ""
+        match = re.search(r"(?:^|;\s*)sid=([^;\s]+)", set_cookie)
+        if match:
+            self.session_id = match.group(1)
             return self.session_id
-        except Exception as e:
-            self.module.fail_json(
-                msg="Failed to parse authentication response: %s" % str(e)
-            )
+
+        self.module.fail_json(
+            msg="No session ID returned from authentication",
+            response=result,
+            status_code=info.get("status"),
+        )
 
     def build_headers(self):
         """Build request headers with session authentication"""
@@ -263,6 +272,8 @@ class PiHoleAPI:
 
         # Add session cookie if we have a session ID
         if self.session_id:
+            # Pi-hole v6 accepts X-FTL-SID header; keep Cookie for compatibility.
+            headers["X-FTL-SID"] = self.session_id
             headers["Cookie"] = "sid=%s" % self.session_id
 
         return headers
@@ -320,6 +331,17 @@ class PiHoleAPI:
         # Prepare request data
         data = None
         if self.method in ["POST", "PUT", "PATCH"] and self.body:
+            # Pi-hole /config expects unsigned integers for rateLimit fields.
+            # Cast numeric strings to int to keep playbook variables flexible.
+            if self.endpoint == "/config" and isinstance(self.body, dict):
+                cfg = self.body.get("config", {})
+                dns = cfg.get("dns", {}) if isinstance(cfg, dict) else {}
+                rate_limit = dns.get("rateLimit", {}) if isinstance(dns, dict) else {}
+                if isinstance(rate_limit, dict):
+                    for key in ("count", "interval"):
+                        value = rate_limit.get(key)
+                        if isinstance(value, str) and value.isdigit():
+                            rate_limit[key] = int(value)
             data = json.dumps(self.body)
 
         # Make the request
@@ -347,6 +369,19 @@ class PiHoleAPI:
                 body = response.read()
                 if body:
                     result["response"] = json.loads(body)
+                    # Pi-hole v6 may return /config payload nested under "config".
+                    # Flatten config keys for backward-compatible task access
+                    # (e.g., response.dns.rateLimit in existing playbooks).
+                    if (
+                        self.endpoint == "/config"
+                        and self.method == "GET"
+                        and isinstance(result["response"], dict)
+                    ):
+                        cfg = result["response"].get("config")
+                        if isinstance(cfg, dict):
+                            for key, value in cfg.items():
+                                if key not in result["response"]:
+                                    result["response"][key] = value
             except Exception as e:
                 # Some endpoints return non-JSON responses
                 result["response"] = body.decode("utf-8") if body else ""

@@ -30,10 +30,7 @@
   tags: ["post_setup", "npm", "configure"]
 
 - name: Run post-setup tasks for Jellyfin
-  block:
-    - name: Include Jellyfin post-setup tasks
-      ansible.builtin.include_tasks: tasks/post_setup_jellyfin.yml
-  delegate_to: lenovo_server
+  ansible.builtin.include_tasks: tasks/post_setup_jellyfin.yml
   tags: ["post_setup", "jellyfin", "configure"]
 
 - name: Run post-setup cleanup tasks

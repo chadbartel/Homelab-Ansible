@@ -1,5 +1,4 @@
 ---
-version: "3.8"
 
 services:
   jellyfin:
@@ -11,7 +10,7 @@ services:
     networks:
       - homelab-bridge
     dns:
-      - 192.168.1.12  # Pi-hole on lenovo_server (primary for ad-blocking)
+      - {{ monolith_ip }}  # Host IP where Pi-hole DNS binds on port 53
       - 1.1.1.1  # Cloudflare DNS for reliable external stream resolution
       - 8.8.8.8  # Google DNS fallback
     dns_search:
@@ -37,6 +36,12 @@ services:
           memory: 4G
         reservations:
           memory: 1G
+{% if jellyfin_gpu_enabled | default(false) %}
+          devices:
+            - driver: nvidia
+              count: {{ jellyfin_gpu_device_count | default(1) }}
+              capabilities: {{ jellyfin_gpu_capabilities | default(['gpu']) }}
+{% endif %}
       restart_policy:
         condition: on-failure
         delay: 5s

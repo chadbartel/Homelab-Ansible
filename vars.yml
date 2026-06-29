@@ -7,6 +7,13 @@ admin_email: "me@chadbartel.com"
 admin_password: "{{ vault_admin_password }}"
 admin_ssh_key_public: "{{ vault_admin_ssh_key_public }}"
 
+# Ansible privilege escalation configuration
+# Reuse vault admin credentials for sudo to avoid duplicate prompts.
+ansible_become: true
+ansible_become_method: "sudo"
+ansible_become_user: "root"
+ansible_become_password: "{{ vault_admin_password }}"
+
 # Docker user configuration
 # Users to add to the docker group (allows running Docker commands without sudo)
 # If not specified, defaults to admin_user only
@@ -20,12 +27,27 @@ arm_image_link: "https://downloads.raspberrypi.org/raspios_lite_arm64/archive/20
 dietpi_image_link: "https://dietpi.com/downloads/images/DietPi_RPi234-ARMv8-Bookworm.img.xz"
 stack_deployer_backend: "compose"  # Default backend for stack deployment (can be overridden at runtime)
 
+# Network configuration (single monolith)
+homelab_network: "192.168.1.0/24"
+monolith_ip: "192.168.1.17"
+gateway_ip: "192.168.1.1"
+local_domain: "chadbartel.duckdns.org"
+
+# Service host ports
+proxy_host_port: 8181
+pihole_host_port: 8081
+vpn_host_port: 943
+
+# Legacy compatibility alias retained for templates/tasks still being migrated
+manager_node_ip: "{{ monolith_ip }}"
+
 # Service passwords (should be stored in vault)
 portainer_admin_password: "{{ vault_portainer_admin_password }}"
 npm_admin_password: "{{ vault_npm_admin_password }}"
 openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
 
 # Portainer configuration
+portainer_host_port: 9443
 portainer_agent_secret: "{{ vault_portainer_agent_secret }}"
 
 # OpenVPN configuration
@@ -35,7 +57,7 @@ openvpn_hostname: "{{ vault_openvpn_hostname }}"
 
 # OpenVPN Config Role Variables
 openvpn_config_container_name: "{{ openvpn_container_name }}-as"
-openvpn_config_target_host: "pi4_01"  # Ansible inventory name (pi4_01 runs OpenVPN)
+openvpn_config_target_host: "monolith"  # Ansible inventory name (monolith runs OpenVPN)
 openvpn_config_admin_user: "openvpn"
 openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
 openvpn_config_server_hostname: "{{ vault_openvpn_hostname }}"
@@ -50,8 +72,8 @@ openvpn_config_users:
 
 # Jellyfin configuration
 jellyfin_user1_password: "{{ vault_jellyfin_user1_password }}"
-jellyfin_enable_hw_accel: false  # Hardware acceleration requires device passthrough; configurable per-host
-jellyfin_host: lenovo_server  # Ansible inventory hostname where Jellyfin runs
+jellyfin_enable_hw_accel: false  # Hardware acceleration via NVIDIA GPU; enabled via Compose reservations
+jellyfin_host: monolith  # Ansible inventory hostname where Jellyfin runs
 jellyfin_image: "jellyfin/jellyfin:10"  # Official Jellyfin image
 jellyfin_container_name: "jellyfin"
 jellyfin_host_port: 8096
@@ -79,7 +101,7 @@ jellyfin_iptv_playlists:
 
 # Jellyfin Config Role Variables
 jellyfin_config_service_name: "jellyfin-stack_jellyfin"
-jellyfin_config_target_node: "lenovo_server"
+jellyfin_config_target_node: "monolith"
 jellyfin_config_web_port: 8096
 jellyfin_config_admin_user: "{{ vault_admin_username | default('admin') }}"
 jellyfin_config_admin_password: "{{ vault_jellyfin_user1_password }}"
@@ -99,7 +121,7 @@ jellyfin_config_libraries:
 # NGINX Proxy Manager Config Role Variables
 npm_image: "jc21/nginx-proxy-manager:2"
 npm_service_name: "npm-stack_npm"
-npm_target_node: "pi4_01"
+npm_target_node: "monolith"
 npm_container_name: "npm-stack-npm-1"  # Docker Compose v2 name: project-service-instance
 
 # Pi-hole configuration
@@ -110,24 +132,24 @@ block_lists: "https://v.firebog.net/hosts/lists.php?type=tick"
 pihole_data_path: "/opt/pihole"
 pihole_web_port: 8081  # Port for Pi-hole web interface
 pihole_dns_port: 80  # Port for Pi-hole DNS service
-pihole_target_host: lenovo_server  # Ansible inventory hostname where Pi-hole runs
+pihole_target_host: monolith  # Ansible inventory hostname where Pi-hole runs
 pihole_shm_size: 134217728  # /dev/shm size in bytes (128MB); FTL exhausted the default 67MB
 
 # Pi-hole Config Role Variables
 pihole_config_service_name: "pihole-stack_pihole"
-pihole_config_target_node: "lenovo_server"
+pihole_config_target_node: "monolith"
 
 # Custom DNS entries for local services
 pihole_config_custom_dns_entries:
-  - ip: "{{ manager_node_ip }}"
+  - ip: "{{ monolith_ip }}"
     hostname: "{{ pihole_container_name }}.{{ local_domain }}"
-  - ip: "{{ manager_node_ip }}"
+  - ip: "{{ monolith_ip }}"
     hostname: "{{ portainer_container_name }}.{{ local_domain }}"
-  - ip: "{{ manager_node_ip }}"
+  - ip: "{{ monolith_ip }}"
     hostname: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
-  - ip: "{{ manager_node_ip }}"
+  - ip: "{{ monolith_ip }}"
     hostname: "{{ openvpn_container_name }}.{{ local_domain }}"
-  - ip: "{{ manager_node_ip }}"
+  - ip: "{{ monolith_ip }}"
     hostname: "{{ jellyfin_container_name }}.{{ local_domain }}"
 
 # Dnsmasq performance tuning
@@ -158,16 +180,16 @@ pihole_dns_listening_mode: "all"  # Listen on all interfaces to accept queries f
 portainer_stacks:
   - name: npm-stack
     compose_template: npm-compose.yml.j2
-    target_host: pi4_01
+    target_host: monolith
   - name: pihole-stack
     compose_template: pihole-compose.yml.j2
-    target_host: lenovo_server
+    target_host: monolith
   - name: vpn-stack
     compose_template: openvpn-compose.yml.j2
-    target_host: pi4_01
+    target_host: monolith
   - name: jellyfin-stack
     compose_template: jellyfin-compose.yml.j2
-    target_host: lenovo_server
+    target_host: monolith
 
 # NFS: Storage Host 192.168.1.12 (lenovo_server) exports /mnt/ssd_media to other nodes
 nfs_storage_host_ip: "192.168.1.12"
@@ -180,19 +202,6 @@ pihole_container_name: "pihole"
 openvpn_container_name: "vpn"
 portainer_container_name: "portainer"
 nginx_proxy_container_name: "proxy"
-
-# Network configuration
-homelab_network: "192.168.2.0/24"
-manager_node_ip: "192.168.1.10"
-worker_node_ip1: "192.168.1.11"
-worker_node_ip2: "192.168.1.12"
-gateway_ip: "192.168.1.1"
-local_domain: "chadbartel.duckdns.org"
-proxy_host_port: 8181
-pihole_host_port: 80
-vpn_host_port: 943
-portainer_host_port: 9443
-ssl_certificate_id: 0  # 0 = auto-detect Let's Encrypt cert at deploy time (ID resolved dynamically in nginx_proxy_manager_config role)
 
 # Miscellaneous
 timezone: "America/Los_Angeles"

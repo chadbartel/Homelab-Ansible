@@ -11,7 +11,7 @@
     stack_deployer_stacks: "{{ portainer_stacks }}"
 
     # Portainer backend configuration (used only when backend=portainer)
-    stack_deployer_portainer_url: "https://{{ hostvars[groups['manager_nodes'][0]].ansible_host }}:{{ portainer_host_port }}"
+    stack_deployer_portainer_url: "https://{{ ansible_host }}:{{ portainer_host_port }}"
     stack_deployer_portainer_admin_password: "{{ portainer_admin_password }}"
     stack_deployer_portainer_endpoint_id: 1
     stack_deployer_portainer_validate_certs: false

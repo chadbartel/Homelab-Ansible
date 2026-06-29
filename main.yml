@@ -1,32 +1,65 @@
 ---
-# Main playbook for homelab deployment
+# Main playbook for monolith-only deployment
+# Split into two execution modes: bootstrap (host prep) and deploy (stack startup)
+# 
+# Recommended execution:
+#   ansible-playbook main.yml --tags bootstrap
+#   [manual rsync of persistent state here]
+#   ansible-playbook main.yml --tags deploy
 
-- name: Apply common configuration and install Docker on all servers
-  hosts: homelab_servers
+- name: Bootstrap monolith host (phase 1/2 - no container startup)
+  hosts: monolith
+  gather_facts: false
   become: true
   vars_files:
     - vars.yml
     - vault.yml
+  handlers:
+    - name: restart ssh
+      ansible.builtin.systemd_service:
+        name: ssh
+        state: restarted
+
+    - name: restart systemd-resolved
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        state: restarted
   tasks:
-    - name: Run initial setup tasks
+    - name: Gather facts without privilege escalation
+      ansible.builtin.setup:
+      become: false
+      tags: ["bootstrap", "setup"]
+
+    - name: Clean up any corrupted APT sources from failed previous runs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/nvidia-container-toolkit.list
+        - /etc/apt/sources.list.d/docker.list
+      tags: ["bootstrap", "setup"]
+
+    - name: Run initial setup tasks (sysctl, networking, etc.)
       ansible.builtin.include_tasks: tasks/initial_setup.yml
-      tags: ["initial", "setup"]
+      tags: ["bootstrap", "setup"]
 
-    - name: Install and configure Docker
+    - name: Install and configure Docker + python3-docker + NVIDIA toolkit
       ansible.builtin.include_tasks: tasks/docker.yml
-      tags: ["docker", "setup"]
+      tags: ["bootstrap", "docker"]
 
-    - name: Verify Docker service is running
+    - name: Verify Docker service is running and healthy
       ansible.builtin.systemd:
         name: docker
         state: started
         enabled: true
       register: docker_service_status
+      tags: ["bootstrap", "docker"]
 
     - name: Wait for Docker socket to be available
       ansible.builtin.wait_for:
         path: /var/run/docker.sock
         timeout: 30
+      tags: ["bootstrap", "docker"]
 
     - name: Test Docker daemon connectivity
       ansible.builtin.command:
@@ -35,6 +68,7 @@
       changed_when: false
       retries: 3
       delay: 5
+      tags: ["bootstrap", "docker"]
 
     - name: Display Docker status
       ansible.builtin.debug:
@@ -43,87 +77,29 @@
           Service: {{ 'Running' if docker_service_status.status.ActiveState == 'active' else 'Failed' }}
           Socket: Available
           Daemon: Connected
+          Compose: Available
+          Python3-docker: Installed
+          NVIDIA Toolkit: Installed (if GPU present)
+      tags: ["bootstrap", "docker"]
 
-- name: Prepare SSD media drive on Storage Host (lenovo_server)
-  hosts: lenovo_server
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Include SSD media drive setup tasks
+    - name: Prepare SSD media drives (mount locally via UUID)
       ansible.builtin.include_tasks: tasks/ssd_media_drive.yml
       loop: "{{ ssd_media_drives | default([]) }}"
       loop_control:
         loop_var: ssd_drive
-      tags: ["ssd-media", "storage"]
+      tags: ["bootstrap", "storage"]
 
-- name: Setup NFS server on Storage Host (lenovo_server)
-  hosts: lenovo_server
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Include NFS server tasks
-      ansible.builtin.include_tasks: tasks/nfs_server.yml
-      tags: ["nfs", "storage"]
+    - name: Prepare persistent state directories for application migration
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner | default('root') }}"
+        group: "{{ item.group | default('root') }}"
+        mode: "{{ item.mode | default('0755') }}"
+      loop: "{{ bootstrap_state_dirs | default([]) }}"
+      tags: ["bootstrap", "storage", "prepare"]
 
-- name: Setup NFS clients on other nodes (mount SSD via NFS)
-  hosts: nfs_client_nodes
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Include NFS client tasks
-      ansible.builtin.include_tasks: tasks/nfs_client.yml
-      tags: ["nfs", "storage"]
-
-- name: Verify NFS mount on worker nodes
-  hosts: nfs_client_nodes
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Check if NFS mount is accessible
-      ansible.builtin.command:
-        cmd: ls -la {{ nfs_client_mount_path }}
-      register: nfs_mount_check
-      changed_when: false
-      failed_when: nfs_mount_check.rc != 0
-
-    - name: Display NFS mount contents
-      ansible.builtin.debug:
-        msg: |
-          ✅ NFS mount verified on {{ inventory_hostname }}!
-          Mount point: {{ nfs_client_mount_path }}
-          Contents:
-          {{ nfs_mount_check.stdout }}
-
-    - name: Verify music folder is visible
-      ansible.builtin.stat:
-        path: "{{ nfs_client_mount_path }}"
-      register: media_folder_check
-
-    - name: Display music folder status
-      ansible.builtin.debug:
-        msg: |
-          {% if media_folder_check.stat.exists %}
-          ✅ Media folder is accessible at {{ nfs_client_mount_path }}
-          {% else %}
-          ⚠️  Media folder not found - you may need to create it on the storage host
-          {% endif %}
-
-- name: Prepare Jellyfin volume directories on worker node
-  hosts: lenovo_server
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Ensure Jellyfin volume directories exist with correct ownership
+    - name: Prepare Jellyfin volume directories with correct ownership
       ansible.builtin.file:
         path: "{{ item }}"
         state: directory
@@ -134,166 +110,70 @@
       loop:
         - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_config/_data"
         - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_cache/_data"
-      tags: ["jellyfin", "volumes", "prepare"]
+      tags: ["bootstrap", "jellyfin", "volumes"]
 
-    - name: Verify volume directory permissions
-      ansible.builtin.stat:
-        path: "{{ item }}"
-      loop:
-        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_config/_data"
-        - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_cache/_data"
-      register: volume_permissions
-      tags: ["jellyfin", "volumes", "verify"]
+    - name: Disable systemd-resolved stub listener so Pi-hole can bind port 53
+      ansible.builtin.include_tasks: tasks/disable_resolved_stub.yml
+      tags: ["bootstrap", "pihole", "dns"]
 
-    - name: Display volume permissions
+    - name: Display bootstrap readiness
       ansible.builtin.debug:
         msg: |
-          ✅ Jellyfin volume permissions verified:
-          {{ item.item }}: owner={{ item.stat.uid }}:{{ item.stat.gid }} mode={{ item.stat.mode }}
-      loop: "{{ volume_permissions.results }}"
-      when: item.stat.exists
-      tags: ["jellyfin", "volumes", "verify"]
+          ✅ Bootstrap phase complete!
+          
+          Next steps:
+          1. Perform manual rsync of persistent state to /mnt/ssd_media and state directories
+          2. Ensure NPM data and letsencrypt folders are migrated
+          3. Ensure Jellyfin config and cache are migrated
+          4. Run deploy phase: ansible-playbook main.yml --tags deploy
+      tags: ["bootstrap"]
 
-- name: Disable systemd-resolved stub listener on Pi-hole host
-  hosts: lenovo_server
-  become: true
-  handlers:
-    - name: restart systemd-resolved
-      ansible.builtin.systemd:
-        name: systemd-resolved
-        state: restarted
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Disable DNSStubListener so Pi-hole can bind to port 53
-      ansible.builtin.include_tasks: tasks/disable_resolved_stub.yml
-      tags: ["pihole", "dns", "setup"]
-
-- name: Clean up broken OpenVPN volume from Swarm migration
-  hosts: pi4_01
+- name: Deploy stacks and configure services (phase 2/2)
+  hosts: monolith
+  gather_facts: false
   become: true
   vars_files:
     - vars.yml
     - vault.yml
   tasks:
-    - name: Check if Swarm migration has already been performed
-      ansible.builtin.stat:
-        path: /etc/ansible/.openvpn-swarm-migration-done
-      register: _ovpn_migration_marker
+    - name: Gather facts without privilege escalation
+      ansible.builtin.setup:
+      become: false
+      tags: ["deploy", "setup"]
 
-    - name: Check if openvpn_data volume exists
-      ansible.builtin.command: docker volume inspect vpn-stack_openvpn_data
-      register: _ovpn_vol_check
-      changed_when: false
-      failed_when: false
-      when: not _ovpn_migration_marker.stat.exists
-
-    - name: Check if volume is in a broken state (dangling Swarm symlink)
-      ansible.builtin.stat:
-        path: "/var/lib/docker/volumes/vpn-stack_openvpn_data/_data/etc"
-        follow: false
-      register: _ovpn_etc_stat
-      when:
-        - not _ovpn_migration_marker.stat.exists
-        - _ovpn_vol_check.rc | default(1) == 0
-
-    - name: Check if the etc symlink target is accessible (dangling = truly broken)
-      ansible.builtin.stat:
-        path: "/var/lib/docker/volumes/vpn-stack_openvpn_data/_data/etc"
-        follow: true
-      register: _ovpn_etc_stat_follow
-      when:
-        - not _ovpn_migration_marker.stat.exists
-        - _ovpn_vol_check.rc | default(1) == 0
-        - _ovpn_etc_stat is defined
-        - _ovpn_etc_stat.stat.exists | default(false)
-        - _ovpn_etc_stat.stat.islnk | default(false)
-
-    - name: Stop and remove any containers using the broken volume
-      ansible.builtin.shell: |
-        docker ps -a --filter "volume=vpn-stack_openvpn_data" --quiet | xargs -r docker rm -f
-      when:
-        - not _ovpn_migration_marker.stat.exists
-        - _ovpn_vol_check.rc | default(1) == 0
-        - _ovpn_etc_stat is defined
-        - _ovpn_etc_stat.stat.exists | default(false)
-        - _ovpn_etc_stat.stat.islnk | default(false)
-        - not _ovpn_etc_stat_follow.stat.exists | default(true)
-      register: _ovpn_container_cleanup
-      changed_when: _ovpn_container_cleanup.stdout != ""
-      tags: ["openvpn", "volumes", "prepare"]
-
-    - name: Remove broken openvpn_data volume so container can reinitialize cleanly
-      # The old Swarm container left etc -> /openvpn/etc (absolute path into the container).
-      # The anonymous /openvpn volume was destroyed by docker stack rm, leaving the named
-      # volume in an unrecoverable half-initialized state. Removing the volume lets Docker
-      # copy the image's default content in on next start. The openvpn_config role
-      # fully reconfigures everything (initial_setup, users) from vault variables.
-      ansible.builtin.command: docker volume rm vpn-stack_openvpn_data
-      when:
-        - not _ovpn_migration_marker.stat.exists
-        - _ovpn_vol_check.rc | default(1) == 0
-        - _ovpn_etc_stat is defined
-        - _ovpn_etc_stat.stat.exists | default(false)
-        - _ovpn_etc_stat.stat.islnk | default(false)
-        - not _ovpn_etc_stat_follow.stat.exists | default(true)
-      tags: ["openvpn", "volumes", "prepare"]
-
-    - name: Ensure /etc/ansible directory exists for migration markers
-      ansible.builtin.file:
-        path: /etc/ansible
-        state: directory
-        mode: "0755"
-      when: not _ovpn_migration_marker.stat.exists
-
-    - name: Mark Swarm migration cleanup as complete
-      ansible.builtin.file:
-        path: /etc/ansible/.openvpn-swarm-migration-done
-        state: touch
-        mode: "0644"
-      when: not _ovpn_migration_marker.stat.exists
-
-- name: Create homelab-bridge network on service hosts
-  hosts: manager_nodes:lenovo_server
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
     - name: Ensure homelab-bridge Docker network exists
       community.docker.docker_network:
         name: homelab-bridge
         driver: bridge
         state: present
-      tags: ["network", "setup"]
+      tags: ["deploy", "network"]
 
-- name: Deploy Portainer and stacks to the manager node
-  hosts: manager_nodes
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Deploy Portainer
+    - name: Deploy Portainer server
       ansible.builtin.include_tasks: tasks/portainer.yml
-      tags: ["portainer", "deploy"]
+      tags: ["deploy", "portainer"]
 
-    - name: Deploy Docker Compose stacks
+    - name: Deploy Docker Compose stacks (NPM, Pi-hole, OpenVPN, Jellyfin)
       ansible.builtin.include_tasks: tasks/deploy_stacks.yml
-      tags: ["stacks", "deploy"]
+      tags: ["deploy", "stacks"]
 
-    - name: Run post-setup configuration
+    - name: Run post-setup configuration for all services
       ansible.builtin.include_tasks: tasks/post_setup.yml
-      tags: ["post-setup", "configure"]
+      tags: ["deploy", "post-setup"]
 
-- name: Deploy Portainer Agent on agent hosts
-  hosts: portainer_agent_hosts
-  become: true
-  vars_files:
-    - vars.yml
-    - vault.yml
-  tasks:
-    - name: Deploy Portainer Agent
-      ansible.builtin.include_tasks: tasks/portainer_agent.yml
-      tags: ["portainer", "portainer-agent", "deploy"]
+    - name: Display deployment completion
+      ansible.builtin.debug:
+        msg: |
+          ✅ Deployment phase complete!
+          
+          Core services are running:
+          - Nginx Proxy Manager: https://proxy.{{ local_domain }}:{{ proxy_host_port }}
+          - Pi-hole: http://pihole.{{ local_domain }}:{{ pihole_host_port }}/admin
+          - Jellyfin: http://jellyfin.{{ local_domain }}:{{ jellyfin_host_port }}/
+          - OpenVPN: https://vpn.{{ local_domain }}:{{ vpn_host_port }}/admin
+          - Portainer: https://portainer.{{ local_domain }}:{{ portainer_host_port }}
+          
+          To verify:
+          - SSH to monolith and run: docker ps
+          - Check each service is accessible at URLs above
+          - Verify GPU acceleration in Jellyfin: Dashboard -> Playback -> Hardware Acceleration (if enabled)
+      tags: ["deploy"]

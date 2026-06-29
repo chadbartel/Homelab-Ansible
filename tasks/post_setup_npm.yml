@@ -63,7 +63,7 @@
   community.docker.docker_container_exec:
     container: "{{ npm_container_name }}"
     command: /opt/certbot/bin/pip3 install --no-cache-dir certbot-dns-duckdns
-  delegate_to: "{{ npm_target_node | default('pi4_01') }}"
+  delegate_to: "{{ npm_target_node | default('monolith') }}"
   become: true
   register: npm_pip_install
   changed_when: "'Successfully installed' in npm_pip_install.stdout"
@@ -77,7 +77,7 @@
     tasks_from: certificates
   vars:
     npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
-    npm_config_target_node: "{{ npm_target_node | default('pi4_01') }}"
+    npm_config_target_node: "{{ npm_target_node | default('monolith') }}"
     npm_config_web_port: "{{ proxy_host_port }}"
     npm_config_admin_email: "{{ admin_email }}"
     npm_config_admin_password: "{{ npm_admin_password }}"
@@ -93,7 +93,7 @@
     tasks_from: proxy_hosts
   vars:
     npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
-    npm_config_target_node: "{{ npm_target_node | default('pi4_01') }}"
+    npm_config_target_node: "{{ npm_target_node | default('monolith') }}"
     npm_config_web_port: "{{ proxy_host_port }}"
     npm_config_admin_email: "{{ admin_email }}"
     npm_config_admin_password: "{{ npm_admin_password }}"
@@ -112,7 +112,7 @@
       ✅ NGINX Proxy Manager configuration completed!
       
       🌐 Access Information:
-      Web Interface: http://{{ manager_node_ip }}:{{ proxy_host_port }}
+      Web Interface: http://{{ monolith_ip }}:{{ proxy_host_port }}
       Admin Email: {{ admin_email }}
       
       📋 Configured Proxy Hosts:

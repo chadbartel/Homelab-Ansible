@@ -44,17 +44,87 @@
       Web UI: https://{{ ansible_host }}:{{ portainer_host_port }}
       Status: {{ 'Changed' if portainer_deployment.changed else 'Already up to date' }}
 
+- name: Find running Portainer compose container
+  ansible.builtin.command:
+    cmd: "docker ps --filter label=com.docker.compose.project=portainer-stack --filter label=com.docker.compose.service=portainer --format {{ '{{.Names}}' }}"
+  register: portainer_container_name_result
+  changed_when: false
 
-- name: Initialize Portainer admin user
+- name: Extract Portainer setup token from startup logs
+  ansible.builtin.shell: |
+    docker logs --tail 500 {{ portainer_container_name_result.stdout }} 2>&1 \
+      | sed -n 's/.*setup_token=\([a-f0-9]\+\).*/\1/p' \
+      | tail -n1
+  register: portainer_setup_token
+  changed_when: false
+  failed_when: false
+  when:
+    - portainer_container_name_result.stdout is defined
+    - portainer_container_name_result.stdout | length > 0
+
+- name: Initialize Portainer admin user (token-aware)
   ansible.builtin.uri:
     url: "https://{{ ansible_host }}:{{ portainer_host_port }}/api/users/admin/init"
     method: POST
+    headers: "{{ {'X-Setup-Token': portainer_setup_token.stdout} if (portainer_setup_token.stdout is defined and (portainer_setup_token.stdout | length > 0)) else {} }}"
     body_format: json
     body:
       username: "admin"
       password: "{{ portainer_admin_password }}"
     validate_certs: false
-    status_code: [200, 409]
+    status_code: [200, 303, 403, 409]
   register: portainer_init
-  retries: 5
-  delay: 10
+
+- name: Restart Portainer when admin initialization timeout is returned
+  ansible.builtin.command:
+    cmd: "docker restart {{ portainer_container_name_result.stdout }}"
+  register: portainer_restart_for_init
+  changed_when: true
+  when:
+    - portainer_init.status is defined
+    - portainer_init.status == 303
+
+- name: Wait for Portainer after timeout-triggered restart
+  ansible.builtin.wait_for:
+    port: "{{ portainer_host_port }}"
+    host: "{{ ansible_host }}"
+    delay: 5
+    timeout: 120
+  when:
+    - portainer_init.status is defined
+    - portainer_init.status == 303
+
+- name: Extract fresh Portainer setup token after restart
+  ansible.builtin.shell: |
+    docker logs --tail 500 {{ portainer_container_name_result.stdout }} 2>&1 \
+      | sed -n 's/.*setup_token=\([a-f0-9]\+\).*/\1/p' \
+      | tail -n1
+  register: portainer_setup_token_after_restart
+  changed_when: false
+  when:
+    - portainer_init.status is defined
+    - portainer_init.status == 303
+
+- name: Retry Portainer admin initialization after timeout recovery
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:{{ portainer_host_port }}/api/users/admin/init"
+    method: POST
+    headers:
+      X-Setup-Token: "{{ portainer_setup_token_after_restart.stdout }}"
+    body_format: json
+    body:
+      username: "admin"
+      password: "{{ portainer_admin_password }}"
+    validate_certs: false
+    status_code: [200, 403, 409]
+  register: portainer_init_retry
+  when:
+    - portainer_init.status is defined
+    - portainer_init.status == 303
+
+- name: Report Portainer admin initialization status
+  ansible.builtin.debug:
+    msg: >-
+      Portainer admin initialization result: initial_status={{ portainer_init.status | default('n/a') }}
+      retry_status={{ portainer_init_retry.status | default('n/a') }}.
+      A status of 409 means admin is already initialized.

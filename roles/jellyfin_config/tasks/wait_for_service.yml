@@ -2,7 +2,7 @@
 # Jellyfin service readiness check task
 #
 # Waits for Jellyfin web interface to be fully initialized and ready for configuration
-# Now using the common wait_for_swarm_service task for consistency
+# using direct port/http checks compatible with standalone Docker.
 #
 # Usage:
 #   - include_tasks: wait_for_service.yml
@@ -13,18 +13,29 @@
   ansible.builtin.include_tasks: discover_container.yml
   when: jellyfin_container_id is not defined
 
-- name: Wait for Jellyfin service using common task
-  ansible.builtin.include_tasks: tasks/common/wait_for_swarm_service.yml
-  vars:
-    service_name: "{{ jellyfin_config_service_name }}"
-    wait_host: "{{ target_host | default(ansible_host) }}"
-    wait_port: "{{ jellyfin_config_web_port }}"
-    wait_initial_pause: "{{ jellyfin_config_startup_wait }}"
-    wait_delay: 10
-    wait_timeout: "{{ jellyfin_config_readiness_timeout }}"
-    wait_path: "/health"
-    wait_http_status_codes: [200, 204, 503]  # 503 is OK during startup
-    wait_display_results: "{{ jellyfin_config_display_results | default(true) }}"
+- name: Wait for Jellyfin startup grace period
+  ansible.builtin.pause:
+    seconds: "{{ jellyfin_config_startup_wait }}"
+  when: (jellyfin_config_startup_wait | int) > 0
+
+- name: Wait for Jellyfin TCP port
+  ansible.builtin.wait_for:
+    host: "{{ target_host | default(ansible_host) }}"
+    port: "{{ jellyfin_config_web_port }}"
+    timeout: "{{ jellyfin_config_readiness_timeout }}"
+    delay: 5
+
+- name: Wait for Jellyfin HTTP readiness
+  ansible.builtin.uri:
+    url: "http://{{ target_host | default(ansible_host) }}:{{ jellyfin_config_web_port }}/health"
+    method: GET
+    status_code: [200, 204, 503]
+    validate_certs: "{{ jellyfin_config_validate_certs | default(false) }}"
+  register: jellyfin_health
+  until: jellyfin_health.status in [200, 204, 503]
+  retries: "{{ [((jellyfin_config_readiness_timeout | int) // 5), 1] | max }}"
+  delay: 5
+  failed_when: false
 
 - name: Check Jellyfin container logs for errors
   ansible.builtin.shell: |

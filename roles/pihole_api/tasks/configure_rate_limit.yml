@@ -63,8 +63,8 @@
   ansible.builtin.set_fact:
     rate_limit_needs_update: >-
       {{
-        (current_config.response.dns.rateLimit.count | default(1000) != pihole_api_rate_limit_count) or
-        (current_config.response.dns.rateLimit.interval | default(60) != pihole_api_rate_limit_interval)
+        (current_config.response.get('dns', {}).get('rateLimit', {}).get('count', 1000) | int != pihole_api_rate_limit_count | int) or
+        (current_config.response.get('dns', {}).get('rateLimit', {}).get('interval', 60) | int != pihole_api_rate_limit_interval | int)
       }}
   when: not skip_api_verification
 
@@ -75,10 +75,11 @@
     endpoint: "/config"
     method: PATCH
     body:
-      dns:
-        rateLimit:
-          count: "{{ pihole_api_rate_limit_count }}"
-          interval: "{{ pihole_api_rate_limit_interval }}"
+      config:
+        dns:
+          rateLimit:
+            count: "{{ pihole_api_rate_limit_count }}"
+            interval: "{{ pihole_api_rate_limit_interval }}"
     validate_certs: "{{ pihole_api_validate_certs }}"
     timeout: "{{ pihole_api_timeout }}"
   register: pihole_rate_limit_update_result
@@ -104,14 +105,14 @@
     msg: |
       Pi-hole Rate Limit Configuration:
       {% if rate_limit_needs_update %}
-      ✅ Updated from {{ current_config.response.dns.rateLimit.count | default(1000) }}/{{ current_config.response.dns.rateLimit.interval | default(60) }}s
-      to {{ final_config.response.dns.rateLimit.count }}/{{ final_config.response.dns.rateLimit.interval }}s
+      ✅ Updated from {{ current_config.response.get('dns', {}).get('rateLimit', {}).get('count', 1000) }}/{{ current_config.response.get('dns', {}).get('rateLimit', {}).get('interval', 60) }}s
+      to {{ final_config.response.get('dns', {}).get('rateLimit', {}).get('count', pihole_api_rate_limit_count | int) }}/{{ final_config.response.get('dns', {}).get('rateLimit', {}).get('interval', pihole_api_rate_limit_interval | int) }}s
       {% else %}
-      ℹ️  Already configured: {{ final_config.response.dns.rateLimit.count }}/{{ final_config.response.dns.rateLimit.interval }}s (no change needed)
+      ℹ️  Already configured: {{ final_config.response.get('dns', {}).get('rateLimit', {}).get('count', pihole_api_rate_limit_count | int) }}/{{ final_config.response.get('dns', {}).get('rateLimit', {}).get('interval', pihole_api_rate_limit_interval | int) }}s (no change needed)
       {% endif %}
       
       This prevents "Client X has been rate-limited" errors for clients making up to 
-      {{ final_config.response.dns.rateLimit.count }} queries per {{ final_config.response.dns.rateLimit.interval }} seconds.
+      {{ final_config.response.get('dns', {}).get('rateLimit', {}).get('count', pihole_api_rate_limit_count | int) }} queries per {{ final_config.response.get('dns', {}).get('rateLimit', {}).get('interval', pihole_api_rate_limit_interval | int) }} seconds.
       
       Note: Configuration persists in Pi-hole database (pihole_etc volume).
   when: not skip_api_verification
