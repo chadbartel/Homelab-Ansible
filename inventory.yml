@@ -14,6 +14,10 @@ all:
           ansible_host: 192.168.1.11
           ansible_user: "{{ vault_admin_username | default('admin') }}"
           ansible_python_interpreter: "/usr/bin/python3"
+        monolith:
+          ansible_host: 192.168.1.17
+          ansible_user: "{{ vault_admin_username | default('admin') }}"
+          ansible_python_interpreter: "/usr/bin/python3"
       vars:
         # We will define the root admin user here
         admin_user: "{{ vault_admin_username | default('admin') }}"
