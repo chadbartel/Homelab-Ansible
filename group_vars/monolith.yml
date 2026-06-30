@@ -19,6 +19,19 @@ nvme_data_drives:
     format: false
     mount_path: "/mnt/nvme_secondary"
 
+# Shared host storage exposed to all service containers.
+# These mounts provide cross-service access to media/data paths.
+shared_storage_mounts:
+  - source: "/mnt/ssd_media"
+    target: "/mnt/ssd_media"
+    read_only: false
+  - source: "/mnt/ssd_media2"
+    target: "/mnt/ssd_media2"
+    read_only: false
+  - source: "/mnt/nvme_secondary"
+    target: "/mnt/nvme_secondary"
+    read_only: false
+
 # Nginx Proxy Manager configuration (monolith acts as both upstream server and proxy)
 proxy_hosts:
   # Pi-hole: use container name on homelab-bridge network
