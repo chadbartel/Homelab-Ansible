@@ -6,11 +6,11 @@
   tasks:
     - name: Simple ping test
       ansible.builtin.ping:
-      
+
     - name: Get hostname
       ansible.builtin.command: hostname
       register: hostname_result
-      
+
     - name: Display hostname
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} reports hostname: {{ hostname_result.stdout }}"

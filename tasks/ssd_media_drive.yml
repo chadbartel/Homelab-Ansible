@@ -1,6 +1,6 @@
 ---
-# Prepare a single SSD media drive on Storage Host (lenovo_server).
-# Called via loop from prepare_ssd_media.yml and main.yml.
+# Prepare a single media/data drive on the storage host.
+# Called via loop from playbooks/prepare_ssd_media.yml and main.yml.
 # Loop variable: ssd_drive (keys: device, format, mount_path)
 # Set device to empty string to skip that drive's setup.
 
@@ -31,6 +31,7 @@
   register: ssd_media_uuid_result
   changed_when: false
   failed_when: false
+  check_mode: false
   when:
     - ssd_drive.device | length > 0
     - ssd_media_device_stat.stat.exists | default(false)
@@ -41,6 +42,7 @@
   register: ssd_media_fstype_result
   changed_when: false
   failed_when: false
+  check_mode: false
   when:
     - ssd_drive.device | length > 0
     - ssd_media_device_stat.stat.exists | default(false)

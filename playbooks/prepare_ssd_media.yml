@@ -1,0 +1,18 @@
+---
+# Prepare media/data drives on the monolith host.
+# Run: ansible-playbook playbooks/prepare_ssd_media.yml
+- name: Prepare media and data drives on monolith
+  hosts: monolith
+  become: true
+  tasks:
+    - name: Include SSD media drive setup tasks
+      ansible.builtin.include_tasks: ../tasks/ssd_media_drive.yml
+      loop: "{{ ssd_media_drives | default([]) }}"
+      loop_control:
+        loop_var: ssd_drive
+
+    - name: Include secondary NVMe drive setup tasks
+      ansible.builtin.include_tasks: ../tasks/ssd_media_drive.yml
+      loop: "{{ nvme_data_drives | default([]) }}"
+      loop_control:
+        loop_var: ssd_drive

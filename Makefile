@@ -65,12 +65,12 @@ destroy: setup-ssh
 	@echo "🔥 DESTROYING homelab infrastructure..."
 	@echo "This will remove ALL containers, volumes, networks, and configuration!"
 	@read -p "Are you sure? Type 'yes' to continue: " confirm && [ "$$confirm" = "yes" ] || exit 1
-	./bash_scripts/ansible-wrapper.sh ansible-playbook destroy.yml --ask-vault-pass
+	./bash_scripts/ansible-wrapper.sh ansible-playbook playbooks/destroy.yml --ask-vault-pass
 
 # Run debug playbook
 debug: setup-ssh
 	@echo "Running debug checks..."
-	./bash_scripts/ansible-wrapper.sh ansible-playbook debug.yml
+	./bash_scripts/ansible-wrapper.sh ansible-playbook playbooks/debug.yml
 
 # Test connectivity
 test: setup-ssh

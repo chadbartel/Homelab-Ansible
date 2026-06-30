@@ -1,14 +1,23 @@
 ---
 # Monolith group variables for consolidated single-host deployment
 
-# SSD media drives mounted locally on monolith (moved from host_vars/lenovo_server.yml)
+# Media and data drives mounted locally on monolith.
+# Use stable by-id paths so device ordering changes do not break mounts.
 ssd_media_drives:
-  - device: "/dev/sda2"
+  - device: "/dev/disk/by-id/usb-Samsung_PSSD_T7_Shield_S6SFNS0Y906542L-0:0-part2"
     format: false
     mount_path: "/mnt/ssd_media"
-  - device: "/dev/sdc1"
+  - device: "/dev/disk/by-id/usb-StoreJet_Transcend_S2S6J9CCA11081-0:0-part1"
     format: false
     mount_path: "/mnt/ssd_media2"
+
+# Secondary NVMe inventory for migration planning.
+# The current device has no partition table or filesystem yet, so bootstrap will
+# create the mountpoint and skip mounting until the drive is initialized.
+nvme_data_drives:
+  - device: "/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_2TB_S7L9NJ0L314443P"
+    format: false
+    mount_path: "/mnt/nvme_secondary"
 
 # Nginx Proxy Manager configuration (monolith acts as both upstream server and proxy)
 proxy_hosts:
@@ -67,6 +76,14 @@ bootstrap_state_dirs:
     group: "1000"
     mode: "0755"
   - path: "/mnt/ssd_media"
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+  - path: "/mnt/ssd_media2"
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+  - path: "/mnt/nvme_secondary"
     owner: "1000"
     group: "1000"
     mode: "0755"
