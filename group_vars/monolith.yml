@@ -108,4 +108,4 @@ enable_ipv6_forwarding: false  # Set to true if running Tailscale subnet router 
 # Jellyfin GPU configuration (NVIDIA RTX 2070 SUPER via Compose V2 device reservations)
 jellyfin_gpu_enabled: true  # NVIDIA driver installed and verified with Docker GPU access working
 jellyfin_gpu_device_count: 1
-jellyfin_gpu_capabilities: ["gpu"]
+jellyfin_gpu_capabilities: ["gpu", "video.utility"]
