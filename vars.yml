@@ -117,6 +117,11 @@ jellyfin_config_libraries:
     paths:
       - "/media/movies"
     refresh_on_create: true
+  - name: "Television"
+    type: "tvshows"
+    paths:
+      - "/media/television"
+    refresh_on_create: true
 
 # NGINX Proxy Manager Config Role Variables
 npm_image: "jc21/nginx-proxy-manager:2"
