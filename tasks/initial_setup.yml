@@ -5,23 +5,6 @@
     update_cache: true
     cache_valid_time: 3600
 
-- name: Add deadsnakes repository
-  ansible.builtin.apt_repository:
-    repo: "ppa:deadsnakes/ppa"
-    state: present
-    filename: deadsnakes
-  when:
-    - ansible_distribution == "Ubuntu"
-    - ansible_architecture == "x86_64"
-
-- name: Update apt package cache, again
-  ansible.builtin.apt:
-    update_cache: true
-    cache_valid_time: 3600
-  when:
-    - ansible_distribution == "Ubuntu"
-    - ansible_architecture == "x86_64"
-
 - name: Install essential packages
   ansible.builtin.apt:
     name:
@@ -36,9 +19,7 @@
       - lsb-release
       - python3-pip
       - python3-venv
-      - "python{{ python_version }}"
-      - "python{{ python_version }}-venv"
-      - "python{{ python_version }}-dev"
+      - python3-dev
     state: present
 
 - name: Create Python virtual environment directory
@@ -51,7 +32,7 @@
 
 - name: Create Python virtual environment
   ansible.builtin.command:
-    cmd: "python{{ python_version }} -m venv {{ python_venv_path }}"
+    cmd: "python3 -m venv {{ python_venv_path }}"
     creates: "{{ python_venv_path }}/bin/activate"
   register: venv_created
 
@@ -60,14 +41,14 @@
     name: pip
     state: latest
     virtualenv: "{{ python_venv_path }}"
-    virtualenv_command: "python{{ python_version }} -m venv"
+    virtualenv_command: "python3 -m venv"
 
 - name: Install Python packages in virtual environment
   ansible.builtin.pip:
     name: "{{ python_packages }}"
     state: present
     virtualenv: "{{ python_venv_path }}"
-    virtualenv_command: "python{{ python_version }} -m venv"
+    virtualenv_command: "python3 -m venv"
 
 - name: Create symbolic link for system-wide access to venv python
   ansible.builtin.file:
@@ -75,6 +56,30 @@
     dest: "/usr/local/bin/ansible-python"
     state: link
     force: true
+
+# Configure IP forwarding for Tailscale and other networking features
+- name: Enable persistent IPv4 forwarding for Tailscale
+  ansible.builtin.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Enable persistent IPv6 forwarding (if needed for Tailscale exit node)
+  ansible.builtin.sysctl:
+    name: net.ipv6.conf.all.forwarding
+    value: '{{ "1" if enable_ipv6_forwarding | default(false) else "0" }}'
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Display IP forwarding configuration
+  ansible.builtin.debug:
+    msg: |
+      ✅ IP forwarding configured for Tailscale:
+      IPv4 forwarding: enabled
+      IPv6 forwarding: {{ "enabled" if enable_ipv6_forwarding | default(false) else "disabled" }}
 
 - name: Display virtual environment info
   ansible.builtin.debug:

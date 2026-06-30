@@ -36,8 +36,8 @@
   become: true
   serial: 1
   vars_files:
-    - vars.yml
-    - vault.yml
+    - ../vars.yml
+    - ../vault.yml
   tasks:
     - name: 💀 NUCLEAR STRIKE - Stop and obliterate ALL Docker processes
       ansible.builtin.shell: |
@@ -174,8 +174,8 @@
   hosts: homelab_servers
   become: true
   vars_files:
-    - vars.yml
-    - vault.yml
+    - ../vars.yml
+    - ../vault.yml
   tasks:
     - name: 💀 NUCLEAR STRIKE - Obliterate Docker filesystem remnants
       ansible.builtin.shell: |

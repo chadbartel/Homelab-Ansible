@@ -9,6 +9,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/lib/docker/volumes:/var/lib/docker/volumes
+{% for storage_mount in shared_storage_mounts | default([]) %}
+      - type: bind
+        source: {{ storage_mount.source }}
+        target: {{ storage_mount.target }}
+        read_only: {{ 'true' if storage_mount.read_only | default(false) else 'false' }}
+{% endfor %}
     environment:
       - AGENT_SECRET={{ portainer_agent_secret }}
     restart: unless-stopped

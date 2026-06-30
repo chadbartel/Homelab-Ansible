@@ -57,7 +57,11 @@ homelab-ansible/
 ├── inventory.yml               # Host inventory and variables
 ├── galaxy.yml                  # Collection metadata
 ├── ansible.cfg                 # Ansible configuration
-├── debug.yml                   # Debugging playbook
+├── playbooks/                  # Operational and deployment playbooks
+│   ├── prepare_ssd_media.yml   # Storage preparation playbook
+│   ├── debug.yml               # Debugging playbook
+│   ├── destroy.yml             # Destructive cleanup playbook
+│   └── test-ssh.yml            # SSH connectivity test playbook
 ├── vars.example.yml            # Example variables file
 ├── vault.example.yml           # Example vault file
 └── README.md                   # This file

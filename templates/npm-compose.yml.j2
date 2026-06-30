@@ -1,12 +1,11 @@
 ---
-version: "3.8"
 
 services:
   npm:
     image: {{ npm_image }}
     hostname: {{ nginx_proxy_container_name }}
     ports:
-      - "{{ pihole_host_port }}:80"
+      - "80:80"
       - "443:443"
       - "{{ proxy_host_port }}:81"
     environment:
@@ -15,12 +14,18 @@ services:
       INITIAL_ADMIN_PASSWORD: "{{ npm_admin_password }}"
       DISABLE_IPV6: 'true'
     dns:
-      - 192.168.1.12  # Pi-hole on lenovo_server (primary)
+      - {{ monolith_ip }}  # Host IP where Pi-hole DNS binds on port 53
       - 1.1.1.1       # Cloudflare fallback
       - 8.8.8.8       # Google fallback
     volumes:
       - npm_data:/data
       - npm_letsencrypt:/etc/letsencrypt
+{% for storage_mount in shared_storage_mounts | default([]) %}
+      - type: bind
+        source: {{ storage_mount.source }}
+        target: {{ storage_mount.target }}
+        read_only: {{ 'true' if storage_mount.read_only | default(false) else 'false' }}
+{% endfor %}
     networks:
       - homelab-bridge
     restart: unless-stopped

@@ -8,6 +8,13 @@ admin_email: "me@chadbartel.com"
 admin_password: "{{ vault_admin_password }}"
 admin_ssh_key_public: "{{ vault_admin_ssh_key_public }}"
 
+# Ansible privilege escalation configuration
+# Reuse vault admin credentials for sudo to avoid duplicate prompts.
+ansible_become: true
+ansible_become_method: "sudo"
+ansible_become_user: "root"
+ansible_become_password: "{{ vault_admin_password }}"
+
 # Service passwords (should be stored in vault)
 portainer_admin_password: "{{ vault_portainer_admin_password }}"
 npm_admin_password: "{{ vault_npm_admin_password }}"

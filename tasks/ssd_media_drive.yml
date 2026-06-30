@@ -1,6 +1,6 @@
 ---
-# Prepare a single SSD media drive on Storage Host (lenovo_server).
-# Called via loop from prepare_ssd_media.yml and main.yml.
+# Prepare a single media/data drive on the storage host.
+# Called via loop from playbooks/prepare_ssd_media.yml and main.yml.
 # Loop variable: ssd_drive (keys: device, format, mount_path)
 # Set device to empty string to skip that drive's setup.
 
@@ -9,6 +9,12 @@
     path: "{{ ssd_drive.mount_path }}"
     state: directory
     mode: "0755"
+  when: ssd_drive.device | length > 0
+
+- name: Check if SSD media device path exists
+  ansible.builtin.stat:
+    path: "{{ ssd_drive.device }}"
+  register: ssd_media_device_stat
   when: ssd_drive.device | length > 0
 
 - name: Format SSD media partition as ext4 (destructive)
@@ -24,14 +30,33 @@
     cmd: blkid -s UUID -o value "{{ ssd_drive.device }}"
   register: ssd_media_uuid_result
   changed_when: false
-  when: ssd_drive.device | length > 0
+  failed_when: false
+  check_mode: false
+  when:
+    - ssd_drive.device | length > 0
+    - ssd_media_device_stat.stat.exists | default(false)
 
 - name: Get filesystem type of SSD media partition
   ansible.builtin.command:
     cmd: blkid -s TYPE -o value "{{ ssd_drive.device }}"
   register: ssd_media_fstype_result
   changed_when: false
-  when: ssd_drive.device | length > 0
+  failed_when: false
+  check_mode: false
+  when:
+    - ssd_drive.device | length > 0
+    - ssd_media_device_stat.stat.exists | default(false)
+
+- name: Report skipped SSD media mount when device is missing or unformatted
+  ansible.builtin.debug:
+    msg: >-
+      Skipping mount for {{ ssd_drive.device }} at {{ ssd_drive.mount_path }}
+      because the device is missing or has no detectable filesystem UUID/TYPE.
+  when:
+    - ssd_drive.device | length > 0
+    - (not (ssd_media_device_stat.stat.exists | default(false))) or
+      (ssd_media_uuid_result.stdout | default('') | length == 0) or
+      (ssd_media_fstype_result.stdout | default('') | length == 0)
 
 - name: Mount SSD media and add to fstab (by UUID)
   ansible.posix.mount:
@@ -42,6 +67,7 @@
     opts: defaults
   when:
     - ssd_drive.device | length > 0
+    - ssd_media_device_stat.stat.exists | default(false)
     - ssd_media_uuid_result.stdout is defined
     - ssd_media_uuid_result.stdout | length > 0
     - ssd_media_fstype_result.stdout is defined

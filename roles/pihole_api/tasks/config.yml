@@ -88,8 +88,8 @@
       ansible.builtin.set_fact:
         rate_limit_needs_update: >-
           {{
-            (current_config.response.dns.rateLimit.count | default(1000) != pihole_api_rate_limit_count) or
-            (current_config.response.dns.rateLimit.interval | default(60) != pihole_api_rate_limit_interval)
+            (current_config.response.get('dns', {}).get('rateLimit', {}).get('count', 1000) | int != pihole_api_rate_limit_count | int) or
+            (current_config.response.get('dns', {}).get('rateLimit', {}).get('interval', 60) | int != pihole_api_rate_limit_interval | int)
           }}
 
     - name: Update rate limit configuration
@@ -99,10 +99,11 @@
         endpoint: "/config"
         method: PATCH
         body:
-          dns:
-            rateLimit:
-              count: "{{ pihole_api_rate_limit_count }}"
-              interval: "{{ pihole_api_rate_limit_interval }}"
+          config:
+            dns:
+              rateLimit:
+                count: "{{ pihole_api_rate_limit_count }}"
+                interval: "{{ pihole_api_rate_limit_interval }}"
         validate_certs: "{{ pihole_api_validate_certs }}"
         timeout: "{{ pihole_api_timeout }}"
       register: pihole_rate_limit_update_result
@@ -113,7 +114,7 @@
         msg: |
           Rate Limit Configuration:
           {% if rate_limit_needs_update %}
-          Updated from {{ current_config.response.dns.rateLimit.count | default(1000) }}/{{ current_config.response.dns.rateLimit.interval | default(60) }}s
+          Updated from {{ current_config.response.get('dns', {}).get('rateLimit', {}).get('count', 1000) }}/{{ current_config.response.get('dns', {}).get('rateLimit', {}).get('interval', 60) }}s
           to {{ pihole_api_rate_limit_count }}/{{ pihole_api_rate_limit_interval }}s
           {% else %}
           Already configured: {{ pihole_api_rate_limit_count }}/{{ pihole_api_rate_limit_interval }}s (no change needed)

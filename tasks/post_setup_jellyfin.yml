@@ -13,6 +13,10 @@
 #
 # See roles/jellyfin_config/README.md for more information
 
+- name: Resolve Jellyfin target host IP
+  ansible.builtin.set_fact:
+    jellyfin_target_host_ip: "{{ hostvars.get(jellyfin_config_target_node, {}).get('ansible_host', ansible_host) }}"
+
 # ========================================
 # PHASE 1: Service Verification & Readiness
 # ========================================
@@ -21,7 +25,7 @@
     name: jellyfin_config
     tasks_from: wait_for_service
   vars:
-    target_host: "{{ hostvars[jellyfin_config_target_node].ansible_host }}"  # Use actual IP
+    target_host: "{{ jellyfin_target_host_ip }}"  # Use resolved IP
 
 # ========================================
 # PHASE 2: Setup Wizard Completion
@@ -31,7 +35,7 @@
     name: jellyfin_config
     tasks_from: setup_wizard
   vars:
-    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+    target_url: "http://{{ jellyfin_target_host_ip }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
 # PHASE 3: Password Hash Repair
@@ -41,7 +45,7 @@
     name: jellyfin_config
     tasks_from: fix_password
   vars:
-    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+    target_url: "http://{{ jellyfin_target_host_ip }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
 # PHASE 4: API Key Generation
@@ -51,7 +55,7 @@
     name: jellyfin_config
     tasks_from: api_keys
   vars:
-    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+    target_url: "http://{{ jellyfin_target_host_ip }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
 # PHASE 5: Network Configuration
@@ -61,7 +65,7 @@
     name: jellyfin_config
     tasks_from: network_config
   vars:
-    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+    target_url: "http://{{ jellyfin_target_host_ip }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
 # PHASE 6: Library Configuration
@@ -71,7 +75,7 @@
     name: jellyfin_config
     tasks_from: libraries
   vars:
-    target_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+    target_url: "http://{{ jellyfin_target_host_ip }}:{{ jellyfin_config_web_port }}"
 
 # ========================================
 # PHASE 7: TV Tuner Setup
@@ -81,7 +85,7 @@
     name: jellyfin
     tasks_from: tuners
   vars:
-    jellyfin_url: "http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_config_web_port }}"
+    jellyfin_url: "http://{{ jellyfin_target_host_ip }}:{{ jellyfin_config_web_port }}"
     jellyfin_api_token: "{{ jellyfin_config_api_token }}"
     jellyfin_action: "create"
     jellyfin_tuner_m3u_url: "{{ item.url }}"
@@ -99,7 +103,7 @@
 
       🌐 Access Information:
       External (Recommended): {{ jellyfin_external_url }} (via Nginx Proxy Manager)
-      Direct Access (LAN): http://{{ hostvars[jellyfin_config_target_node].ansible_host }}:{{ jellyfin_host_port }}
+      Direct Access (LAN): http://{{ jellyfin_target_host_ip }}:{{ jellyfin_host_port }}
       From {{ jellyfin_config_target_node }}: http://127.0.0.1:{{ jellyfin_host_port }}
 
       👤 Admin Credentials:
@@ -107,7 +111,7 @@
       Password: (stored in vault.yml)
 
       📍 Deployment Details:
-      - Running on: {{ jellyfin_config_target_node }} ({{ hostvars[jellyfin_config_target_node].ansible_host }})
+      - Running on: {{ jellyfin_config_target_node }} ({{ jellyfin_target_host_ip }})
       - Container ID: {{ jellyfin_container_id | default('N/A') }}
       - Memory Limit: {{ jellyfin_memory_limit }}
       - Hardware Acceleration: {{ 'Enabled (Intel QSV)' if jellyfin_enable_hw_accel | default(false) else 'DISABLED (set jellyfin_enable_hw_accel: true to enable)' }}
