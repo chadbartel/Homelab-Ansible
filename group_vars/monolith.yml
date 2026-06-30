@@ -36,31 +36,31 @@ shared_storage_mounts:
 proxy_hosts:
   # Pi-hole: use container name on homelab-bridge network
   - domain: "{{ pihole_container_name }}.{{ local_domain }}"
-    host: "{{ pihole_container_name }}"  # Container DNS name instead of IP
+    host: "pihole"  # Container DNS name instead of IP
     port: 80  # Internal port (Pi-hole web UI)
     scheme: "http"
 
   # OpenVPN: use container name on homelab-bridge network
   - domain: "{{ openvpn_container_name }}.{{ local_domain }}"
-    host: "{{ openvpn_container_name }}"
+    host: "openvpn-as"
     port: 943  # Internal OpenVPN admin web UI port
     scheme: "https"
 
   # Portainer: use container name on homelab-bridge network
   - domain: "{{ portainer_container_name }}.{{ local_domain }}"
-    host: "{{ portainer_container_name }}"
+    host: "portainer"
     port: 9000  # Internal Portainer web UI port (HTTP)
     scheme: "http"
 
   # NPM itself: use container name on homelab-bridge network
   - domain: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
-    host: "{{ nginx_proxy_container_name }}"
+    host: "proxy"
     port: 81  # Internal NPM web interface port
     scheme: "http"
 
   # Jellyfin: use container name on homelab-bridge network
   - domain: "{{ jellyfin_container_name }}.{{ local_domain }}"
-    host: "{{ jellyfin_container_name }}"
+    host: "jellyfin"
     port: 8096  # Internal Jellyfin port
     scheme: "http"
     block_exploits: false  # Jellyfin mobile app sends non-browser API requests that trigger exploit blocks
