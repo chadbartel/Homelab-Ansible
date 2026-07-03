@@ -16,7 +16,8 @@ services:
     environment:
       TZ: "{{ timezone }}"
     volumes:
-      - headscale_config:/etc/headscale
+      - /opt/headscale/config/config.yaml:/etc/headscale/config.yaml:ro
+      - /opt/headscale/config/acl.hujson:/etc/headscale/acl.hujson:ro
       - headscale_data:/var/lib/headscale
     cap_add:
       - NET_ADMIN
@@ -29,5 +30,4 @@ networks:
     external: true
 
 volumes:
-  headscale_config:
   headscale_data:

@@ -1,0 +1,46 @@
+---
+# Headscale configuration - v0.29.2 compatible
+# Generated via Ansible for {{ inventory_hostname }}
+# CRITICAL: Configuration schema uses nested structures (server:, database:, noise:, etc)
+
+server:
+  listen_addr: 0.0.0.0
+  listen_port: {{ headscale_container_port | default(8080) }}
+  grpc:
+    listen_addr: 0.0.0.0
+    listen_port: 50443
+    allow_insecure: true
+
+# Server URL - REQUIRED, must be externally reachable
+server_url: "http://{{ inventory_hostname }}:{{ headscale_host_port | default(8080) }}"
+
+# Database configuration (v0.29.2 requires "database:" not "db:")
+database:
+  type: sqlite3
+  sqlite:
+    path: /var/lib/headscale/db.sqlite
+
+# Noise Protocol key path (REQUIRED for Tailscale v2/WireGuard Noise)
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+
+# IP address allocation for Tailscale clients
+prefixes:
+  v4: "100.64.0.0/10"
+  v6: "fd7a:115c:a1e0::/48"
+
+# DERP relay servers (required to allow client connectivity)
+derp:
+  urls:
+    - "https://controlplane.tailscale.com/derpmap/default"
+  auto_update_enabled: true
+  update_frequency: 24h
+
+# DNS configuration (disable to avoid validation errors)
+dns:
+  enabled: false
+  magic_dns: false
+  override_local_dns: false
+
+log:
+  level: info
