@@ -28,7 +28,7 @@
     msg: |
       ✅ IP Forwarding Configuration Verified
       {{ ipv4_forward_check.stdout }}
-      net.ipv6.conf.all.forwarding: {{ ipv6_forward_check.sysctl_value }}
+      {{ ipv6_forward_check.stdout }}
       
       Exit Node mode: ✅ Ready
       Subnet Router mode: ✅ Ready
