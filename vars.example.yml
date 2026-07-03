@@ -18,13 +18,7 @@ ansible_become_password: "{{ vault_admin_password }}"
 # Service passwords (should be stored in vault)
 portainer_admin_password: "{{ vault_portainer_admin_password }}"
 npm_admin_password: "{{ vault_npm_admin_password }}"
-openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
 pihole_web_password: "{{ vault_pihole_admin_password }}"
-
-# OpenVPN configuration
-openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
-openvpn_user1_password: "{{ vault_openvpn_user1_password }}"
-openvpn_user2_password: "{{ vault_openvpn_user2_password }}"
 
 # Pi-hole configuration
 pihole_config_path: "/opt/pihole/etc-pihole"
@@ -37,8 +31,6 @@ portainer_stacks:
     compose_template: npm-compose.yml.j2
   - name: pihole-stack
     compose_template: pihole-compose.yml.j2
-  - name: vpn-stack
-    compose_template: openvpn-compose.yml.j2
   - name: jellyfin-stack
     compose_template: jellyfin-compose.yml.j2
 

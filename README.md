@@ -236,11 +236,6 @@ The playbook automatically:
 - **URL**: `http://your-manager-ip:8181`
 - **Purpose**: Reverse proxy with SSL
 
-### OpenVPN Access Server
-
-- **URL**: `https://your-manager-ip:943`
-- **Purpose**: VPN server
-
 ## 🔧 Customization
 
 ### Adding New Services

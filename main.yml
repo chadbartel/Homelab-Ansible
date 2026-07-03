@@ -167,7 +167,7 @@
       ansible.builtin.include_tasks: tasks/portainer.yml
       tags: ["deploy", "portainer"]
 
-    - name: Deploy Docker Compose stacks (NPM, Pi-hole, OpenVPN, Jellyfin)
+    - name: Deploy Docker Compose stacks (NPM, Pi-hole, Jellyfin)
       ansible.builtin.include_tasks: tasks/deploy_stacks.yml
       tags: ["deploy", "stacks"]
 
@@ -184,7 +184,6 @@
           - Nginx Proxy Manager: https://proxy.{{ local_domain }}:{{ proxy_host_port }}
           - Pi-hole: http://pihole.{{ local_domain }}:{{ pihole_host_port }}/admin
           - Jellyfin: http://jellyfin.{{ local_domain }}:{{ jellyfin_host_port }}/
-          - OpenVPN: https://vpn.{{ local_domain }}:{{ vpn_host_port }}/admin
           - Portainer: https://portainer.{{ local_domain }}:{{ portainer_host_port }}
           
           To verify:

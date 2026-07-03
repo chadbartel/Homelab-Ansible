@@ -22,9 +22,6 @@ all:
           - name: pihole-stack
             compose_template: pihole-compose.yml.j2
             target_host: monolith
-          - name: vpn-stack
-            compose_template: openvpn-compose.yml.j2
-            target_host: monolith
           - name: jellyfin-stack
             compose_template: jellyfin-compose.yml.j2
             target_host: monolith
