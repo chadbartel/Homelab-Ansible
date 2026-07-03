@@ -180,6 +180,12 @@ pihole_container_name: "pihole"
 portainer_container_name: "portainer"
 nginx_proxy_container_name: "proxy"
 
+# Headscale (self-hosted Tailscale control plane)
+headscale_container_name: "headscale"
+headscale_image: "ghcr.io/juanfont/headscale:latest"
+headscale_host_port: 8080
+headscale_container_port: 8080
+
 # Miscellaneous
 timezone: "America/Los_Angeles"
 

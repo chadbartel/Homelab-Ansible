@@ -27,6 +27,7 @@ services:
         {{ monolith_ip }} {{ portainer_container_name }}.{{ local_domain }}
         {{ monolith_ip }} {{ nginx_proxy_container_name }}.{{ local_domain }}
         {{ monolith_ip }} {{ jellyfin_container_name }}.{{ local_domain }}
+        {{ monolith_ip }} headscale.{{ local_domain }}
       FTLCONF_dhcp_router: '{{ gateway_ip }}'
       FTLCONF_dns_domainNeeded: 'true'
     volumes:
