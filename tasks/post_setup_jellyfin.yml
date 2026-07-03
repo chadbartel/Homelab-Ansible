@@ -1,6 +1,6 @@
 ---
 # Jellyfin post-deployment configuration using jellyfin_config role
-# All tasks run on lenovo_server where Jellyfin is deployed
+# All tasks run on monolith where Jellyfin is deployed
 #
 # This file has been refactored to use the jellyfin_config role
 # instead of inline configuration logic.

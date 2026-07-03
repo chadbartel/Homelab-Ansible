@@ -1,0 +1,32 @@
+---
+# Install Tailscale package from official repository
+
+- name: Install Tailscale package
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+  tags: ["tailscale", "packages"]
+
+- name: Verify Tailscale CLI installation
+  ansible.builtin.command:
+    cmd: "{{ tailscale_cli_path }} --version"
+  register: tailscale_version
+  changed_when: false
+  tags: ["tailscale", "packages"]
+
+- name: Verify tailscaled daemon exists
+  ansible.builtin.stat:
+    path: "{{ tailscaled_bin_path }}"
+  register: tailscaled_binary
+  tags: ["tailscale", "packages"]
+
+- name: Display Tailscale installation status
+  ansible.builtin.debug:
+    msg: |
+      ✅ Tailscale package installed successfully
+      Version: {{ tailscale_version.stdout }}
+      CLI path: {{ tailscale_cli_path }}
+      Daemon path: {{ tailscaled_bin_path }}
+      Daemon exists: {{ tailscaled_binary.stat.exists | default(false) }}
+  tags: ["tailscale", "packages"]

@@ -36,7 +36,6 @@ local_domain: "chadbartel.duckdns.org"
 # Service host ports
 proxy_host_port: 8181
 pihole_host_port: 8081
-vpn_host_port: 943
 
 # Legacy compatibility alias retained for templates/tasks still being migrated
 manager_node_ip: "{{ monolith_ip }}"
@@ -44,31 +43,10 @@ manager_node_ip: "{{ monolith_ip }}"
 # Service passwords (should be stored in vault)
 portainer_admin_password: "{{ vault_portainer_admin_password }}"
 npm_admin_password: "{{ vault_npm_admin_password }}"
-openvpn_admin_password: "{{ vault_openvpn_admin_password }}"
 
 # Portainer configuration
 portainer_host_port: 9443
 portainer_agent_secret: "{{ vault_portainer_agent_secret }}"
-
-# OpenVPN configuration
-openvpn_image: "openvpn/openvpn-as:2.14.3-5936bcd7-Ubuntu24"
-openvpn_activation_key: "{{ vault_openvpn_activation_key }}"
-openvpn_hostname: "{{ vault_openvpn_hostname }}"
-
-# OpenVPN Config Role Variables
-openvpn_config_container_name: "{{ openvpn_container_name }}-as"
-openvpn_config_target_host: "monolith"  # Ansible inventory name (monolith runs OpenVPN)
-openvpn_config_admin_user: "openvpn"
-openvpn_config_admin_password: "{{ vault_openvpn_admin_password }}"
-openvpn_config_server_hostname: "{{ vault_openvpn_hostname }}"
-openvpn_config_activation_key: "{{ vault_openvpn_activation_key }}"
-openvpn_config_users:
-  - username: "{{ vault_openvpn_user1_username }}"
-    password: "{{ vault_openvpn_user1_password }}"
-    autologin: true
-  - username: "{{ vault_openvpn_user2_username }}"
-    password: "{{ vault_openvpn_user2_password }}"
-    autologin: true
 
 # Jellyfin configuration
 jellyfin_user1_password: "{{ vault_jellyfin_user1_password }}"
@@ -153,8 +131,6 @@ pihole_config_custom_dns_entries:
   - ip: "{{ monolith_ip }}"
     hostname: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
   - ip: "{{ monolith_ip }}"
-    hostname: "{{ openvpn_container_name }}.{{ local_domain }}"
-  - ip: "{{ monolith_ip }}"
     hostname: "{{ jellyfin_container_name }}.{{ local_domain }}"
 
 # Dnsmasq performance tuning
@@ -189,14 +165,11 @@ portainer_stacks:
   - name: pihole-stack
     compose_template: pihole-compose.yml.j2
     target_host: monolith
-  - name: vpn-stack
-    compose_template: openvpn-compose.yml.j2
-    target_host: monolith
   - name: jellyfin-stack
     compose_template: jellyfin-compose.yml.j2
     target_host: monolith
 
-# NFS: Storage Host 192.168.1.12 (lenovo_server) exports /mnt/ssd_media to other nodes
+# Media: Local mount at /mnt/ssd_media (via /etc/fstab UUID entries)
 nfs_storage_host_ip: "192.168.1.12"
 nfs_export_path: "/mnt/ssd_media"
 nfs_export_network: "192.168.1.0/24"
@@ -204,7 +177,6 @@ nfs_export_options: "rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=10
 nfs_client_mount_path: "/mnt/ssd_media"
 nfs_client_options: "rw,soft,intr,noatime,timeo=14,_netdev"
 pihole_container_name: "pihole"
-openvpn_container_name: "vpn"
 portainer_container_name: "portainer"
 nginx_proxy_container_name: "proxy"
 

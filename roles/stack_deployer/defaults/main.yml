@@ -11,7 +11,7 @@ stack_deployer_backend: "compose"
 # =============================================================================
 
 # Default target host (used if a stack omits target_host)
-stack_deployer_default_target_host: "{{ groups['manager_nodes'][0] | default('pi4_01') }}"
+stack_deployer_default_target_host: "monolith"
 
 # List of stacks to deploy
 # Each stack requires: name, compose_template, target_host

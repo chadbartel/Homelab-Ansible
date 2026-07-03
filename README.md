@@ -120,8 +120,8 @@ all:
   children:
     servers:
       hosts:
-        pi4_01:
-          ansible_host: 192.168.1.10
+        monolith:
+          ansible_host: 192.168.1.17
           ansible_user: your_user
         server2:
           ansible_host: 192.168.1.11
@@ -231,15 +231,17 @@ The playbook automatically:
 - **API Management**: Use `pihole_api` role for programmatic configuration (rate limits, statistics, domain/client management, backup/restore)
 - **Quick Fix**: `ansible-playbook roles/pihole_api/examples/rate_limit_fix.yml` for rate limiting issues
 
+### Headscale
+
+- **URL**: `https://headscale.chadbartel.duckdns.org`
+- **Purpose**: Self-hosted Tailscale control plane for VPN and remote access
+- **Integration**: Works with native Tailscale clients on host OS
+- **Features**: Exit node, subnet router, and Tailscale subnet routing
+
 ### Nginx Proxy Manager
 
 - **URL**: `http://your-manager-ip:8181`
 - **Purpose**: Reverse proxy with SSL
-
-### OpenVPN Access Server
-
-- **URL**: `https://your-manager-ip:943`
-- **Purpose**: VPN server
 
 ## 🔧 Customization
 

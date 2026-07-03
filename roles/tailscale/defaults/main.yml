@@ -1,0 +1,26 @@
+---
+# Tailscale Configuration Defaults
+
+# Tailscale daemon service settings
+tailscale_service_name: "tailscaled"
+tailscale_service_enabled: true
+tailscale_service_state: "started"
+
+# Network configuration for subnet router and exit node modes
+# Advertise the local LAN so remote Tailscale clients can reach Docker services
+tailscale_advertise_routes: "192.168.1.0/24"  # LAN subnet (adjust to your network)
+tailscale_advertise_exit_node: true           # Enable exit node mode for VPN passthrough
+
+# Optional: Additional Tailscale upflags for advanced configurations
+# Examples: --ssh, --accept-routes, --shields-up
+tailscale_additional_flags: ""
+
+# IP forwarding verification
+verify_ip_forwarding: true
+
+# Timeout for Tailscale authentication (in seconds)
+tailscale_auth_timeout: 60
+
+# Tailscale CLI binary path
+tailscale_cli_path: "/usr/bin/tailscale"
+tailscaled_bin_path: "/usr/sbin/tailscaled"

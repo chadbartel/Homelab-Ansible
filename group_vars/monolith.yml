@@ -40,12 +40,6 @@ proxy_hosts:
     port: 80  # Internal port (Pi-hole web UI)
     scheme: "http"
 
-  # OpenVPN: use container name on homelab-bridge network
-  - domain: "{{ openvpn_container_name }}.{{ local_domain }}"
-    host: "openvpn-as"
-    port: 943  # Internal OpenVPN admin web UI port
-    scheme: "https"
-
   # Portainer: use container name on homelab-bridge network
   - domain: "{{ portainer_container_name }}.{{ local_domain }}"
     host: "portainer"

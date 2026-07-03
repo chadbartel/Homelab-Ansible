@@ -1,0 +1,37 @@
+---
+# Enable and start the Tailscale daemon (tailscaled)
+
+- name: Ensure tailscaled service is enabled and started
+  ansible.builtin.systemd:
+    name: "{{ tailscale_service_name }}"
+    state: "{{ tailscale_service_state }}"
+    enabled: "{{ tailscale_service_enabled }}"
+    daemon_reload: true
+  tags: ["tailscale", "service"]
+
+- name: Wait for tailscaled socket to become available
+  ansible.builtin.wait_for:
+    path: /var/run/tailscale/tailscaled.sock
+    timeout: 15
+  tags: ["tailscale", "service"]
+
+- name: Check tailscaled service status
+  ansible.builtin.systemd_service:
+    name: "{{ tailscale_service_name }}"
+  register: tailscaled_service
+  tags: ["tailscale", "service"]
+
+- name: Display tailscaled service status
+  ansible.builtin.debug:
+    msg: |
+      ✅ Tailscaled service configured
+      Service: {{ tailscaled_service.status.UnitFileState | default('unknown') }}
+      State: {{ tailscaled_service.status.ActiveState | default('unknown') }}
+      Enabled: {{ 'yes' if tailscale_service_enabled else 'no' }}
+  tags: ["tailscale", "service"]
+
+- name: Verify tailscaled socket is accessible
+  ansible.builtin.stat:
+    path: /var/run/tailscale/tailscaled.sock
+  register: tailscaled_socket
+  tags: ["tailscale", "service"]

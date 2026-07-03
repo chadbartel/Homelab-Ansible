@@ -197,17 +197,8 @@
       when: nvidia_toolkit_version is succeeded
 
 # Phase 5: Docker service management (conditional based on need)
-- name: Apply Docker socket repair for lenovo_server (only if needed)
-  ansible.builtin.script: bash_scripts/fix-docker-socket.sh
+- name: Start Docker service (only if needed)
   when:
-    - inventory_hostname == 'lenovo_server'
-    - docker_needs_installation or docker_needs_repair
-  register: docker_nuclear_fix
-  # Script has built-in idempotency check, exits early if Docker is healthy
-
-- name: Start Docker service for other hosts (only if needed)
-  when:
-    - inventory_hostname != 'lenovo_server'
     - docker_needs_installation or docker_needs_repair
   block:
     - name: Start and enable Docker service
