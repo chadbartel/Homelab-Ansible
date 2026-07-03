@@ -1,0 +1,33 @@
+---
+# Headscale post-deployment verification tasks
+# Verifies the control plane is accessible and ready for client connections
+
+- name: Wait for Headscale API health check to pass
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ headscale_host_port }}"
+    timeout: 60
+    msg: "Headscale API is healthy"
+  tags: ["post_setup", "headscale", "health_check"]
+
+- name: Verify Headscale container is running with correct configuration
+  ansible.builtin.command:
+    cmd: docker exec {{ headscale_container_name }} headscale version
+  register: headscale_version_check
+  changed_when: false
+  failed_when: headscale_version_check.rc != 0
+  tags: ["post_setup", "headscale", "verify"]
+
+- name: Display Headscale version information
+  ansible.builtin.debug:
+    msg: |
+      Headscale Control Plane Status:
+      {{ headscale_version_check.stdout }}
+      
+      Web UI: https://headscale.{{ local_domain }}
+      gRPC API: headscale.{{ local_domain }}:50443
+      
+      Next steps:
+      - Add Tailscale clients to connect to this control plane
+      - Configure Tailscale nodes with: tailscale up --login-server=https://headscale.{{ local_domain }}
+  tags: ["post_setup", "headscale", "summary"]

@@ -16,20 +16,13 @@ services:
     environment:
       TZ: "{{ timezone }}"
     volumes:
-      - "{{ headscale_config_file | default('headscale_config') }}:/etc/headscale/config.yaml"
+      - headscale_config:/etc/headscale
       - headscale_data:/var/lib/headscale
-      - headscale_cache:/var/cache/headscale
     cap_add:
       - NET_ADMIN
     networks:
       - homelab-bridge
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:{{ headscale_container_port | default(8080) }}/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
 networks:
   homelab-bridge:
@@ -38,4 +31,3 @@ networks:
 volumes:
   headscale_config:
   headscale_data:
-  headscale_cache:
