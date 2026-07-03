@@ -45,14 +45,12 @@
   tags: ["tailscale", "auth"]
 
 - name: Authenticate Tailscale node with auth key (if needed)
-  ansible.builtin.command:
-    cmd: |
-      {{ tailscale_cli_path }} up \
-        --reset \
-        --auth-key={{ vault_tailscale_auth_key }} \
-        --advertise-routes={{ tailscale_advertise_routes }} \
-        --advertise-exit-node
-        {{ tailscale_additional_flags }}
+  ansible.builtin.shell: |
+    {{ tailscale_cli_path }} up \
+      --reset \
+      --auth-key={{ vault_tailscale_auth_key }} \
+      --advertise-routes={{ tailscale_advertise_routes }} \
+      --advertise-exit-node {% if tailscale_additional_flags %}{{ tailscale_additional_flags }}{% endif %}
   register: tailscale_auth_result
   changed_when: "'Success' in tailscale_auth_result.stdout or 'Logged in' in tailscale_auth_result.stdout"
   when:
