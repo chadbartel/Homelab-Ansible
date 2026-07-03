@@ -7,7 +7,6 @@
       sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg > /dev/null
   args:
     creates: /usr/share/keyrings/tailscale-archive-keyring.gpg
-    warn: false
   tags: ["tailscale", "repo"]
 
 - name: Add Tailscale repository for Ubuntu
@@ -16,7 +15,6 @@
       sudo tee /etc/apt/sources.list.d/tailscale.list > /dev/null
   args:
     creates: /etc/apt/sources.list.d/tailscale.list
-    warn: false
   tags: ["tailscale", "repo"]
 
 - name: Verify Tailscale repository file was created
