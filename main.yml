@@ -167,25 +167,7 @@
       ansible.builtin.include_tasks: tasks/portainer.yml
       tags: ["deploy", "portainer"]
 
-    - name: Template Headscale ACL policy
-      ansible.builtin.template:
-        src: headscale-acl.hujson.j2
-        dest: /opt/headscale/config/acl.hujson
-        owner: root
-        group: root
-        mode: "0644"
-      tags: ["deploy", "stacks", "headscale"]
-
-    - name: Template Headscale configuration file
-      ansible.builtin.template:
-        src: headscale-config.yaml.j2
-        dest: /opt/headscale/config/config.yaml
-        owner: root
-        group: root
-        mode: "0644"
-      tags: ["deploy", "stacks", "headscale"]
-
-    - name: Deploy Docker Compose stacks (NPM, Pi-hole, Jellyfin, Headscale)
+    - name: Deploy Docker Compose stacks (NPM, Pi-hole, Jellyfin)
       ansible.builtin.include_tasks: tasks/deploy_stacks.yml
       tags: ["deploy", "stacks"]
 

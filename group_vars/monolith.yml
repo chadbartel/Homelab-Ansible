@@ -59,13 +59,6 @@ proxy_hosts:
     scheme: "http"
     block_exploits: false  # Jellyfin mobile app sends non-browser API requests that trigger exploit blocks
 
-  # Headscale (Tailscale control plane): use container name on homelab-bridge network
-  - domain: "headscale.{{ local_domain }}"
-    host: "{{ headscale_container_name }}"
-    port: "{{ headscale_container_port }}"
-    scheme: "http"  # NPM will handle TLS/SSL termination and Let's Encrypt certificate
-    allow_websocket_upgrade: true  # Headscale uses WebSocket for some operations
-
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:
@@ -88,18 +81,6 @@ bootstrap_state_dirs:
   - path: "/opt/jellyfin/config"
     owner: "1000"
     group: "1000"
-    mode: "0755"
-  - path: "/opt/headscale"
-    owner: "root"
-    group: "root"
-    mode: "0755"
-  - path: "/opt/headscale/config"
-    owner: "root"
-    group: "root"
-    mode: "0755"
-  - path: "/opt/headscale/data"
-    owner: "root"
-    group: "root"
     mode: "0755"
   - path: "/mnt/ssd_media"
     owner: "1000"

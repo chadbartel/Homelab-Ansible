@@ -1,13 +1,5 @@
 ---
 # Post-setup configuration tasks
-- name: Wait for Headscale API to be accessible
-  ansible.builtin.wait_for:
-    host: "{{ ansible_host }}"
-    port: "{{ headscale_host_port }}"
-    timeout: 60
-    msg: "Headscale API port available"
-  tags: ["post_setup", "headscale", "wait"]
-
 - name: Display deployment summary
   ansible.builtin.debug:
     msg: |
@@ -17,7 +9,6 @@
       - Portainer: https://{{ ansible_host }}:{{ portainer_host_port }}
       - Pi-hole: http://{{ ansible_host }}:{{ pihole_host_port }}/admin
       - NPM: http://{{ ansible_host }}:{{ proxy_host_port }}
-      - Headscale: https://headscale.{{ local_domain }} (via NPM reverse proxy)
       - Jellyfin: http://{{ jellyfin_container_name }}.{{ local_domain }} (via NPM)
       
       Next steps:
@@ -28,10 +19,6 @@
 - name: Run post-setup tasks for Pi-hole
   ansible.builtin.include_tasks: tasks/post_setup_pihole.yml
   tags: ["post_setup", "pihole", "configure"]
-
-- name: Run post-setup tasks for Headscale
-  ansible.builtin.include_tasks: tasks/post_setup_headscale.yml
-  tags: ["post_setup", "headscale", "configure"]
 
 - name: Run post-setup tasks for Nginx Proxy Manager
   ansible.builtin.include_tasks: tasks/post_setup_npm.yml
