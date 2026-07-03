@@ -1,8 +1,8 @@
 #!/bin/bash
-# Nuclear fix for Docker socket issues on lenovo_server with proper cleanup
+# Nuclear fix for Docker socket issues with proper cleanup
 set -e
 
-echo "🔧 NUCLEAR DOCKER FIX for lenovo_server with Cleanup"
+echo "🔧 NUCLEAR DOCKER FIX with Cleanup"
 echo "===================================================="
 
 # Function to check if Docker is responding

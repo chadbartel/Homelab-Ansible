@@ -32,8 +32,8 @@
       ansible.builtin.debug:
         msg: "Docker service status: {{ docker_status.status.ActiveState if docker_status.status is defined else 'Unknown' }}"
 
-- name: Debug Docker Swarm information
-  hosts: manager_nodes
+- name: Debug Docker information for monolith
+  hosts: monolith
   tasks:
     - name: Check if Docker service is running
       ansible.builtin.systemd_service:

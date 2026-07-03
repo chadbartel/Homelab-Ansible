@@ -1,5 +1,5 @@
 ---
-# Portainer deployment tasks (standalone Docker, pi4_01)
+# Portainer deployment tasks (standalone Docker, monolith)
 # Deploys Portainer CE Server as a standalone Docker Compose project.
 # Portainer Agents are deployed separately via tasks/portainer_agent.yml.
 

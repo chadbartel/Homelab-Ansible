@@ -120,8 +120,8 @@ all:
   children:
     servers:
       hosts:
-        pi4_01:
-          ansible_host: 192.168.1.10
+        monolith:
+          ansible_host: 192.168.1.17
           ansible_user: your_user
         server2:
           ansible_host: 192.168.1.11

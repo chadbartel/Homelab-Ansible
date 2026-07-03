@@ -1,7 +1,7 @@
 ---
 # Portainer Agent deployment tasks (standalone Docker)
-# Deploys Portainer Agent on agent hosts (lenovo_server, pi3_01).
-# Runs in the context of the target host (no delegation needed).
+# Note: This file is retained for historical reference.
+# Current architecture is single-node monolith; Portainer Agent is not deployed.
 
 - name: Ensure Portainer Agent compose staging directory exists
   ansible.builtin.file:

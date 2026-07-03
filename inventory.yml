@@ -25,19 +25,3 @@ all:
           - name: jellyfin-stack
             compose_template: jellyfin-compose.yml.j2
             target_host: monolith
-
-    # Legacy nodes (archived, not used in active playbooks)
-    _legacy_archive:
-      hosts:
-        pi4_01_archived:
-          ansible_host: 192.168.1.10
-          ansible_user: "{{ vault_admin_username | default('admin') }}"
-          ansible_python_interpreter: "/usr/bin/python3"
-        lenovo_server_archived:
-          ansible_host: 192.168.1.12
-          ansible_user: "{{ vault_admin_username | default('admin') }}"
-          ansible_python_interpreter: "/usr/bin/python3"
-        pi3_01_archived:
-          ansible_host: 192.168.1.11
-          ansible_user: "{{ vault_admin_username | default('admin') }}"
-          ansible_python_interpreter: "/usr/bin/python3"
