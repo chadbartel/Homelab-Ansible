@@ -1,0 +1,35 @@
+---
+# Verify IP forwarding is enabled (essential for exit node and subnet router modes)
+
+- name: Check IPv4 forwarding is enabled
+  ansible.builtin.sysctl:
+    name: net.ipv4.ip_forward
+    sysctl_set: false
+  register: ipv4_forward_check
+  tags: ["tailscale", "verify"]
+
+- name: Check IPv6 forwarding is enabled (optional)
+  ansible.builtin.sysctl:
+    name: net.ipv6.conf.all.forwarding
+    sysctl_set: false
+  register: ipv6_forward_check
+  tags: ["tailscale", "verify"]
+
+- name: Verify IPv4 forwarding matches expected value
+  ansible.builtin.assert:
+    that:
+      - ipv4_forward_check.sysctl_value == '1' | string
+    fail_msg: "IPv4 forwarding is not enabled! Exit node and subnet router will not work."
+    success_msg: "IPv4 forwarding is enabled."
+  tags: ["tailscale", "verify"]
+
+- name: Display IP forwarding verification
+  ansible.builtin.debug:
+    msg: |
+      ✅ IP Forwarding Configuration Verified
+      net.ipv4.ip_forward: {{ ipv4_forward_check.sysctl_value }}
+      net.ipv6.conf.all.forwarding: {{ ipv6_forward_check.sysctl_value }}
+      
+      Exit Node mode: ✅ Ready
+      Subnet Router mode: ✅ Ready
+  tags: ["tailscale", "verify"]

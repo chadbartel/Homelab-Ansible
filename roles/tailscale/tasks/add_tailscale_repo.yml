@@ -1,0 +1,40 @@
+---
+# Add official Tailscale repository and GPG key to Ubuntu
+
+- name: Add Tailscale GPG key from official source
+  ansible.builtin.shell: |
+    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/focal.noarmor.gpg | \
+      sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg > /dev/null
+  args:
+    creates: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    warn: false
+  tags: ["tailscale", "repo"]
+
+- name: Add Tailscale repository for Ubuntu
+  ansible.builtin.shell: |
+    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_lsb.codename }}.tailscale-keyring.list | \
+      sudo tee /etc/apt/sources.list.d/tailscale.list > /dev/null
+  args:
+    creates: /etc/apt/sources.list.d/tailscale.list
+    warn: false
+  tags: ["tailscale", "repo"]
+
+- name: Verify Tailscale repository file was created
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/tailscale.list
+  register: tailscale_repo
+  tags: ["tailscale", "repo"]
+
+- name: Update APT cache after adding Tailscale repository
+  ansible.builtin.apt:
+    update_cache: true
+  tags: ["tailscale", "repo"]
+
+- name: Display repository setup status
+  ansible.builtin.debug:
+    msg: |
+      ✅ Tailscale official repository added
+      GPG key: /usr/share/keyrings/tailscale-archive-keyring.gpg
+      Repository list: /etc/apt/sources.list.d/tailscale.list
+      Ubuntu version: {{ ansible_lsb.codename }}
+  tags: ["tailscale", "repo"]

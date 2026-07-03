@@ -82,6 +82,14 @@
           NVIDIA Toolkit: Installed (if GPU present)
       tags: ["bootstrap", "docker"]
 
+    - name: Install and configure native Tailscale (exit node + subnet router)
+      ansible.builtin.include_role:
+        name: tailscale
+      vars:
+        tailscale_advertise_routes: "192.168.1.0/24"
+        tailscale_advertise_exit_node: true
+      tags: ["bootstrap", "tailscale"]
+
     - name: Prepare SSD media drives (mount locally via UUID)
       ansible.builtin.include_tasks: tasks/ssd_media_drive.yml
       loop: "{{ ssd_media_drives | default([]) }}"

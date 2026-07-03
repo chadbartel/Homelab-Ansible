@@ -1,0 +1,88 @@
+---
+# Example Tailscale Role Usage in main.yml
+
+# This example shows how the Tailscale role is integrated into the bootstrap phase:
+
+- name: Bootstrap monolith host (phase 1/2 - no container startup)
+  hosts: monolith
+  gather_facts: false
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  tasks:
+    # ... initial setup, Docker installation, etc. ...
+
+    - name: Install and configure native Tailscale (exit node + subnet router)
+      ansible.builtin.include_role:
+        name: tailscale
+      vars:
+        tailscale_advertise_routes: "192.168.1.0/24"
+        tailscale_advertise_exit_node: true
+      tags: ["bootstrap", "tailscale"]
+
+    # ... storage setup, service preparation, etc. ...
+
+# =============================================================================
+# Examples of Role Invocation Variants
+# =============================================================================
+
+# EXAMPLE 1: Exit Node Only (no subnet router)
+---
+- name: Install Tailscale as exit node only
+  ansible.builtin.include_role:
+    name: tailscale
+  vars:
+    tailscale_advertise_routes: ""
+    tailscale_advertise_exit_node: true
+  tags: ["bootstrap", "tailscale"]
+
+# EXAMPLE 2: Subnet Router with Multiple Routes
+---
+- name: Install Tailscale with multiple advertised routes
+  ansible.builtin.include_role:
+    name: tailscale
+  vars:
+    tailscale_advertise_routes: "192.168.1.0/24,10.0.0.0/8,10.1.0.0/16"
+    tailscale_advertise_exit_node: true
+  tags: ["bootstrap", "tailscale"]
+
+# EXAMPLE 3: Enable Tailscale SSH (experimental)
+---
+- name: Install Tailscale with SSH enabled
+  ansible.builtin.include_role:
+    name: tailscale
+  vars:
+    tailscale_advertise_routes: "192.168.1.0/24"
+    tailscale_advertise_exit_node: true
+    tailscale_additional_flags: "--ssh"
+  tags: ["bootstrap", "tailscale"]
+
+# EXAMPLE 4: Re-run role with different settings (ad-hoc)
+# Usage: ansible-playbook main.yml --tags tailscale \
+#        -e tailscale_advertise_routes="192.168.1.0/24,10.0.0.0/8" \
+#        -e tailscale_advertise_exit_node=true
+
+# =============================================================================
+# Role Variables You Can Override
+# =============================================================================
+
+# From command line:
+# ansible-playbook main.yml --tags bootstrap \
+#   -e tailscale_advertise_routes="192.168.1.0/24" \
+#   -e tailscale_advertise_exit_node=true \
+#   -e tailscale_additional_flags="--ssh"
+
+# From group_vars/monolith.yml (recommended):
+tailscale_advertise_routes: "192.168.1.0/24"
+tailscale_advertise_exit_node: true
+tailscale_additional_flags: ""
+verify_ip_forwarding: true
+
+# =============================================================================
+# Required Vault Variables
+# =============================================================================
+
+# In vault.yml (encrypted):
+vault_tailscale_auth_key: "tskey-XXXXX..."   # Ephemeral auth key
+vault_tailscale_api_key: "tsk_XXXXX..."      # Optional API key

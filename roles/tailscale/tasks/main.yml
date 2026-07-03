@@ -1,0 +1,67 @@
+---
+# Main Tailscale role: Install, configure, and authenticate Tailscale natively on the host
+# 
+# This role handles the complete lifecycle of Tailscale:
+# 1. Clean up any legacy Docker-based implementations
+# 2. Install prerequisites and add official repository
+# 3. Install the Tailscale package
+# 4. Start and enable the tailscaled service
+# 5. Authenticate with vault-provided auth key
+# 6. Verify IP forwarding for exit node and subnet router modes
+
+- name: Display Tailscale native installation starting
+  ansible.builtin.debug:
+    msg: |
+      🚀 Starting Tailscale Native Host Installation
+      
+      Configuration:
+      - Routes to advertise: {{ tailscale_advertise_routes }}
+      - Exit Node mode: {{ tailscale_advertise_exit_node }}
+      - IP Forwarding: Required for exit node/subnet router
+      - Vault auth key: {{ 'Configured' if vault_tailscale_auth_key else 'MISSING' }}
+  tags: ["tailscale"]
+
+- name: Include cleanup tasks
+  ansible.builtin.include_tasks: cleanup_docker_tailscale.yml
+  tags: ["tailscale", "cleanup"]
+
+- name: Include prerequisite installation
+  ansible.builtin.include_tasks: install_prerequisites.yml
+  tags: ["tailscale", "setup"]
+
+- name: Include repository setup
+  ansible.builtin.include_tasks: add_tailscale_repo.yml
+  tags: ["tailscale", "setup"]
+
+- name: Include package installation
+  ansible.builtin.include_tasks: install_tailscale.yml
+  tags: ["tailscale", "setup"]
+
+- name: Include service startup
+  ansible.builtin.include_tasks: start_service.yml
+  tags: ["tailscale", "setup"]
+
+- name: Include authentication
+  ansible.builtin.include_tasks: authenticate.yml
+  tags: ["tailscale", "auth"]
+
+- name: Include IP forwarding verification
+  ansible.builtin.include_tasks: verify_ip_forwarding.yml
+  when: verify_ip_forwarding | default(true)
+  tags: ["tailscale", "verify"]
+
+- name: Display Tailscale installation complete
+  ansible.builtin.debug:
+    msg: |
+      ✅ Tailscale Installation Complete!
+      
+      You can now use Tailscale to:
+      1. Connect securely to your home from anywhere
+      2. Route all traffic through your home internet (exit node mode)
+      3. Access internal services like Jellyfin from the Tailscale network
+      
+      Quick test:
+      - On your phone/laptop: tailscale ip  (shows your assigned Tailscale IP)
+      - Verify exit node: tailscale status
+      - Access Jellyfin: ping jellyfin.{{ inventory_hostname }} from your Tailscale device
+  tags: ["tailscale"]

@@ -1,0 +1,92 @@
+---
+# Idempotent Tailscale authentication using vault-provided auth key
+# Checks current status before attempting authentication
+
+- name: Check current Tailscale authentication status
+  ansible.builtin.command:
+    cmd: "{{ tailscale_cli_path }} status --json"
+  register: tailscale_status
+  changed_when: false
+  failed_when: false
+  tags: ["tailscale", "auth"]
+
+- name: Parse Tailscale status
+  ansible.builtin.set_fact:
+    tailscale_status_obj: "{{ tailscale_status.stdout | from_json }}"
+    cacheable: false
+  when:
+    - tailscale_status.stdout | length > 0
+    - tailscale_status.rc == 0
+  tags: ["tailscale", "auth"]
+
+- name: Determine authentication requirement
+  ansible.builtin.set_fact:
+    tailscale_needs_auth: "{{ tailscale_status_obj.BackendState | default('NeedsLogin') != 'Running' }}"
+    cacheable: false
+  when:
+    - tailscale_status_obj is defined
+  tags: ["tailscale", "auth"]
+
+- name: Fallback authentication check (when JSON parsing fails)
+  ansible.builtin.command:
+    cmd: "{{ tailscale_cli_path }} status"
+  register: tailscale_status_text
+  changed_when: false
+  when:
+    - tailscale_status_obj is not defined
+  tags: ["tailscale", "auth"]
+
+- name: Set authentication requirement from text output
+  ansible.builtin.set_fact:
+    tailscale_needs_auth: "{{ 'NeedsLogin' in tailscale_status_text.stdout or tailscale_status_text.rc != 0 }}"
+    cacheable: false
+  when:
+    - tailscale_status_obj is not defined
+  tags: ["tailscale", "auth"]
+
+- name: Authenticate Tailscale node with auth key (if needed)
+  ansible.builtin.command:
+    cmd: |
+      {{ tailscale_cli_path }} up \
+        --reset \
+        --auth-key={{ vault_tailscale_auth_key }} \
+        --advertise-routes={{ tailscale_advertise_routes }} \
+        --advertise-exit-node
+        {{ tailscale_additional_flags }}
+  register: tailscale_auth_result
+  changed_when: "'Success' in tailscale_auth_result.stdout or 'Logged in' in tailscale_auth_result.stdout"
+  when:
+    - tailscale_needs_auth | default(true)
+    - vault_tailscale_auth_key is defined
+    - vault_tailscale_auth_key | length > 0
+  tags: ["tailscale", "auth"]
+
+- name: Wait for Tailscale to establish connection
+  ansible.builtin.pause:
+    seconds: 5
+  when:
+    - tailscale_needs_auth | default(false)
+  tags: ["tailscale", "auth"]
+
+- name: Verify Tailscale authentication status
+  ansible.builtin.command:
+    cmd: "{{ tailscale_cli_path }} status"
+  register: tailscale_final_status
+  changed_when: false
+  tags: ["tailscale", "auth"]
+
+- name: Display Tailscale authentication status
+  ansible.builtin.debug:
+    msg: |
+      ✅ Tailscale authentication complete
+      Status:
+      {{ tailscale_final_status.stdout }}
+      
+      Exit Node: {{ '--advertise-exit-node' }}
+      Advertised Routes: {{ tailscale_advertise_routes }}
+      
+      Connection established. You can now:
+      - Connect remotely via Tailscale to access home services
+      - Route your phone/laptop traffic through your home connection (exit node)
+      - Access Docker services from anywhere (subnet router)
+  tags: ["tailscale", "auth"]

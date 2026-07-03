@@ -1,0 +1,31 @@
+---
+# Install prerequisites required for Tailscale repository configuration
+
+- name: Update APT cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  tags: ["tailscale", "packages"]
+
+- name: Install prerequisite packages for Tailscale repo setup
+  ansible.builtin.apt:
+    name:
+      - curl
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - lsb-release
+    state: present
+  tags: ["tailscale", "packages"]
+
+- name: Verify curl installation
+  ansible.builtin.command:
+    cmd: which curl
+  register: curl_check
+  changed_when: false
+  tags: ["tailscale", "packages"]
+
+- name: Display prerequisites status
+  ansible.builtin.debug:
+    msg: "✅ Prerequisite packages installed (curl, apt-transport-https, ca-certificates, gnupg)"
+  tags: ["tailscale", "packages"]

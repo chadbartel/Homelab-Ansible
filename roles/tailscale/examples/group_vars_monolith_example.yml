@@ -1,0 +1,86 @@
+---
+# Example Tailscale Configuration for group_vars/monolith.yml
+# Uncomment and customize as needed
+
+# =============================================================================
+# Tailscale Configuration
+# =============================================================================
+
+# Advertised routes for subnet router mode (access Docker services remotely)
+tailscale_advertise_routes: "192.168.1.0/24"
+
+# Enable exit node mode (route external traffic through home)
+tailscale_advertise_exit_node: true
+
+# Additional Tailscale flags for advanced use cases
+# Examples: --ssh (enable Tailscale SSH), --shields-up (block all incoming)
+tailscale_additional_flags: ""
+
+# Verify IP forwarding is enabled (essential for exit node/subnet router)
+verify_ip_forwarding: true
+
+# Service management settings
+tailscale_service_name: "tailscaled"
+tailscale_service_enabled: true
+tailscale_service_state: "started"
+
+# =============================================================================
+# Advanced Configuration Examples
+# =============================================================================
+
+# Example 1: Exit Node Only (no subnet router)
+# tailscale_advertise_routes: ""
+# tailscale_advertise_exit_node: true
+# tailscale_additional_flags: ""
+
+# Example 2: Subnet Router with SSH Enabled
+# tailscale_advertise_routes: "192.168.1.0/24"
+# tailscale_advertise_exit_node: false
+# tailscale_additional_flags: "--ssh"
+
+# Example 3: Multiple Advertised Routes
+# tailscale_advertise_routes: "192.168.1.0/24,10.0.0.0/8"
+# tailscale_advertise_exit_node: true
+
+# Example 4: Lock Down with Shields Up
+# tailscale_additional_flags: "--shields-up"
+
+# =============================================================================
+# IP Forwarding (Already handled by tasks/initial_setup.yml)
+# =============================================================================
+
+# IPv4 forwarding is REQUIRED for exit node and subnet router modes
+# Already configured in tasks/initial_setup.yml:
+#   enable_ipv4_forwarding: true
+
+# IPv6 forwarding is optional (only needed for IPv6 subnet router mode)
+# Already configured in tasks/initial_setup.yml:
+#   enable_ipv6_forwarding: false  # Set to true for IPv6 subnet routing
+
+# =============================================================================
+# Notes
+# =============================================================================
+
+# 1. Vault Requirements:
+#    - vault_tailscale_auth_key: Required (ephemeral auth key from Tailscale console)
+#    - vault_tailscale_api_key: Optional (for Tailscale API operations)
+#
+# 2. Auth Key Generation:
+#    - Log in to https://login.tailscale.com
+#    - Go to Settings > Keys
+#    - Create auth key with 1-hour expiration
+#    - Copy into vault.yml (encrypted)
+#
+# 3. After Role Execution:
+#    - Run: sudo tailscale status
+#    - Check advertised routes and exit node status
+#    - Connect remote device to test connectivity
+#
+# 4. DNS Integration:
+#    - Add Tailscale IPs to Pi-hole custom.list for local resolution
+#    - Docker services become accessible via container names on Tailscale network
+#
+# 5. Idempotency:
+#    - Role checks BackendState before authenticating
+#    - Safe to re-run without side effects
+#    - Changes only made if configuration differs

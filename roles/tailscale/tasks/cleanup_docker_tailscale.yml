@@ -1,0 +1,46 @@
+---
+# Cleanup: Remove any legacy Docker-based Tailscale containers
+# This ensures a clean slate before native installation
+
+- name: Check for running Tailscale Docker containers
+  ansible.builtin.command:
+    cmd: docker ps -a --filter "name=tailscale" --format "{{ '{{json .}}' }}"
+  register: tailscale_containers
+  changed_when: false
+  failed_when: false
+
+- name: Stop and remove old Tailscale Docker container (if present)
+  ansible.builtin.command:
+    cmd: docker compose down
+  args:
+    chdir: "{{ item }}"
+  loop:
+    - "/opt/tailscale"
+  when:
+    - tailscale_containers.stdout | length > 0
+    - item is directory
+  ignore_errors: true
+  tags: ["cleanup", "tailscale"]
+
+- name: Remove Tailscale Docker container by name
+  community.docker.docker_container:
+    name: "tailscale"
+    state: absent
+    force_kill: true
+  when:
+    - tailscale_containers.stdout | length > 0
+  ignore_errors: true
+  tags: ["cleanup", "tailscale"]
+
+- name: Remove legacy Tailscale Docker volumes
+  ansible.builtin.command:
+    cmd: docker volume rm tailscale-state tailscale_tailscale-state
+  register: volume_remove
+  changed_when: "'removed' in volume_remove.stdout"
+  failed_when: false
+  tags: ["cleanup", "tailscale"]
+
+- name: Display Docker cleanup status
+  ansible.builtin.debug:
+    msg: "✅ Legacy Docker-based Tailscale containers cleaned up (if any existed)"
+  tags: ["cleanup", "tailscale"]

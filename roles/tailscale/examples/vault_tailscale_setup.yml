@@ -1,0 +1,165 @@
+---
+# Vault Configuration for Tailscale
+
+# =============================================================================
+# Tailscale Vault Variables
+# =============================================================================
+
+# Required: Ephemeral authentication key (from Tailscale admin console)
+# This is a one-time or short-lived key used to authenticate the node
+vault_tailscale_auth_key: "tskey-auth-XXXXXXXXXXXXX"
+
+# Optional: Tailscale API key (for programmatic access to admin console)
+# Useful for future API-based operations or nodemanagement
+vault_tailscale_api_key: "tsk_api-XXXXXXXXXXXXX"
+
+# =============================================================================
+# How to Generate Auth Key
+# =============================================================================
+
+# 1. Log in to Tailscale Admin Console
+#    URL: https://login.tailscale.com
+#
+# 2. Navigate to Settings > Keys
+#    URL: https://login.tailscale.com/admin/settings/keys
+#
+# 3. Click "Create auth key"
+#
+# 4. Configuration for Ansible automation:
+#    - Expiration: 1 hour (ephemeral, good for automation)
+#                  or longer if you prefer reusable
+#    - Reusable: No (creates new auth chain each run - safer)
+#               Yes (allows multiple nodes with same key)
+#    - Preapproved: Yes (node appears in Tailnet immediately)
+#    - Tags: Leave empty or use 'tag:homelab' for organization
+#
+# 5. Click "Create" and copy the key
+#
+# 6. Add to vault.yml:
+#    Edit with: ansible-vault edit vault.yml
+#    Paste under: vault_tailscale_auth_key: "tskey-..."
+#
+# =============================================================================
+# How to Generate API Key (Optional)
+# =============================================================================
+
+# 1. Log in to Tailscale Admin Console
+#
+# 2. Navigate to Settings > Keys
+#
+# 3. Scroll down to "API access tokens"
+#
+# 4. Click "Create API key"
+#
+# 5. Select scope: "Devices & Auth"
+#    Expiration: 90 days (typical)
+#
+# 6. Copy the token and add to vault.yml under vault_tailscale_api_key
+#
+# This is used for advanced operations like:
+# - Listing/managing devices
+# - Updating device settings
+# - Generating more auth keys programmatically
+
+# =============================================================================
+# Vault File Structure (Full Example)
+# =============================================================================
+
+# Your vault.yml should look like this (decrypted view):
+
+vault_admin_username: "admin"
+vault_admin_password: "strong-password"
+vault_portainer_admin_password: "strong-password"
+vault_npm_admin_password: "strong-password"
+vault_pihole_admin_password: "strong-password"
+vault_openvpn_admin_password: "strong-password"
+vault_openvpn_user1_password: "password"
+vault_openvpn_user2_password: "password"
+vault_openvpn_user1_username: "user1"
+vault_openvpn_user2_username: "user2"
+vault_heimdall_admin_password: "strong-password"
+vault_openvpn_activation_key: "activation-key"
+vault_admin_ssh_key_public: "ssh-rsa AAAA..."
+vault_openvpn_hostname: "vpn.example.com"
+vault_portainer_agent_secret: "secret"
+vault_aws_access_key_id: "AKIA..."
+vault_aws_secret_access_key: "secret-key"
+vault_jellyfin_user1_password: "password"
+vault_duckdns_token: "token"
+vault_duckdns_domain: "domain.duckdns.org"
+vault_koffan_admin_password: "strong-password"
+
+# Tailscale-specific secrets
+vault_tailscale_auth_key: "tskey-auth-XXXXXXXXXXXXX"
+vault_tailscale_api_key: "tsk_api-XXXXXXXXXXXXX"
+
+# =============================================================================
+# Managing Vault Secrets
+# =============================================================================
+
+# Create vault.yml (if not exists):
+# $ ansible-vault create vault.yml
+# (prompts for vault password, opens editor)
+
+# Edit existing vault.yml:
+# $ ansible-vault edit vault.yml
+# (prompts for vault password, opens editor)
+
+# View vault.yml without editing:
+# $ ansible-vault view vault.yml
+
+# Re-encrypt after manual edit:
+# $ ansible-vault rekey vault.yml
+
+# Add .ansible-vault-password to .gitignore (DO NOT COMMIT)
+# $ echo ".ansible-vault-password" >> .gitignore
+
+# Run playbook with vault:
+# $ ansible-playbook main.yml --ask-vault-pass
+# or
+# $ ansible-playbook main.yml --vault-password-file ~/.ansible-vault-password
+
+# =============================================================================
+# Security Best Practices
+# =============================================================================
+
+# 1. Store vault password in ~/.ansible-vault-password (600 permissions)
+#    $ echo "your-vault-password" > ~/.ansible-vault-password
+#    $ chmod 600 ~/.ansible-vault-password
+#
+# 2. Never commit vault.yml unencrypted to git
+#    Check: $ git check-ignore vault.yml
+#
+# 3. Never commit .ansible-vault-password to git
+#
+# 4. Rotate auth keys periodically (every 90 days recommended)
+#
+# 5. Use separate auth keys for different environments if possible
+#
+# 6. Delete expired keys from Tailscale admin console
+#
+# 7. Review attached devices regularly (https://login.tailscale.com/admin/machines)
+#
+# =============================================================================
+# Testing Auth Key Validity
+# =============================================================================
+
+# Before running the playbook, verify the auth key:
+
+# 1. Decrypt vault to check key exists:
+#    $ ansible-vault view vault.yml | grep vault_tailscale_auth_key
+#
+# 2. After running playbook, verify on host:
+#    $ sudo tailscale status
+#    Should show "Connected" and your node in the peer list
+#
+# 3. Check Tailscale console:
+#    Visit https://login.tailscale.com/admin/machines
+#    Your "monolith" node should appear in ~30 seconds
+#
+# 4. If authentication fails:
+#    - Verify key hasn't expired (expires shown in admin console)
+#    - Check role logs: ansible-playbook main.yml --tags tailscale -v
+#    - View system logs: sudo journalctl -u tailscaled -n 50
+#
+# =============================================================================
