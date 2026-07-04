@@ -29,6 +29,10 @@
   ansible.builtin.include_tasks: tasks/post_setup_jellyfin.yml
   tags: ["post_setup", "jellyfin", "configure"]
 
+- name: Run post-setup tasks for Open WebUI
+  ansible.builtin.include_tasks: tasks/post_setup_open_webui.yml
+  tags: ["post_setup", "open_webui", "configure"]
+
 - name: Run post-setup cleanup tasks
   ansible.builtin.include_tasks: tasks/cleanup.yml
   tags: ["post_setup", "cleanup"]

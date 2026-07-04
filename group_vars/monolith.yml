@@ -65,6 +65,19 @@ proxy_hosts:
     port: 6767  # Internal Bazarr port
     scheme: "http"
 
+  # Ollama: use container name on homelab-bridge network
+  - domain: "{{ ollama_container_name }}.{{ local_domain }}"
+    host: "ollama"
+    port: 11434  # Internal Ollama API port
+    scheme: "http"
+
+  # Open WebUI: public domain chat.chadbartel.duckdns.org (with Internal Only access list)
+  - domain: "{{ open_webui_proxy_domain }}"
+    host: "open-webui"
+    port: 8080  # Internal Open WebUI port
+    scheme: "http"
+    access_list_id: "{{ open_webui_access_list_id | default(0) }}"  # Will be populated with "Internal Only" access list ID
+
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:
@@ -92,6 +105,14 @@ bootstrap_state_dirs:
     owner: "1000"
     group: "1000"
     mode: "0755"
+  - path: "/opt/ollama/data"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  - path: "/opt/open-webui/data"
+    owner: "root"
+    group: "root"
+    mode: "0755"
   - path: "/mnt/ssd_media"
     owner: "1000"
     group: "1000"
@@ -113,3 +134,8 @@ enable_ipv6_forwarding: false  # Set to true if running Tailscale subnet router 
 jellyfin_gpu_enabled: true  # NVIDIA driver installed and verified with Docker GPU access working
 jellyfin_gpu_device_count: 1
 jellyfin_gpu_capabilities: ["gpu", "video.utility"]
+
+# Ollama GPU configuration (NVIDIA RTX 2070 SUPER via Compose V2 device reservations)
+ollama_gpu_enabled: true  # NVIDIA driver installed and verified with Docker GPU access working
+ollama_gpu_device_count: 1
+ollama_gpu_capabilities: ["gpu"]

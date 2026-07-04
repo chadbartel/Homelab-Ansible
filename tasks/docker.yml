@@ -167,10 +167,38 @@
         path: /tmp/nvidia.asc
         state: absent
 
-    # NOTE: NVIDIA Container Toolkit installation deferred to post-bootstrap.
-    # Bootstrap prioritizes getting Docker Engine running. GPU support can be
-    # verified and installed separately after system is operational.
-    # See: GPU verification step in MONOLITH_MIGRATION.md
+    - name: Add NVIDIA Container Toolkit APT repository
+      ansible.builtin.apt_repository:
+        repo: |
+          deb [signed-by=/etc/apt/keyrings/nvidia-container-toolkit.gpg]
+          https://nvidia.github.io/libnvidia-container/stable/deb/$(ARCH) /
+        state: present
+        filename: nvidia-container-toolkit
+        update_cache: true
+
+    - name: Install NVIDIA Container Toolkit package
+      ansible.builtin.apt:
+        name:
+          - nvidia-container-toolkit
+          - nvidia-container-runtime
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Configure Docker daemon for NVIDIA runtime
+      ansible.builtin.copy:
+        content: |
+          {
+            "runtimes": {
+              "nvidia": {
+                "path": "nvidia-container-runtime",
+                "runtimeArgs": []
+              }
+            }
+          }
+        dest: /etc/docker/daemon.json
+        mode: '0644'
+      register: docker_daemon_config
 
     - name: Restart Docker daemon to apply NVIDIA runtime configuration
       ansible.builtin.systemd:
@@ -188,13 +216,20 @@
       register: nvidia_docker_test
       failed_when: false
       changed_when: false
+      retries: 3
+      delay: 5
+
+    - name: Get NVIDIA Container Toolkit version
+      ansible.builtin.command: nvidia-container-toolkit --version
+      register: nvidia_toolkit_version
+      changed_when: false
 
     - name: Display NVIDIA GPU info
       ansible.builtin.debug:
         msg: |
-          ✅ NVIDIA Container Toolkit installed
+          ✅ NVIDIA Container Toolkit installed and configured
           Version: {{ nvidia_toolkit_version.stdout }}
-      when: nvidia_toolkit_version is succeeded
+          GPU verification: {{ 'Passed' if nvidia_docker_test.rc == 0 else 'Not yet available (will work after reboot)' }}
 
 # Phase 5: Docker service management (conditional based on need)
 - name: Start Docker service (only if needed)
