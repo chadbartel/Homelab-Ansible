@@ -2,6 +2,7 @@
 
 services:
   jellyfin:
+    container_name: {{ jellyfin_container_name }}
     hostname: {{ jellyfin_container_name }}
     image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
     user: "1000:1000"

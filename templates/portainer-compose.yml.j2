@@ -3,6 +3,7 @@ version: "3.8"
 
 services:
   portainer:
+    container_name: {{ portainer_container_name }}
     image: portainer/portainer-ce:lts
     hostname: {{ portainer_container_name }}
     ports:

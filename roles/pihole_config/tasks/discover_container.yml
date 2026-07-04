@@ -2,8 +2,8 @@
 # Pi-hole container discovery task (standalone Docker)
 #
 # Locates the Pi-hole container running on the target node using docker ps.
-# Container name is derived from the Compose project+service naming convention:
-#   pihole-stack_pihole  ->  pihole-stack-pihole-1
+# Container name is explicit and defined in the Compose template:
+#   container_name: pihole
 #
 # Sets the following fact:
 #   - pihole_container_id: Docker container ID (short 12-char format)
@@ -11,7 +11,7 @@
 - name: Get Pi-hole container ID from target node
   ansible.builtin.shell: |
     docker ps \
-      --filter "name={{ pihole_config_service_name | replace('_', '-') }}" \
+      --filter "name=^{{ pihole_container_name }}$" \
       --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
   register: pihole_container_id_result
   changed_when: false

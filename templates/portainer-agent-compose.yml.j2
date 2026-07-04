@@ -3,6 +3,7 @@ version: "3.8"
 
 services:
   portainer-agent:
+    container_name: portainer-agent
     image: portainer/agent:lts
     ports:
       - "9001:9001"

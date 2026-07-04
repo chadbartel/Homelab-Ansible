@@ -1,0 +1,56 @@
+---
+services:
+  bazarr:
+    container_name: {{ bazarr_container_name }}
+    hostname: {{ bazarr_container_name }}
+    image: {{ bazarr_image | default('lscr.io/linuxserver/bazarr:latest') }}
+    ports:
+      - "{{ bazarr_host_port }}:6767"
+    networks:
+      - homelab-bridge
+    dns:
+      - {{ monolith_ip }}
+      - 1.1.1.1
+      - 8.8.8.8
+    dns_search:
+      - local
+    volumes:
+      - bazarr_config:/config
+      - type: bind
+        source: /mnt/ssd_media
+        target: /media
+        read_only: false
+{% for storage_mount in shared_storage_mounts | default([]) %}
+      - type: bind
+        source: {{ storage_mount.source }}
+        target: {{ storage_mount.target }}
+        read_only: {{ 'true' if storage_mount.read_only | default(false) else 'false' }}
+{% endfor %}
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ={{ timezone | default('America/Los_Angeles') }}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        order: start-first
+        failure_action: rollback
+
+networks:
+  homelab-bridge:
+    name: homelab-bridge
+    external: true
+
+volumes:
+  bazarr_config:
+    driver: local

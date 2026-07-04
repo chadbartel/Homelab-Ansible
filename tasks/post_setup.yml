@@ -10,6 +10,7 @@
       - Pi-hole: http://{{ ansible_host }}:{{ pihole_host_port }}/admin
       - NPM: http://{{ ansible_host }}:{{ proxy_host_port }}
       - Jellyfin: http://{{ jellyfin_container_name }}.{{ local_domain }} (via NPM)
+      - Bazarr: http://{{ bazarr_container_name }}.{{ local_domain }} (via NPM)
       
       Next steps:
       1. Configure services through their web interfaces

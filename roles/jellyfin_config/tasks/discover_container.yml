@@ -2,8 +2,8 @@
 # Jellyfin container discovery task (standalone Docker)
 #
 # Locates the Jellyfin container running on the target node using docker ps.
-# Container name is derived from the Compose project+service naming convention:
-#   jellyfin-stack_jellyfin  ->  jellyfin-stack-jellyfin-1
+# Container name is explicit and defined in the Compose template:
+#   container_name: jellyfin
 #
 # Sets the following fact:
 #   - jellyfin_container_id: Docker container ID (short 12-char format)
@@ -11,7 +11,7 @@
 - name: Get Jellyfin container ID from target node
   ansible.builtin.shell: |
     docker ps \
-      --filter "name={{ jellyfin_config_service_name | replace('_', '-') }}" \
+      --filter "name=^{{ jellyfin_container_name }}$" \
       --format '{% raw %}{{.ID}}{% endraw %}' | head -n 1
   register: jellyfin_container_id_result
   changed_when: false
