@@ -1,0 +1,277 @@
+---
+# Example playbook demonstrating docker_swarm_container_exec module usage
+#
+# This playbook shows various patterns for executing commands in Docker containers
+# with proper idempotency, error handling, and best practices.
+
+- name: Docker Swarm Container Exec Examples
+  hosts: localhost
+  gather_facts: false
+  vars:
+    example_container_id: "abc123def456"
+    example_service_name: "myapp-stack_myservice"
+
+  tasks:
+    # ========================================
+    # BASIC USAGE
+    # ========================================
+
+    - name: Example 1 - Simple command execution
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "echo 'Hello from container'"
+      register: simple_result
+
+    - name: Display simple result
+      ansible.builtin.debug:
+        msg: "Output: {{ simple_result.stdout }}"
+
+    # ========================================
+    # IDEMPOTENCY WITH CREATES
+    # ========================================
+
+    - name: Example 2 - One-time initialization (creates)
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: |
+          echo "$(date)" > /var/lib/myapp/.initialized
+          echo "Application initialized"
+        creates: "/var/lib/myapp/.initialized"
+      register: init_result
+
+    - name: Display initialization result
+      ansible.builtin.debug:
+        msg: |
+          {% if init_result.skipped | default(false) %}
+          Initialization skipped - marker file exists
+          {% else %}
+          Initialization completed: {{ init_result.stdout }}
+          {% endif %}
+
+    # ========================================
+    # IDEMPOTENCY WITH REMOVES
+    # ========================================
+
+    - name: Example 3 - Conditional execution (removes)
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "run-setup-wizard.sh"
+        removes: "/var/lib/myapp/.needs_setup"
+      register: setup_result
+
+    - name: Display setup result
+      ansible.builtin.debug:
+        msg: |
+          {% if setup_result.skipped | default(false) %}
+          Setup skipped - marker file missing (already set up)
+          {% else %}
+          Setup completed: {{ setup_result.stdout }}
+          {% endif %}
+
+    # ========================================
+    # WORKING DIRECTORY
+    # ========================================
+
+    - name: Example 4 - Execute in specific directory
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "./migrate-database.sh"
+        chdir: "/app/scripts"
+      register: migrate_result
+
+    # ========================================
+    # RUN AS SPECIFIC USER
+    # ========================================
+
+    - name: Example 5 - Run command as specific user
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "id && whoami"
+        user: "nginx"
+      register: user_result
+
+    - name: Display user info
+      ansible.builtin.debug:
+        msg: "Running as: {{ user_result.stdout }}"
+
+    # ========================================
+    # ENVIRONMENT VARIABLES
+    # ========================================
+
+    - name: Example 6 - Command with environment variables
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "printenv | grep -E '(DEBUG|LOG_LEVEL)'"
+        environment:
+          DEBUG: "true"
+          LOG_LEVEL: "info"
+      register: env_result
+
+    - name: Display environment
+      ansible.builtin.debug:
+        msg: "Environment variables: {{ env_result.stdout_lines }}"
+
+    # ========================================
+    # LOOP EXECUTION
+    # ========================================
+
+    - name: Example 7 - Execute multiple commands in loop
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "config-set --key '{{ item.key }}' --value '{{ item.value }}'"
+      loop:
+        - key: "server.port"
+          value: "8080"
+        - key: "server.host"
+          value: "0.0.0.0"
+        - key: "server.debug"
+          value: "false"
+      loop_control:
+        label: "Setting {{ item.key }}"
+      register: config_results
+
+    # ========================================
+    # RETRIES AND UNTIL
+    # ========================================
+
+    - name: Example 8 - Wait for service to be ready
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "health-check.sh"
+      register: health_check
+      retries: 10
+      delay: 5
+      until: health_check.rc == 0
+      changed_when: false
+
+    # ========================================
+    # CUSTOM CHANGED DETECTION
+    # ========================================
+
+    - name: Example 9 - Custom changed_when condition
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "update-cache.sh"
+      register: cache_update
+      changed_when: "'Cache updated' in cache_update.stdout"
+
+    # ========================================
+    # SENSITIVE COMMANDS (NO LOG)
+    # ========================================
+
+    - name: Example 10 - Set password (no logging)
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "set-admin-password '{{ vault_admin_password }}'"
+        creates: "/etc/myapp/.password_set"
+      no_log: true
+      register: password_set
+      vars:
+        vault_admin_password: "SuperSecretPassword123"
+
+    - name: Display password set status (safe)
+      ansible.builtin.debug:
+        msg: "Password set: {{ password_set.changed }}"
+
+    # ========================================
+    # ERROR HANDLING
+    # ========================================
+
+    - name: Example 11 - Command that might fail
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "risky-operation.sh"
+      register: risky_result
+      failed_when: false # Don't fail the playbook
+      changed_when: risky_result.rc == 0
+
+    - name: Handle failure
+      ansible.builtin.debug:
+        msg: |
+          {% if risky_result.rc == 0 %}
+          Operation succeeded
+          {% else %}
+          Operation failed: {{ risky_result.stderr }}
+          {% endif %}
+
+    # ========================================
+    # REAL-WORLD EXAMPLE: PI-HOLE
+    # ========================================
+
+    - name: Example 12 - Pi-hole gravity update
+      docker_swarm_container_exec:
+        container_id: "{{ pihole_container_id }}"
+        command: "pihole -g"
+      register: gravity_update
+      changed_when: "'Update complete' in gravity_update.stdout"
+      delegate_to: "{{ pihole_host }}"
+      when: pihole_container_id is defined
+      vars:
+        pihole_container_id: "pihole123"
+        pihole_host: "lenovo_server"
+
+    # ========================================
+    # REAL-WORLD EXAMPLE: OPENVPN
+    # ========================================
+
+    - name: Example 13 - OpenVPN configuration (idempotent)
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id }}"
+        command: "sacli --key 'host.name' --value 'vpn.example.com' ConfigPut"
+        creates: "/usr/local/openvpn_as/.hostname_configured"
+      register: openvpn_config
+      delegate_to: "{{ openvpn_host }}"
+      when: openvpn_container_id is defined
+      vars:
+        openvpn_container_id: "openvpn456"
+        openvpn_host: "pi4_01"
+
+    - name: Mark OpenVPN hostname as configured
+      docker_swarm_container_exec:
+        container_id: "{{ openvpn_container_id }}"
+        command: "touch /usr/local/openvpn_as/.hostname_configured"
+      when:
+        - openvpn_container_id is defined
+        - openvpn_config.changed
+      vars:
+        openvpn_container_id: "openvpn456"
+
+    # ========================================
+    # CHECK MODE EXAMPLE
+    # ========================================
+    - name: Example 14 - Check mode compatible task
+      docker_swarm_container_exec:
+        container_id: "{{ example_container_id }}"
+        command: "apply-configuration.sh"
+      check_mode: true
+      # In check mode, this will return changed=true but not execute
+
+    # ========================================
+    # FINAL SUMMARY
+    # ========================================
+
+    - name: Display examples summary
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║  docker_swarm_container_exec Module Examples Completed       ║
+          ╠═══════════════════════════════════════════════════════════════╣
+          ║  ✓ Basic command execution                                    ║
+          ║  ✓ Idempotency with creates/removes                           ║
+          ║  ✓ Working directory changes                                  ║
+          ║  ✓ User specification                                         ║
+          ║  ✓ Environment variables                                      ║
+          ║  ✓ Loop execution                                             ║
+          ║  ✓ Retries and until conditions                               ║
+          ║  ✓ Custom changed detection                                   ║
+          ║  ✓ Sensitive data handling                                    ║
+          ║  ✓ Error handling                                             ║
+          ║  ✓ Real-world Pi-hole example                                 ║
+          ║  ✓ Real-world OpenVPN example                                 ║
+          ║  ✓ Check mode support                                         ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+# USAGE:
+# Run examples in check mode: ansible-playbook examples.yml --check
+# Run actual examples: ansible-playbook examples.yml
+# Run with verbose output: ansible-playbook examples.yml -vvv
