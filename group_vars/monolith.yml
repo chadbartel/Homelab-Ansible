@@ -59,6 +59,12 @@ proxy_hosts:
     scheme: "http"
     block_exploits: false  # Jellyfin mobile app sends non-browser API requests that trigger exploit blocks
 
+  # Bazarr: use container name on homelab-bridge network
+  - domain: "{{ bazarr_container_name }}.{{ local_domain }}"
+    host: "bazarr"
+    port: 6767  # Internal Bazarr port
+    scheme: "http"
+
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:
@@ -79,6 +85,10 @@ bootstrap_state_dirs:
     group: "root"
     mode: "0755"
   - path: "/opt/jellyfin/config"
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+  - path: "/opt/bazarr/config"
     owner: "1000"
     group: "1000"
     mode: "0755"

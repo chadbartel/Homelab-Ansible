@@ -101,6 +101,13 @@ jellyfin_config_libraries:
       - "/media/television"
     refresh_on_create: true
 
+# Bazarr configuration (Subtitle management)
+bazarr_image: "lscr.io/linuxserver/bazarr:latest"
+bazarr_container_name: "bazarr"
+bazarr_host_port: 6767
+bazarr_memory_limit: "1GB"  # Container memory limit
+bazarr_external_url: "http://{{ bazarr_container_name }}.{{ local_domain }}"  # External URL via proxy
+
 # NGINX Proxy Manager Config Role Variables
 npm_image: "jc21/nginx-proxy-manager:2"
 npm_service_name: "npm-stack_npm"
@@ -132,6 +139,8 @@ pihole_config_custom_dns_entries:
     hostname: "{{ nginx_proxy_container_name }}.{{ local_domain }}"
   - ip: "{{ monolith_ip }}"
     hostname: "{{ jellyfin_container_name }}.{{ local_domain }}"
+  - ip: "{{ monolith_ip }}"
+    hostname: "{{ bazarr_container_name }}.{{ local_domain }}"
 
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:
@@ -167,6 +176,9 @@ portainer_stacks:
     target_host: monolith
   - name: jellyfin-stack
     compose_template: jellyfin-compose.yml.j2
+    target_host: monolith
+  - name: bazarr-stack
+    compose_template: bazarr-compose.yml.j2
     target_host: monolith
 
 # Media: Local mount at /mnt/ssd_media (via /etc/fstab UUID entries)

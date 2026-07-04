@@ -127,6 +127,18 @@
         - "/var/lib/docker/volumes/jellyfin-stack_jellyfin_cache/_data"
       tags: ["bootstrap", "jellyfin", "volumes"]
 
+    - name: Prepare Bazarr volume directories with correct ownership
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0755"
+        recurse: true
+      loop:
+        - "/var/lib/docker/volumes/bazarr-stack_bazarr_config/_data"
+      tags: ["bootstrap", "bazarr", "volumes"]
+
     - name: Disable systemd-resolved stub listener so Pi-hole can bind port 53
       ansible.builtin.include_tasks: tasks/disable_resolved_stub.yml
       tags: ["bootstrap", "pihole", "dns"]
@@ -184,6 +196,7 @@
           - Nginx Proxy Manager: https://proxy.{{ local_domain }}:{{ proxy_host_port }}
           - Pi-hole: http://pihole.{{ local_domain }}:{{ pihole_host_port }}/admin
           - Jellyfin: http://jellyfin.{{ local_domain }}:{{ jellyfin_host_port }}/
+          - Bazarr: http://bazarr.{{ local_domain }}:{{ bazarr_host_port }}/
           - Portainer: https://portainer.{{ local_domain }}:{{ portainer_host_port }}
           
           To verify:
