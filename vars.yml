@@ -108,6 +108,13 @@ bazarr_host_port: 6767
 bazarr_memory_limit: "1GB"  # Container memory limit
 bazarr_external_url: "http://{{ bazarr_container_name }}.{{ local_domain }}"  # External URL via proxy
 
+# Ollama configuration (Local LLM inference with GPU acceleration)
+ollama_image: "ollama/ollama:latest"
+ollama_container_name: "ollama"
+ollama_host_port: 11434  # Ollama API port
+ollama_data_path: "/opt/ollama/data"
+ollama_external_url: "http://{{ ollama_container_name }}.{{ local_domain }}"  # External URL via proxy
+
 # NGINX Proxy Manager Config Role Variables
 npm_image: "jc21/nginx-proxy-manager:2"
 npm_service_name: "npm-stack_npm"
@@ -179,6 +186,9 @@ portainer_stacks:
     target_host: monolith
   - name: bazarr-stack
     compose_template: bazarr-compose.yml.j2
+    target_host: monolith
+  - name: ollama-stack
+    compose_template: ollama-compose.yml.j2
     target_host: monolith
 
 # Media: Local mount at /mnt/ssd_media (via /etc/fstab UUID entries)
