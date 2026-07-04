@@ -2,6 +2,7 @@
 
 services:
   npm:
+    container_name: {{ nginx_proxy_container_name }}
     image: {{ npm_image }}
     hostname: {{ nginx_proxy_container_name }}
     ports:

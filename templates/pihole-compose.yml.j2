@@ -2,6 +2,7 @@
 
 services:
   pihole:
+    container_name: {{ pihole_container_name }}
     hostname: {{ pihole_container_name }}
     image: {{ pihole_image }}
     ports:

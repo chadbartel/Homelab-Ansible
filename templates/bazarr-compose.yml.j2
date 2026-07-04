@@ -1,6 +1,7 @@
 ---
 services:
   bazarr:
+    container_name: {{ bazarr_container_name }}
     hostname: {{ bazarr_container_name }}
     image: {{ bazarr_image | default('lscr.io/linuxserver/bazarr:latest') }}
     user: "1000:1000"
