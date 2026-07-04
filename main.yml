@@ -197,10 +197,13 @@
           - Pi-hole: http://pihole.{{ local_domain }}:{{ pihole_host_port }}/admin
           - Jellyfin: http://jellyfin.{{ local_domain }}:{{ jellyfin_host_port }}/
           - Bazarr: http://bazarr.{{ local_domain }}:{{ bazarr_host_port }}/
+          - Ollama: http://ollama.{{ local_domain }}/  (via NPM, port 11434)
+          - Open WebUI: http://open-webui.{{ local_domain }}/  (via NPM, GPU-accelerated AI frontend)
           - Portainer: https://portainer.{{ local_domain }}:{{ portainer_host_port }}
           
           To verify:
           - SSH to monolith and run: docker ps
           - Check each service is accessible at URLs above
           - Verify GPU acceleration in Jellyfin: Dashboard -> Playback -> Hardware Acceleration (if enabled)
+          - Verify Open WebUI can reach Ollama backend (check UI settings)
       tags: ["deploy"]

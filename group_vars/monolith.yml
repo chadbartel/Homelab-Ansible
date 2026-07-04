@@ -71,6 +71,13 @@ proxy_hosts:
     port: 11434  # Internal Ollama API port
     scheme: "http"
 
+  # Open WebUI: use container name on homelab-bridge network (with Internal Only access list)
+  - domain: "{{ open_webui_container_name }}.{{ local_domain }}"
+    host: "open-webui"
+    port: 8080  # Internal Open WebUI port
+    scheme: "http"
+    access_list_id: "{{ open_webui_access_list_id | default(0) }}"  # Will be populated with "Internal Only" access list ID
+
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:
@@ -99,6 +106,10 @@ bootstrap_state_dirs:
     group: "1000"
     mode: "0755"
   - path: "/opt/ollama/data"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  - path: "/opt/open-webui/data"
     owner: "root"
     group: "root"
     mode: "0755"

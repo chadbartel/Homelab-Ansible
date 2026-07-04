@@ -112,8 +112,17 @@ bazarr_external_url: "http://{{ bazarr_container_name }}.{{ local_domain }}"  # 
 ollama_image: "ollama/ollama:latest"
 ollama_container_name: "ollama"
 ollama_host_port: 11434  # Ollama API port
+ollama_internal_port: 11434  # Internal port used by containers on the bridge network
 ollama_data_path: "/opt/ollama/data"
 ollama_external_url: "http://{{ ollama_container_name }}.{{ local_domain }}"  # External URL via proxy
+
+# Open WebUI configuration (Frontend for Ollama LLM inference)
+open_webui_image: "ghcr.io/open-webui/open-webui:main"
+open_webui_container_name: "open-webui"
+open_webui_host_port: 8080  # Port exposed to host for direct access
+open_webui_data_path: "/opt/open-webui/data"
+open_webui_default_models: ""  # Leave empty; set after deployment via Open WebUI UI
+open_webui_external_url: "http://{{ open_webui_container_name }}.{{ local_domain }}"  # External URL via proxy
 
 # NGINX Proxy Manager Config Role Variables
 npm_image: "jc21/nginx-proxy-manager:2"
@@ -148,6 +157,8 @@ pihole_config_custom_dns_entries:
     hostname: "{{ jellyfin_container_name }}.{{ local_domain }}"
   - ip: "{{ monolith_ip }}"
     hostname: "{{ bazarr_container_name }}.{{ local_domain }}"
+  - ip: "{{ monolith_ip }}"
+    hostname: "{{ open_webui_container_name }}.{{ local_domain }}"
 
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:
@@ -189,6 +200,9 @@ portainer_stacks:
     target_host: monolith
   - name: ollama-stack
     compose_template: ollama-compose.yml.j2
+    target_host: monolith
+  - name: open-webui-stack
+    compose_template: open-webui-compose.yml.j2
     target_host: monolith
 
 # Media: Local mount at /mnt/ssd_media (via /etc/fstab UUID entries)
