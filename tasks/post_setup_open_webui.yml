@@ -4,21 +4,20 @@
 # 1. Fetching the "Internal Only" Access List ID from NPM API
 # 2. Updating the Open WebUI proxy host with the Internal Only access list for security
 # 
-# The Open WebUI is only accessible on the local Tailnet via the NPM proxy.
+# Note: The Open WebUI proxy host (chat.chadbartel.duckdns.org) is created by post_setup_npm.yml
+# using the proxy_hosts configuration from group_vars/monolith.yml
+# This task only updates it to apply the Access List after fetching its ID.
 
-- name: Display Open WebUI post-setup status
-  ansible.builtin.debug:
-    msg: |
-      🚀 Configuring Open WebUI with Internal Only Access Control...
-      
-      Service: {{ open_webui_container_name }}
-      Container Port: 8080
-      Proxy Domain: {{ open_webui_container_name }}.{{ local_domain }}
-      Access Control: Internal Only (Tailnet-restricted)
+- name: Wait for NPM service to be ready
+  ansible.builtin.include_role:
+    name: nginx_proxy_manager_config
+    tasks_from: wait_for_service
+  vars:
+    target_host: "{{ hostvars[npm_target_node]['ansible_host'] }}"
 
 - name: Authenticate with NPM API to fetch Access List ID
   ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:{{ proxy_host_port }}/api/tokens"
+    url: "http://{{ hostvars[npm_target_node]['ansible_host'] }}:{{ proxy_host_port }}/api/tokens"
     method: POST
     body_format: json
     body:
@@ -40,7 +39,7 @@
 
 - name: Fetch all Access Lists from NPM
   ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:{{ proxy_host_port }}/api/nginx/access-lists"
+    url: "http://{{ hostvars[npm_target_node]['ansible_host'] }}:{{ proxy_host_port }}/api/nginx/access-lists"
     method: GET
     headers:
       Authorization: "Bearer {{ npm_auth_token }}"
@@ -72,50 +71,81 @@
     msg: |
       ⚠️  WARNING: "Internal Only" Access List not found in NPM.
       
-      The Open WebUI proxy host will be created WITHOUT the access list.
+      The Open WebUI proxy host was created but WITHOUT the access list restriction.
       Manual remediation:
       1. Create an "Internal Only" Access List in NPM with your Tailnet IP range(s)
-      2. Apply it to the Open WebUI proxy host (chat.chadbartel.duckdns.org)
-      3. Re-run: ansible-playbook main.yml --tags post-setup --tags open-webui
+      2. Apply it to the Open WebUI proxy host ({{ open_webui_proxy_domain }})
+      3. Re-run: ansible-playbook main.yml --tags post-setup --tags open_webui
   when: internal_only_access_list_id is not defined
 
-- name: Configure Open WebUI reverse proxy with Internal Only access list
-  ansible.builtin.include_role:
-    name: nginx_proxy_manager_config
-    tasks_from: proxy_hosts
+- name: Get existing proxy hosts from NPM to find Open WebUI ID
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_target_node]['ansible_host'] }}:{{ proxy_host_port }}/api/nginx/proxy-hosts"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    return_content: yes
+    status_code: 200
+  register: existing_proxy_hosts
+  become: false
+
+- name: Extract Open WebUI proxy host ID
+  ansible.builtin.set_fact:
+    open_webui_proxy_host_id: "{{ (owui_hosts | first).id | int }}"
   vars:
-    npm_config_service_name: "{{ npm_service_name | default('npm-stack_npm') }}"
-    npm_config_target_node: "{{ npm_target_node | default('monolith') }}"
-    npm_config_web_port: "{{ proxy_host_port }}"
-    npm_config_admin_email: "{{ admin_email }}"
-    npm_config_admin_password: "{{ npm_admin_password }}"
-    npm_config_proxy_hosts:
-      - domain: "{{ open_webui_container_name }}.{{ local_domain }}"
-        forward_scheme: "http"
-        forward_host: "{{ open_webui_container_name }}"
-        forward_port: 8080
-        access_list_id: "{{ internal_only_access_list_id | default(0) }}"
-        block_exploits: true
-        websocket_upgrade: true
-        caching_enabled: false
+    owui_hosts: "{{ existing_proxy_hosts.json | selectattr('domain_names', 'contains', open_webui_proxy_domain) | list }}"
+  when:
+    - existing_proxy_hosts.json is defined
+    - (existing_proxy_hosts.json | selectattr('domain_names', 'contains', open_webui_proxy_domain) | list | length) > 0
+
+- name: Update Open WebUI proxy host with Internal Only Access List (if access list found)
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[npm_target_node]['ansible_host'] }}:{{ proxy_host_port }}/api/nginx/proxy-hosts/{{ open_webui_proxy_host_id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ npm_auth_token }}"
+    body_format: json
+    body:
+      domain_names:
+        - "{{ open_webui_proxy_domain }}"
+      forward_scheme: "http"
+      forward_host: "{{ open_webui_container_name }}"
+      forward_port: 8080
+      access_list_id: "{{ internal_only_access_list_id | int }}"
+      certificate_id: 2
+      ssl_forced: true
+      hsts_enabled: true
+      hsts_subdomains: false
+      http2_support: true
+      block_exploits: true
+      caching_enabled: false
+      allow_websocket_upgrade: true
+      enabled: true
+    status_code: [200, 204]
+  when:
+    - internal_only_access_list_id is defined
+    - open_webui_proxy_host_id is defined
+  become: false
+  register: open_webui_update_result
 
 - name: Display Open WebUI configuration completion
   ansible.builtin.debug:
     msg: |
-      ✅ Open WebUI configuration complete!
+      ✅ Open WebUI proxy configuration complete!
       
       🌐 Access Information:
-      Web Interface: http://{{ open_webui_container_name }}.{{ local_domain }}:{{ proxy_host_port }}/ (via NPM)
-      Direct Access: http://{{ ansible_host }}:{{ open_webui_host_port }}
+      Web Interface: https://{{ open_webui_proxy_domain }}/ (via NPM - HTTPS enforced)
+      Direct Access: http://{{ hostvars[npm_target_node]['ansible_host'] }}:{{ open_webui_host_port }}
       Ollama Backend: http://{{ ollama_container_name }}.{{ local_domain }}:11434
       
       🔐 Security:
-      - Access List: Internal Only (Tailnet-restricted)
+      - Access List: {% if internal_only_access_list_id is defined %}Internal Only (Tailnet-restricted){% else %}NOT APPLIED (see warning above){% endif %}
+      - SSL/TLS: HTTPS enforced (Let's Encrypt wildcard certificate)
       - Network: Isolated on homelab-bridge
       - Ollama Communication: Internal container networking
       
       📋 Next Steps:
-      1. Access Open WebUI at: http://{{ open_webui_container_name }}.{{ local_domain }}
+      1. Access Open WebUI at: https://{{ open_webui_proxy_domain }}/
       2. Verify Ollama connectivity in the UI settings
       3. Configure your default AI models
       4. Test a sample query to verify GPU acceleration

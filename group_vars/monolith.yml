@@ -71,8 +71,8 @@ proxy_hosts:
     port: 11434  # Internal Ollama API port
     scheme: "http"
 
-  # Open WebUI: use container name on homelab-bridge network (with Internal Only access list)
-  - domain: "{{ open_webui_container_name }}.{{ local_domain }}"
+  # Open WebUI: public domain chat.chadbartel.duckdns.org (with Internal Only access list)
+  - domain: "{{ open_webui_proxy_domain }}"
     host: "open-webui"
     port: 8080  # Internal Open WebUI port
     scheme: "http"
