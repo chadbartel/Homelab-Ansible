@@ -112,7 +112,7 @@ bazarr_external_url: "http://{{ bazarr_container_name }}.{{ local_domain }}"  # 
 npm_image: "jc21/nginx-proxy-manager:2"
 npm_service_name: "npm-stack_npm"
 npm_target_node: "monolith"
-npm_container_name: "npm-stack-npm-1"  # Docker Compose v2 name: project-service-instance
+npm_container_name: "{{ nginx_proxy_container_name }}"  # Explicit container name (resolves to 'proxy')
 
 # Pi-hole configuration
 pihole_image: "pihole/pihole:2026.04.1"
