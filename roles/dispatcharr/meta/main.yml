@@ -1,0 +1,16 @@
+---
+# Dispatcharr Role Metadata
+
+galaxy_info:
+  author: "Homelab Ansible"
+  description: "Deploy Dispatcharr (IPTV/VOD management) in modular Docker Compose with GPU acceleration"
+  company: "Homelab"
+  license: "MIT"
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - "22.04"
+        - "24.04"
+
+dependencies: []
