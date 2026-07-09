@@ -13,7 +13,7 @@ services:
     image: "{{ dispatcharr_postgres_image }}"
     container_name: "{{ dispatcharr_container_name_db }}"
     networks:
-      - npm_proxy_network
+      - homelab-bridge
     environment:
       POSTGRES_USER: "{{ dispatcharr_postgres_user }}"
       POSTGRES_PASSWORD: "{{ dispatcharr_postgres_password }}"
@@ -43,7 +43,7 @@ services:
     image: "{{ dispatcharr_redis_image }}"
     container_name: "{{ dispatcharr_container_name_redis }}"
     networks:
-      - npm_proxy_network
+      - homelab-bridge
     command: redis-server --appendonly yes
     volumes:
       - "{{ dispatcharr_redis_dir }}:/data"
@@ -65,13 +65,13 @@ services:
   # ============================================================================
   # Dispatcharr Web Service (Django + uWSGI + Nginx)
   # Flat LAN: binds directly to host port 9191 for local IoT access
-  # Also joined to npm_proxy_network for reverse proxy routing
+  # Also joined to homelab-bridge for reverse proxy routing
   # ============================================================================
   {{ dispatcharr_container_name_web }}:
     image: "{{ dispatcharr_image }}"
     container_name: "{{ dispatcharr_container_name_web }}"
     networks:
-      - npm_proxy_network
+      - homelab-bridge
     depends_on:
       {{ dispatcharr_container_name_db }}:
         condition: service_healthy
@@ -130,14 +130,14 @@ services:
 
   # ============================================================================
   # Celery Worker (background tasks, DVR recordings, transcoding)
-  # Joins npm_proxy_network for inter-service communication
+  # Joins homelab-bridge for inter-service communication
   # GPU passthrough for FFmpeg hardware acceleration in background jobs
   # ============================================================================
   {{ dispatcharr_container_name_celery }}:
     image: "{{ dispatcharr_image }}"
     container_name: "{{ dispatcharr_container_name_celery }}"
     networks:
-      - npm_proxy_network
+      - homelab-bridge
     depends_on:
       {{ dispatcharr_container_name_db }}:
         condition: service_healthy
@@ -195,9 +195,9 @@ services:
 # Networks
 # ============================================================================
 networks:
-  npm_proxy_network:
+  homelab-bridge:
     external: true
-    name: npm_proxy_network
+    name: homelab-bridge
 
 # ============================================================================
 # Volumes (persisted on host)

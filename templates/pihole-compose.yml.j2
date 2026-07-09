@@ -31,6 +31,7 @@ services:
         {{ monolith_ip }} {{ bazarr_container_name }}.{{ local_domain }}
         {{ monolith_ip }} {{ ollama_container_name }}.{{ local_domain }}
         {{ monolith_ip }} {{ open_webui_container_name }}.{{ local_domain }}
+        {{ monolith_ip }} {{ dispatcharr_container_name_web }}.{{ local_domain }}
       FTLCONF_dhcp_router: '{{ gateway_ip }}'
       FTLCONF_dns_domainNeeded: 'true'
     volumes:

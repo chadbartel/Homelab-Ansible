@@ -47,7 +47,7 @@ dispatcharr_enable_gpu: true
 dispatcharr_gpu_count: 1
 
 # NPM Reverse Proxy Network (must match your NPM bridge network name)
-dispatcharr_npm_network: "npm_proxy_network"
+dispatcharr_npm_network: "homelab-bridge"
 
 # Log level
 dispatcharr_log_level: "INFO"
