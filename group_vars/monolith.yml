@@ -146,3 +146,14 @@ jellyfin_gpu_capabilities: ["gpu", "video.utility"]
 ollama_gpu_enabled: true  # NVIDIA driver installed and verified with Docker GPU access working
 ollama_gpu_device_count: 1
 ollama_gpu_capabilities: ["gpu"]
+
+# ============================================================================
+# Dispatcharr Configuration
+# CRITICAL: These values MUST be set to deterministic values to maintain
+# database connectivity across playbook runs. Random generation causes
+# PostgreSQL password mismatches and 502 errors.
+# ============================================================================
+dispatcharr_postgres_password: "{{ vault_dispatcharr_postgres_password | default('dispatcharr_secure_db_password_2026') }}"
+dispatcharr_django_secret_key: "{{ vault_dispatcharr_django_secret_key | default('dispatcharr_django_secret_key_change_this_in_vault_12345') }}"
+dispatcharr_enable_gpu: true  # RTX 2070 SUPER passthrough enabled
+dispatcharr_celery_concurrency: 4
