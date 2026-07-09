@@ -78,6 +78,13 @@ proxy_hosts:
     scheme: "http"
     access_list_id: "{{ open_webui_access_list_id | default(0) }}"  # Will be populated with "Internal Only" access list ID
 
+  # Dispatcharr: IPTV/VOD platform on homelab-bridge network
+  - domain: "dispatcharr.chadbartel.duckdns.org"
+    host: "dispatcharr-web"
+    port: 9191  # Internal Dispatcharr port
+    scheme: "http"
+    block_exploits: true
+
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:
