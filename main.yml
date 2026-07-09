@@ -179,6 +179,11 @@
       ansible.builtin.include_tasks: tasks/portainer.yml
       tags: ["deploy", "portainer"]
 
+    - name: Deploy Dispatcharr (IPTV/VOD platform with GPU acceleration)
+      ansible.builtin.include_role:
+        name: dispatcharr
+      tags: ["deploy", "dispatcharr"]
+
     - name: Deploy Docker Compose stacks (NPM, Pi-hole, Jellyfin)
       ansible.builtin.include_tasks: tasks/deploy_stacks.yml
       tags: ["deploy", "stacks"]

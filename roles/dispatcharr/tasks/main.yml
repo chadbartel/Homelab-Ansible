@@ -1,0 +1,117 @@
+---
+# Dispatcharr Deployment Tasks (Modular Mode)
+# Single monolith host with docker bridge networking + flat LAN access
+
+- name: Ensure Dispatcharr data directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+  loop:
+    - "{{ dispatcharr_data_dir }}"
+    - "{{ dispatcharr_db_dir }}"
+    - "{{ dispatcharr_redis_dir }}"
+  tags:
+    - dispatcharr
+    - setup
+
+- name: Generate Dispatcharr Docker Compose file
+  ansible.builtin.template:
+    src: dispatcharr-compose.yml.j2
+    dest: "{{ dispatcharr_data_dir }}/docker-compose.yml"
+    mode: "0640"
+  register: dispatcharr_compose_updated
+  tags:
+    - dispatcharr
+    - compose
+
+- name: Deploy Dispatcharr stack (modular mode)
+  community.docker.docker_compose_v2:
+    project_name: dispatcharr
+    definition: "{{ lookup('template', 'dispatcharr-compose.yml.j2') | from_yaml }}"
+    state: present
+    pull: always
+  register: dispatcharr_compose_result
+  tags:
+    - dispatcharr
+    - deploy
+
+- name: Wait for Dispatcharr web service to be healthy
+  ansible.builtin.pause:
+    seconds: 15
+  when: dispatcharr_compose_result.changed
+  tags:
+    - dispatcharr
+    - deploy
+
+- name: Verify Dispatcharr web container is running
+  community.docker.docker_container_info:
+    name: "{{ dispatcharr_container_name_web }}"
+  register: dispatcharr_web_info
+  failed_when: dispatcharr_web_info.exists == false or dispatcharr_web_info.container.State.Running == false
+  tags:
+    - dispatcharr
+    - verify
+
+- name: Verify Dispatcharr PostgreSQL container is running
+  community.docker.docker_container_info:
+    name: "{{ dispatcharr_container_name_db }}"
+  register: dispatcharr_db_info
+  failed_when: dispatcharr_db_info.exists == false or dispatcharr_db_info.container.State.Running == false
+  tags:
+    - dispatcharr
+    - verify
+
+- name: Verify Dispatcharr Redis container is running
+  community.docker.docker_container_info:
+    name: "{{ dispatcharr_container_name_redis }}"
+  register: dispatcharr_redis_info
+  failed_when: dispatcharr_redis_info.exists == false or dispatcharr_redis_info.container.State.Running == false
+  tags:
+    - dispatcharr
+    - verify
+
+- name: Verify Dispatcharr Celery container is running
+  community.docker.docker_container_info:
+    name: "{{ dispatcharr_container_name_celery }}"
+  register: dispatcharr_celery_info
+  failed_when: dispatcharr_celery_info.exists == false or dispatcharr_celery_info.container.State.Running == false
+  tags:
+    - dispatcharr
+    - verify
+
+- name: Check Dispatcharr web service health (port availability)
+  ansible.builtin.wait_for:
+    host: "{{ dispatcharr_host }}"
+    port: "{{ dispatcharr_port }}"
+    delay: 5
+    timeout: 60
+  register: dispatcharr_port_check
+  failed_when: dispatcharr_port_check is failed
+  tags:
+    - dispatcharr
+    - verify
+
+- name: Create Dispatcharr initialization marker
+  ansible.builtin.file:
+    path: "{{ dispatcharr_state_marker }}"
+    state: touch
+    mode: "0644"
+  when: dispatcharr_compose_result.changed
+  tags:
+    - dispatcharr
+    - state
+
+- name: Display Dispatcharr deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Dispatcharr (Modular) deployed successfully"
+      - "   Web UI: http://{{ dispatcharr_host }}:{{ dispatcharr_port }}"
+      - "   NPM Route: Configure reverse proxy host → dispatcharr-web:{{ dispatcharr_port_internal }}"
+      - "   Data Dir: {{ dispatcharr_data_dir }}"
+      - "   PostgreSQL: {{ dispatcharr_container_name_db }}:{{ dispatcharr_postgres_port }}"
+      - "   Redis: {{ dispatcharr_container_name_redis }}:{{ dispatcharr_redis_port }}"
+      - "   Celery Workers: {{ dispatcharr_container_name_celery }} (queue: {{ dispatcharr_celery_queue_dvr }}, {{ dispatcharr_celery_queue_default }})"
+  tags:
+    - dispatcharr
+    - summary

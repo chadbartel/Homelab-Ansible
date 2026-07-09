@@ -1,0 +1,75 @@
+---
+# Dispatcharr Role Defaults
+# Modular deployment (separate containers for web, postgres, redis, celery)
+
+# Host configuration
+dispatcharr_host: "192.168.1.17"
+dispatcharr_port: 9191
+
+# Data persistence
+dispatcharr_data_dir: "/mnt/data/dispatcharr"
+dispatcharr_db_dir: "{{ dispatcharr_data_dir }}/db"
+dispatcharr_redis_dir: "{{ dispatcharr_data_dir }}/redis"
+
+# Docker image
+dispatcharr_image: "ghcr.io/dispatcharr/dispatcharr:latest"
+dispatcharr_postgres_image: "postgres:17"
+dispatcharr_redis_image: "redis:latest"
+
+# Container naming (explicit for operational clarity)
+dispatcharr_container_name_web: "dispatcharr-web"
+dispatcharr_container_name_db: "dispatcharr-db"
+dispatcharr_container_name_redis: "dispatcharr-redis"
+dispatcharr_container_name_celery: "dispatcharr-celery"
+
+# Database credentials (MUST override in group_vars/monolith.yml)
+dispatcharr_postgres_user: "dispatch"
+dispatcharr_postgres_password: "changeme_postgres_password_123"  # ⚠️ OVERRIDE IN GROUP_VARS
+dispatcharr_postgres_db: "dispatcharr"
+dispatcharr_postgres_port: 5432
+
+# Redis configuration
+dispatcharr_redis_port: 6379
+
+# Deployment mode
+dispatcharr_env: "modular"
+dispatcharr_port_internal: 9191
+
+# Django secret key (MUST override in group_vars/monolith.yml)
+dispatcharr_django_secret_key: "changeme_django_secret_key_12345678901234567890"  # ⚠️ OVERRIDE IN GROUP_VARS
+
+# PUID/PGID for container user (optional; used if defined)
+dispatcharr_puid: 1000
+dispatcharr_pgid: 1000
+
+# GPU configuration (RTX 2070 SUPER)
+dispatcharr_enable_gpu: true
+dispatcharr_gpu_count: 1
+
+# NPM Reverse Proxy Network (must match your NPM bridge network name)
+dispatcharr_npm_network: "homelab-bridge"
+
+# Log level
+dispatcharr_log_level: "INFO"
+
+# Restart policy
+dispatcharr_restart_policy: "unless-stopped"
+
+# Health check configuration
+dispatcharr_healthcheck_enabled: true
+dispatcharr_healthcheck_interval: 30
+dispatcharr_healthcheck_timeout: 10
+dispatcharr_healthcheck_retries: 3
+dispatcharr_healthcheck_start_period: 60
+
+# Celery configuration
+dispatcharr_celery_concurrency: 4
+dispatcharr_celery_queue_dvr: "dvr"
+dispatcharr_celery_queue_default: "celery"
+
+# Optional: External database hosts (if not using internal postgres/redis)
+# dispatcharr_external_postgres_host: null
+# dispatcharr_external_redis_host: null
+
+# Ansible idempotency: marker file to skip re-initialization
+dispatcharr_state_marker: "{{ dispatcharr_data_dir }}/.dispatcharr_initialized"

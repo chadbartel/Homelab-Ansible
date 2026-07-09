@@ -19,7 +19,6 @@ services:
     volumes:
       - jellyfin_config:/config
       - jellyfin_cache:/cache
-      - jellyfin_epg:/epg  # EPG data shared with updater service
       - type: bind
         source: /mnt/ssd_media
         target: /media
@@ -58,70 +57,6 @@ services:
         order: start-first
         failure_action: rollback
 
-  epg-updater:
-    image: {{ jellyfin_epg_image | default('alpine:3.23') }}
-    networks:
-      - homelab-bridge
-    volumes:
-      - jellyfin_epg:/epg
-{% for storage_mount in shared_storage_mounts | default([]) %}
-      - type: bind
-        source: {{ storage_mount.source }}
-        target: {{ storage_mount.target }}
-        read_only: {{ 'true' if storage_mount.read_only | default(false) else 'false' }}
-{% endfor %}
-    environment:
-      - TZ={{ timezone | default('America/Los_Angeles') }}
-    command:
-      - sh
-      - -c
-      - |
-        apk add --no-cache curl tzdata
-        
-        # Create update script
-        cat > /usr/local/bin/update-epg.sh << 'EOFSCRIPT'
-        #!/bin/sh
-        cd /epg || exit 1
-        echo "Starting EPG update at $$(date)" >> /epg/update.log
-        
-{% for epg_file in jellyfin_epg_files | default([]) %}
-        # Download {{ epg_file.filename }}
-        echo "[{{ loop.index }}/{{ jellyfin_epg_files | length }}] Downloading {{ epg_file.filename }}..."
-        if curl -fsSL "{{ epg_file.url }}" -o "{{ epg_file.filename }}"; then
-          if gunzip -f "{{ epg_file.filename }}"; then
-            echo "✓ {{ epg_file.filename }} updated successfully at $$(date)" >> /epg/update.log
-          else
-            echo "✗ Failed to extract {{ epg_file.filename }} at $$(date)" >> /epg/update.log
-          fi
-        else
-          echo "✗ Failed to download {{ epg_file.filename }} at $$(date)" >> /epg/update.log
-        fi
-        
-{% endfor %}
-        echo "EPG update completed at $$(date)" >> /epg/update.log
-        echo "---" >> /epg/update.log
-        EOFSCRIPT
-        
-        chmod +x /usr/local/bin/update-epg.sh
-        echo '{{ jellyfin_epg_schedule | default("0 1 * * *") }} /usr/local/bin/update-epg.sh' > /etc/crontabs/root
-        echo "EPG Updater started - scheduled for {{ jellyfin_epg_schedule | default('1:00 AM PST') }} daily"
-        echo "Initial download of {{ jellyfin_epg_files | default([]) | length }} EPG file(s) starting..."
-        /usr/local/bin/update-epg.sh
-        echo "Initial EPG download complete. Cron daemon starting..."
-        exec crond -f -l 2
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 16M
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 5
-        window: 120s
-
 networks:
   homelab-bridge:
     name: homelab-bridge
@@ -131,6 +66,4 @@ volumes:
   jellyfin_config:
     driver: local
   jellyfin_cache:
-    driver: local
-  jellyfin_epg:
     driver: local

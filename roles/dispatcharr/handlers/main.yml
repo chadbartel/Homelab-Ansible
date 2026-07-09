@@ -1,0 +1,16 @@
+---
+# Dispatcharr Role Handlers
+
+- name: Restart dispatcharr-web
+  community.docker.docker_container:
+    name: "{{ dispatcharr_container_name_web }}"
+    state: started
+    restart: true
+  listen: restart dispatcharr services
+
+- name: Restart dispatcharr-celery
+  community.docker.docker_container:
+    name: "{{ dispatcharr_container_name_celery }}"
+    state: started
+    restart: true
+  listen: restart dispatcharr services

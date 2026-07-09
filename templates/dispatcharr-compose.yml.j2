@@ -1,0 +1,205 @@
+---
+# Dispatcharr Modular Docker Compose Template
+# Single-host deployment with separate containers for web, postgres, redis, celery
+# Flat LAN architecture: web container binds directly to host port 9191
+
+version: "3.8"
+
+services:
+  # ============================================================================
+  # PostgreSQL Database (modular mode: external service)
+  # ============================================================================
+  {{ dispatcharr_container_name_db }}:
+    image: "{{ dispatcharr_postgres_image }}"
+    container_name: "{{ dispatcharr_container_name_db }}"
+    networks:
+      - homelab-bridge
+    environment:
+      POSTGRES_USER: "{{ dispatcharr_postgres_user }}"
+      POSTGRES_PASSWORD: "{{ dispatcharr_postgres_password }}"
+      POSTGRES_DB: "{{ dispatcharr_postgres_db }}"
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - "{{ dispatcharr_db_dir }}:/var/lib/postgresql/data"
+    ports:
+      - "127.0.0.1:{{ dispatcharr_postgres_port }}:{{ dispatcharr_postgres_port }}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ dispatcharr_postgres_user }}"]
+      interval: {{ dispatcharr_healthcheck_interval }}s
+      timeout: {{ dispatcharr_healthcheck_timeout }}s
+      retries: {{ dispatcharr_healthcheck_retries }}
+      start_period: {{ dispatcharr_healthcheck_start_period }}s
+    restart: "{{ dispatcharr_restart_policy }}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # Redis Broker & Channel Layer (modular mode: external service)
+  # ============================================================================
+  {{ dispatcharr_container_name_redis }}:
+    image: "{{ dispatcharr_redis_image }}"
+    container_name: "{{ dispatcharr_container_name_redis }}"
+    networks:
+      - homelab-bridge
+    command: redis-server --appendonly yes
+    volumes:
+      - "{{ dispatcharr_redis_dir }}:/data"
+    ports:
+      - "127.0.0.1:{{ dispatcharr_redis_port }}:{{ dispatcharr_redis_port }}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: {{ dispatcharr_healthcheck_interval }}s
+      timeout: {{ dispatcharr_healthcheck_timeout }}s
+      retries: {{ dispatcharr_healthcheck_retries }}
+      start_period: {{ dispatcharr_healthcheck_start_period }}s
+    restart: "{{ dispatcharr_restart_policy }}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # Dispatcharr Web Service (Django + uWSGI + Nginx)
+  # Flat LAN: binds directly to host port 9191 for local IoT access
+  # Also joined to homelab-bridge for reverse proxy routing
+  # ============================================================================
+  {{ dispatcharr_container_name_web }}:
+    image: "{{ dispatcharr_image }}"
+    container_name: "{{ dispatcharr_container_name_web }}"
+    networks:
+      - homelab-bridge
+    depends_on:
+      {{ dispatcharr_container_name_db }}:
+        condition: service_healthy
+      {{ dispatcharr_container_name_redis }}:
+        condition: service_healthy
+    environment:
+      DISPATCHARR_ENV: "{{ dispatcharr_env }}"
+      DISPATCHARR_DEBUG: "false"
+      DISPATCHARR_LOG_LEVEL: "{{ dispatcharr_log_level }}"
+      DISPATCHARR_PORT: "{{ dispatcharr_port_internal }}"
+      
+      # PostgreSQL (external service)
+      POSTGRES_HOST: "{{ dispatcharr_container_name_db }}"
+      POSTGRES_PORT: "{{ dispatcharr_postgres_port }}"
+      POSTGRES_USER: "{{ dispatcharr_postgres_user }}"
+      POSTGRES_PASSWORD: "{{ dispatcharr_postgres_password }}"
+      POSTGRES_DB: "{{ dispatcharr_postgres_db }}"
+      
+      # Redis (external service)
+      REDIS_HOST: "{{ dispatcharr_container_name_redis }}"
+      REDIS_PORT: "{{ dispatcharr_redis_port }}"
+      REDIS_DB: "0"
+      
+      # Django
+      DJANGO_SECRET_KEY: "{{ dispatcharr_django_secret_key }}"
+      
+      # System
+      PUID: "{{ dispatcharr_puid }}"
+      PGID: "{{ dispatcharr_pgid }}"
+    volumes:
+      - "{{ dispatcharr_data_dir }}/data:/data"
+    ports:
+      # Flat LAN: bind directly to host for local IoT access
+      - "{{ dispatcharr_host }}:{{ dispatcharr_port }}:{{ dispatcharr_port_internal }}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:{{ dispatcharr_port_internal }}/api/"]
+      interval: {{ dispatcharr_healthcheck_interval }}s
+      timeout: {{ dispatcharr_healthcheck_timeout }}s
+      retries: {{ dispatcharr_healthcheck_retries }}
+      start_period: {{ dispatcharr_healthcheck_start_period }}s
+    restart: "{{ dispatcharr_restart_policy }}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+{% if dispatcharr_enable_gpu %}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: {{ dispatcharr_gpu_count }}
+              capabilities: [gpu]
+{% endif %}
+
+  # ============================================================================
+  # Celery Worker (background tasks, DVR recordings, transcoding)
+  # Joins homelab-bridge for inter-service communication
+  # GPU passthrough for FFmpeg hardware acceleration in background jobs
+  # ============================================================================
+  {{ dispatcharr_container_name_celery }}:
+    image: "{{ dispatcharr_image }}"
+    container_name: "{{ dispatcharr_container_name_celery }}"
+    networks:
+      - homelab-bridge
+    depends_on:
+      {{ dispatcharr_container_name_db }}:
+        condition: service_healthy
+      {{ dispatcharr_container_name_redis }}:
+        condition: service_healthy
+      {{ dispatcharr_container_name_web }}:
+        condition: service_healthy
+    environment:
+      DISPATCHARR_ENV: "{{ dispatcharr_env }}"
+      DISPATCHARR_DEBUG: "false"
+      DISPATCHARR_LOG_LEVEL: "{{ dispatcharr_log_level }}"
+      
+      # PostgreSQL (external service)
+      POSTGRES_HOST: "{{ dispatcharr_container_name_db }}"
+      POSTGRES_PORT: "{{ dispatcharr_postgres_port }}"
+      POSTGRES_USER: "{{ dispatcharr_postgres_user }}"
+      POSTGRES_PASSWORD: "{{ dispatcharr_postgres_password }}"
+      POSTGRES_DB: "{{ dispatcharr_postgres_db }}"
+      
+      # Redis (external service)
+      REDIS_HOST: "{{ dispatcharr_container_name_redis }}"
+      REDIS_PORT: "{{ dispatcharr_redis_port }}"
+      REDIS_DB: "0"
+      
+      # Django
+      DJANGO_SECRET_KEY: "{{ dispatcharr_django_secret_key }}"
+      
+      # System
+      PUID: "{{ dispatcharr_puid }}"
+      PGID: "{{ dispatcharr_pgid }}"
+      
+      # Celery worker configuration
+      CELERY_BROKER_URL: "redis://{{ dispatcharr_container_name_redis }}:{{ dispatcharr_redis_port }}/0"
+      CELERY_RESULT_BACKEND: "redis://{{ dispatcharr_container_name_redis }}:{{ dispatcharr_redis_port }}/0"
+    volumes:
+      - "{{ dispatcharr_data_dir }}/data:/data"
+    entrypoint: ["/app/docker/entrypoint.celery.sh"]
+    restart: "{{ dispatcharr_restart_policy }}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+{% if dispatcharr_enable_gpu %}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: {{ dispatcharr_gpu_count }}
+              capabilities: [gpu]
+{% endif %}
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  homelab-bridge:
+    external: true
+    name: homelab-bridge
+
+# ============================================================================
+# Volumes (persisted on host)
+# ============================================================================
+volumes: {}

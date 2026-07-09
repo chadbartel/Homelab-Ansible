@@ -78,6 +78,13 @@ proxy_hosts:
     scheme: "http"
     access_list_id: "{{ open_webui_access_list_id | default(0) }}"  # Will be populated with "Internal Only" access list ID
 
+  # Dispatcharr: IPTV/VOD platform on homelab-bridge network
+  - domain: "dispatcharr.chadbartel.duckdns.org"
+    host: "dispatcharr-web"
+    port: 9191  # Internal Dispatcharr port
+    scheme: "http"
+    block_exploits: true
+
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:
@@ -139,3 +146,14 @@ jellyfin_gpu_capabilities: ["gpu", "video.utility"]
 ollama_gpu_enabled: true  # NVIDIA driver installed and verified with Docker GPU access working
 ollama_gpu_device_count: 1
 ollama_gpu_capabilities: ["gpu"]
+
+# ============================================================================
+# Dispatcharr Configuration
+# CRITICAL: These values MUST be set to deterministic values to maintain
+# database connectivity across playbook runs. Random generation causes
+# PostgreSQL password mismatches and 502 errors.
+# ============================================================================
+dispatcharr_postgres_password: "{{ vault_dispatcharr_postgres_password | default('dispatcharr_secure_db_password_2026') }}"
+dispatcharr_django_secret_key: "{{ vault_dispatcharr_django_secret_key | default('dispatcharr_django_secret_key_change_this_in_vault_12345') }}"
+dispatcharr_enable_gpu: true  # RTX 2070 SUPER passthrough enabled
+dispatcharr_celery_concurrency: 4
