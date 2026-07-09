@@ -101,6 +101,9 @@ jellyfin_config_libraries:
       - "/media/television"
     refresh_on_create: true
 
+# Dispatcharr configuration (IPTV/VOD platform with GPU acceleration)
+dispatcharr_container_name_web: "dispatcharr-web"
+
 # Bazarr configuration (Subtitle management)
 bazarr_image: "lscr.io/linuxserver/bazarr:latest"
 bazarr_container_name: "bazarr"
