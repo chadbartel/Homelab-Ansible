@@ -10,9 +10,9 @@ services:
     hostname: {{ retroarch_container_name }}
     image: {{ retroarch_image }}
 
-    # User/Group ID mapping for proper file permissions
-    # Ensures volume mounts align with host user ownership
-    user: "{{ retroarch_puid }}:{{ retroarch_pgid }}"
+    # Note: Do NOT specify 'user:' for LinuxServer.io images
+    # They require root during s6-overlay initialization
+    # PUID/PGID environment variables handle privilege dropping for the application
 
     # Direct port binding to host for flat LAN access
     # Port 3000: HTTP (KasmVNC web UI - proxies through NPM)
