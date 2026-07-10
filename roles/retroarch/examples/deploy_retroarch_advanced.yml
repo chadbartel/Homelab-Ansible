@@ -1,0 +1,62 @@
+---
+# Example RetroArch Playbook - Advanced Configuration
+# Custom GPU node, high-performance settings, basic auth
+
+- name: Deploy RetroArch with Advanced Configuration
+  hosts: monolith
+  gather_facts: false
+  
+  vars:
+    # Override defaults for high-performance setup
+    retroarch_gpu_enabled: true
+    retroarch_drinode: "/dev/dri/renderD128"
+    retroarch_dri_node: "/dev/dri/renderD128"
+    retroarch_pixelflux_wayland: true
+    
+    # Enable basic HTTP authentication
+    retroarch_custom_user: "retrogamer"
+    retroarch_password: "{{ vault_retroarch_password }}"  # From vault
+    
+    # Storage customization
+    retroarch_roms_source: "/mnt/ssd_media/roms"
+    retroarch_config_volume_name: "retroarch_config_prod"
+    
+    # Resource constraints
+    retroarch_memory_limit: "3G"
+    retroarch_memory_reservation: "1G"
+    
+    # NPM configuration
+    retroarch_npm_domain: "retroarch.chadbartel.duckdns.org"
+    retroarch_npm_websocket_upgrade: true
+    retroarch_npm_block_exploits: true
+  
+  roles:
+    - role: retroarch
+      tags: [deploy, retroarch, advanced]
+  
+  post_tasks:
+    - name: Verify GPU acceleration is active
+      community.docker.docker_container_exec:
+        container: "{{ retroarch_container_name }}"
+        command: "nvidia-smi"
+      register: gpu_check
+      changed_when: false
+    
+    - name: Display GPU status
+      ansible.builtin.debug:
+        msg: |
+          GPU Status:
+          {{ gpu_check.stdout }}
+    
+    - name: Verify ROM directory is accessible
+      community.docker.docker_container_exec:
+        container: "{{ retroarch_container_name }}"
+        command: "ls -lah /roms"
+      register: roms_check
+      changed_when: false
+    
+    - name: Display ROM directory listing
+      ansible.builtin.debug:
+        msg: |
+          ROMs Mounted:
+          {{ roms_check.stdout }}

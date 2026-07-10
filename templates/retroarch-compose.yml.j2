@@ -1,0 +1,118 @@
+---
+# RetroArch Emulator Frontend - Docker Compose V2 Template
+# Based on LinuxServer.io official image (lscr.io/linuxserver/retroarch)
+# NVIDIA GPU acceleration enabled for hardware rendering and encoding
+
+services:
+  retroarch:
+    # Explicit container naming (not auto-generated stack naming)
+    container_name: {{ retroarch_container_name }}
+    hostname: {{ retroarch_container_name }}
+    image: {{ retroarch_image }}
+
+    # Note: Do NOT specify 'user:' for LinuxServer.io images
+    # They require root during s6-overlay initialization
+    # PUID/PGID environment variables handle privilege dropping for the application
+
+    # Direct port binding to host for flat LAN access
+    # Port 3000: HTTP (KasmVNC web UI - proxies through NPM)
+    # Port 3001: HTTPS (self-signed cert, not used with NPM)
+    ports:
+      - "{{ retroarch_http_port }}:3000"
+      - "{{ retroarch_https_port }}:3001"
+
+    # Bridge network for service-to-service communication
+    # Container is reachable by name (retroarch) from other services on this network
+    networks:
+      - {{ retroarch_network_name }}
+
+    # Shared memory allocation (REQUIRED for RetroArch to function)
+    # Wayland backend needs SHM for video compositing
+    shm_size: "{{ retroarch_shm_size }}"
+
+    # Environment configuration
+    environment:
+      # Timezone
+      TZ: "{{ retroarch_timezone }}"
+
+      # User/Group ID (PUID/PGID) - LinuxServer.io standard
+      # Ensures container processes run as the specified user/group
+      PUID: "{{ retroarch_puid }}"
+      PGID: "{{ retroarch_pgid }}"
+
+      # Wayland Configuration (Default in modern LinuxServer.io RetroArch)
+      # Enables GPU acceleration and zero-copy encoding with Nvidia GPUs
+      PIXELFLUX_WAYLAND: "{{ retroarch_pixelflux_wayland | lower }}"
+
+      # GPU Device Configuration for Nvidia NVENC encoding
+      # Both variables point to the same device for zero-copy mode:
+      # - DRINODE: GPU device for 3D rendering (EGL)
+      # - DRI_NODE: GPU device for video encoding (NVENC)
+      # When both are identical, encoding happens directly on GPU without CPU readback
+      DRINODE: "{{ retroarch_drinode }}"
+      DRI_NODE: "{{ retroarch_dri_node }}"
+
+      # Optional: HTTP basic authentication for browser access
+{% if retroarch_custom_user | default(false) %}
+      CUSTOM_USER: "{{ retroarch_custom_user }}"
+      PASSWORD: "{{ retroarch_password }}"
+{% endif %}
+
+    # Volume mounts
+    # Preserves configuration, game saves, and ROM library across container restarts
+    volumes:
+      # Config volume: /config stores RetroArch settings, saves, and KasmVNC state
+      # Backed by Docker named volume on fast NVMe storage
+      - {{ retroarch_config_volume_name }}:/config
+
+      # ROM storage: Bulk media on external USB SSD (typically slow I/O acceptable)
+      # Read-only prevents accidental corruption of game files
+      - type: bind
+        source: {{ retroarch_roms_source }}
+        target: {{ retroarch_roms_target }}
+        read_only: false  # Set to true if ROM library should be immutable
+
+{% if shared_storage_mounts | default(false) %}
+      # Additional shared storage mounts (if needed for cross-service data)
+{% for storage_mount in shared_storage_mounts | default([]) %}
+      - type: bind
+        source: {{ storage_mount.source }}
+        target: {{ storage_mount.target }}
+        read_only: {{ 'true' if storage_mount.read_only | default(false) else 'false' }}
+{% endfor %}
+{% endif %}
+
+    # GPU passthrough for hardware-accelerated rendering and encoding
+    # Requires: nvidia-container-toolkit installed on host
+    #           NVIDIA Docker runtime configured
+    #           Proprietary drivers 580+ installed
+    #           Kernel parameters: nvidia-drm.modeset=1 nvidia_drm.fbdev=1
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: {{ retroarch_memory_limit }}
+        reservations:
+          memory: {{ retroarch_memory_reservation }}
+          # GPU device reservation (Compose V2 standard)
+          # Replaces deprecated runtime: nvidia
+          devices:
+            - driver: {{ retroarch_gpu_driver }}
+              count: 1
+              capabilities: {{ retroarch_gpu_capabilities }}
+
+    # Restart policy
+    restart: unless-stopped
+
+# Named volume for RetroArch configuration
+# Persists across container updates and restarts
+volumes:
+  {{ retroarch_config_volume_name }}:
+    driver: local
+
+# Bridge network for service communication
+# Shared across all services on the monolith
+networks:
+  {{ retroarch_network_name }}:
+    name: {{ retroarch_network_name }}
+    external: true

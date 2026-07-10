@@ -1,0 +1,7 @@
+---
+# RetroArch role handlers
+# Triggered on deployment completion and configuration changes
+
+- name: RetroArch deployment complete
+  ansible.builtin.debug:
+    msg: "RetroArch container has been deployed successfully"

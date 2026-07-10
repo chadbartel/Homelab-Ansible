@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  author: "Homelab Infrastructure Team"
+  description: "Deploy LinuxServer.io RetroArch emulator frontend on single-node Docker Compose infrastructure"
+  company: "Homelab"
+  license: "MIT"
+  min_ansible_version: "2.13"
+  platforms:
+    - name: "Ubuntu"
+      versions:
+        - "24.04"
+        - "22.04"
+  galaxy_tags:
+    - docker
+    - compose
+    - retroarch
+    - emulator
+    - linuxserver
+    - gpu
+    - nvidia
+
+dependencies: []

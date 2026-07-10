@@ -188,6 +188,11 @@
       ansible.builtin.include_tasks: tasks/deploy_stacks.yml
       tags: ["deploy", "stacks"]
 
+    - name: Deploy RetroArch (Emulator frontend with GPU acceleration)
+      ansible.builtin.include_role:
+        name: retroarch
+      tags: ["deploy", "retroarch"]
+
     - name: Run post-setup configuration for all services
       ansible.builtin.include_tasks: tasks/post_setup.yml
       tags: ["deploy", "post-setup"]
@@ -204,11 +209,13 @@
           - Bazarr: http://bazarr.{{ local_domain }}:{{ bazarr_host_port }}/
           - Ollama: http://ollama.{{ local_domain }}/  (via NPM, port 11434)
           - Open WebUI: http://open-webui.{{ local_domain }}/  (via NPM, GPU-accelerated AI frontend)
+          - RetroArch: https://retroarch.{{ local_domain }}/  (via NPM, GPU-accelerated emulator frontend)
           - Portainer: https://portainer.{{ local_domain }}:{{ portainer_host_port }}
           
           To verify:
           - SSH to monolith and run: docker ps
           - Check each service is accessible at URLs above
           - Verify GPU acceleration in Jellyfin: Dashboard -> Playback -> Hardware Acceleration (if enabled)
+          - Verify RetroArch GPU acceleration and ROM loading in Settings
           - Verify Open WebUI can reach Ollama backend (check UI settings)
       tags: ["deploy"]
