@@ -1,0 +1,73 @@
+---
+# RetroArch role defaults
+# Configurable via group_vars or playbook overrides
+
+# Container identification
+retroarch_container_name: "retroarch"
+retroarch_image: "lscr.io/linuxserver/retroarch:latest"
+
+# Host port mapping (direct binding for LAN access)
+retroarch_http_port: 3000      # KasmVNC web UI (HTTP, must be proxied)
+retroarch_https_port: 3001     # KasmVNC web UI (HTTPS)
+
+# User/Group for volume permission mapping
+retroarch_puid: 1000           # User ID (typically 1000 for primary user)
+retroarch_pgid: 1000           # Group ID
+
+# Timezone configuration
+retroarch_timezone: "{{ timezone | default('Etc/UTC') }}"
+
+# GPU acceleration for NVIDIA RTX 2070 SUPER
+retroarch_gpu_enabled: true
+retroarch_gpu_driver: "nvidia"
+retroarch_gpu_capabilities:
+  - compute
+  - video
+  - graphics
+  - utility
+
+# GPU device nodes for Wayland zero-copy encoding
+retroarch_drinode: "/dev/dri/renderD128"  # GPU rendering device
+retroarch_dri_node: "/dev/dri/renderD128" # GPU encoding device (same for zero-copy)
+retroarch_pixelflux_wayland: true
+
+# Shared memory allocation (required for RetroArch functionality)
+retroarch_shm_size: "1gb"
+
+# Storage configuration
+retroarch_config_volume_name: "retroarch_config"  # NVMe-backed storage for /config
+retroarch_config_mount_path: "/config"
+
+# ROM storage (mounted from bulk external storage)
+retroarch_roms_source: "/mnt/ssd_media/roms"  # Path on host where ROMs are stored
+retroarch_roms_target: "/roms"                 # Mount point inside container
+
+# Network configuration
+retroarch_network_name: "homelab-bridge"
+
+# Container resource limits
+retroarch_memory_limit: "2G"
+retroarch_memory_reservation: "512M"
+
+# Service readiness check
+retroarch_readiness_retries: 15
+retroarch_readiness_delay: 5
+retroarch_readiness_timeout: 120
+
+# Stack deployment configuration (uses stack_deployer role backend)
+retroarch_stack_name: "retroarch"
+retroarch_stack_deployer_backend: "{{ stack_deployer_backend | default('compose') }}"
+
+# Optional: authentication for browser access
+retroarch_custom_user: ""       # Optional: set for basic HTTP auth
+retroarch_password: ""          # Optional: set custom_user for basic HTTP auth
+
+# NPM (Nginx Proxy Manager) configuration
+# DNS entry will be added to Pi-hole automatically
+retroarch_npm_domain: "{{ retroarch_container_name }}.{{ local_domain }}"
+retroarch_npm_forward_host: "{{ retroarch_container_name }}"  # Bridge network container name
+retroarch_npm_forward_port: "{{ retroarch_http_port }}"
+retroarch_npm_forward_scheme: "http"  # HTTP (proxies to 3000)
+retroarch_npm_websocket_upgrade: true # Required for KasmVNC over proxy
+retroarch_npm_block_exploits: true
+retroarch_npm_caching_enabled: false

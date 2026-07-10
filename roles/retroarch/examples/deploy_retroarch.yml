@@ -1,0 +1,37 @@
+---
+# Example RetroArch Playbook - Basic Deployment
+# Run with: ansible-playbook -i inventory.yml playbooks/deploy_retroarch.yml
+
+- name: Deploy RetroArch Emulator Frontend
+  hosts: monolith
+  gather_facts: true
+  
+  pre_tasks:
+    - name: Display deployment target
+      ansible.builtin.debug:
+        msg: |
+          Deploying RetroArch to {{ inventory_hostname }}
+          Configuration:
+            - GPU: NVIDIA RTX 2070 SUPER ({{ retroarch_gpu_enabled }})
+            - Port: {{ retroarch_http_port }} (HTTP)
+            - Network: {{ retroarch_network_name }}
+            - ROM Location: {{ retroarch_roms_source }}
+  
+  roles:
+    - role: retroarch
+      tags: [deploy, retroarch]
+  
+  post_tasks:
+    - name: Display access information
+      ansible.builtin.debug:
+        msg: |
+          ✓ RetroArch Deployment Complete
+          
+          Access Points:
+          • Direct LAN:   http://192.168.1.17:{{ retroarch_http_port }}
+          • NPM Proxy:    {{ retroarch_npm_domain }}
+          
+          Next Steps:
+          1. Add ROMs to {{ retroarch_roms_source }}
+          2. Configure NPM reverse proxy (see roles/retroarch/QUICK_START.md)
+          3. Test GPU via: docker exec retroarch nvidia-smi

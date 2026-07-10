@@ -1,0 +1,34 @@
+---
+# Wait for RetroArch web UI to become ready
+# Polls the container's HTTP port until it responds
+
+- name: Wait for RetroArch container to start
+  ansible.builtin.include_tasks: ../../common/wait_for_container.yml
+  vars:
+    wait_host: "{{ monolith_ip }}"
+    wait_port: "{{ retroarch_http_port }}"
+    wait_timeout: "{{ retroarch_readiness_timeout }}"
+  delegate_to: "{{ inventory_hostname }}"
+  register: retroarch_wait_result
+
+- name: Verify RetroArch container is running
+  community.docker.docker_container_info:
+    name: "{{ retroarch_container_name }}"
+  register: retroarch_container_info
+  delegate_to: "{{ inventory_hostname }}"
+  until: retroarch_container_info.exists and retroarch_container_info.container.State.Running
+  retries: 5
+  delay: 3
+
+- name: Confirm RetroArch HTTP port is listening
+  ansible.builtin.wait_for:
+    host: "{{ monolith_ip }}"
+    port: "{{ retroarch_http_port }}"
+    timeout: 30
+  delegate_to: "{{ inventory_hostname }}"
+
+- name: Display wait completion status
+  ansible.builtin.debug:
+    msg: |
+      ✓ RetroArch web UI is ready
+      Port {{ retroarch_http_port }} is listening on {{ monolith_ip }}

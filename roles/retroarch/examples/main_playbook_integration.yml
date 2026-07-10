@@ -1,0 +1,34 @@
+---
+# Example: Include RetroArch in Main Playbook
+# Add to your main.yml for integrated deployment
+
+- name: Deploy RetroArch with other homelab services
+  hosts: monolith
+  gather_facts: false
+  
+  roles:
+    # Other services...
+    - jellyfin
+    - portainer
+    
+    # RetroArch deployment
+    - role: retroarch
+      tags: [deploy, retroarch]
+      vars:
+        retroarch_gpu_enabled: true
+
+    # Post-deployment configuration
+    - role: nginx_proxy_manager_config
+      tags: [deploy, proxy]
+      vars:
+        npm_config_proxy_hosts:
+          - domain: "retroarch.chadbartel.duckdns.org"
+            forward_scheme: "http"
+            forward_host: "retroarch"
+            forward_port: 3000
+            websocket_upgrade: true
+            block_exploits: true
+
+    - role: pihole_config
+      tags: [deploy, dns]
+      # DNS entries will include retroarch automatically

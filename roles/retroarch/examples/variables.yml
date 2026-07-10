@@ -1,0 +1,63 @@
+---
+# RetroArch Configuration Variables
+# Add these to group_vars/monolith.yml or a dedicated playbook
+
+# Container identification and image
+retroarch_container_name: "retroarch"
+retroarch_image: "lscr.io/linuxserver/retroarch:latest"
+
+# Network access
+retroarch_http_port: 3000      # KasmVNC HTTP (port forwarded to host, proxied via NPM)
+retroarch_https_port: 3001     # KasmVNC HTTPS (self-signed, not used with NPM)
+
+# User mapping for volume permissions (ensure ROM files are readable)
+retroarch_puid: 1000           # Primary user ID on host
+retroarch_pgid: 1000           # Primary group ID on host
+
+# Timezone (use your local timezone)
+retroarch_timezone: "America/Chicago"
+
+# GPU acceleration settings
+retroarch_gpu_enabled: true
+retroarch_gpu_driver: "nvidia"
+retroarch_gpu_capabilities:
+  - compute
+  - video
+  - graphics
+  - utility
+
+# GPU device nodes (for NVIDIA Wayland backend)
+retroarch_drinode: "/dev/dri/renderD128"    # Rendering device
+retroarch_dri_node: "/dev/dri/renderD128"   # Encoding device (same for zero-copy)
+retroarch_pixelflux_wayland: true           # Enable Wayland GPU acceleration
+
+# Storage paths
+retroarch_config_volume_name: "retroarch_config"  # Docker volume name
+retroarch_roms_source: "/mnt/ssd_media/roms"     # Host path where ROMs are stored
+retroarch_roms_target: "/roms"                    # Container mount point
+
+# Shared memory (required for RetroArch/Wayland functionality)
+retroarch_shm_size: "1gb"
+
+# Optional: HTTP basic authentication
+# Uncomment and set if you want to require login
+# retroarch_custom_user: "retrogamer"
+# retroarch_password: "{{ vault_retroarch_password }}"
+
+# Network and deployment
+retroarch_network_name: "homelab-bridge"
+retroarch_stack_name: "retroarch"
+retroarch_stack_deployer_backend: "compose"  # Use docker compose directly
+
+# Resource limits
+retroarch_memory_limit: "2G"           # Container hard limit
+retroarch_memory_reservation: "512M"   # Guaranteed reservation
+
+# NPM (Nginx Proxy Manager) integration
+retroarch_npm_domain: "retroarch.chadbartel.duckdns.org"
+retroarch_npm_forward_host: "retroarch"      # Bridge network container name (NOT IP)
+retroarch_npm_forward_port: "3000"
+retroarch_npm_forward_scheme: "http"
+retroarch_npm_websocket_upgrade: true        # REQUIRED for KasmVNC streaming
+retroarch_npm_block_exploits: true
+retroarch_npm_caching_enabled: false
