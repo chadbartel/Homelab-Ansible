@@ -90,6 +90,7 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "4"
           memory: {{ retroarch_memory_limit }}
         reservations:
           memory: {{ retroarch_memory_reservation }}
@@ -101,14 +102,7 @@ services:
               capabilities: {{ retroarch_gpu_capabilities }}
 
     # Restart policy
-    restart_policy:
-      condition: unless-stopped
-      delay: 5s
-      max_attempts: 3
-      window: 60s
-
-    # Resource constraints to prevent runaway processes
-    cpus: "4"
+    restart: unless-stopped
 
 # Named volume for RetroArch configuration
 # Persists across container updates and restarts
