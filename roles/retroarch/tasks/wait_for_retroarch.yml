@@ -3,13 +3,11 @@
 # Polls the container's HTTP port until it responds
 
 - name: Wait for RetroArch container to start
-  ansible.builtin.include_tasks: ../../common/wait_for_container.yml
+  ansible.builtin.include_tasks: ../../tasks/common/wait_for_container.yml
   vars:
     wait_host: "{{ monolith_ip }}"
     wait_port: "{{ retroarch_http_port }}"
     wait_timeout: "{{ retroarch_readiness_timeout }}"
-  delegate_to: "{{ inventory_hostname }}"
-  register: retroarch_wait_result
 
 - name: Verify RetroArch container is running
   community.docker.docker_container_info:
