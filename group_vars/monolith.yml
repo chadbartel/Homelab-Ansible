@@ -85,6 +85,16 @@ proxy_hosts:
     scheme: "http"
     block_exploits: true
 
+  # RetroArch: Emulator frontend with KasmVNC streaming (GPU-accelerated)
+  - domain: "{{ retroarch_container_name }}.{{ local_domain }}"
+    host: "{{ retroarch_container_name }}"  # Container name on bridge network (NOT IP)
+    port: 3000  # KasmVNC HTTP port
+    scheme: "http"
+    websocket_upgrade: true  # REQUIRED: KasmVNC streams video/audio via WebSocket protocol
+    ssl_forced: true  # Force HTTPS redirect via Let's Encrypt wildcard cert
+    http2_support: true  # Enable HTTP/2 for improved performance
+    block_exploits: true
+
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:

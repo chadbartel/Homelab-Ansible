@@ -104,6 +104,18 @@ jellyfin_config_libraries:
 # Dispatcharr configuration (IPTV/VOD platform with GPU acceleration)
 dispatcharr_container_name_web: "dispatcharr-web"
 
+# RetroArch configuration (Emulator frontend with GPU acceleration)
+retroarch_container_name: "retroarch"
+retroarch_image: "lscr.io/linuxserver/retroarch:latest"
+retroarch_host_port: 3000  # KasmVNC HTTP port (binds to host, proxied via NPM)
+retroarch_puid: 1000  # User ID for volume permission mapping
+retroarch_pgid: 1000  # Group ID for volume permission mapping
+retroarch_timezone: "{{ timezone | default('Etc/UTC') }}"
+retroarch_gpu_enabled: true  # Enable NVIDIA GPU passthrough for rendering
+retroarch_config_volume_name: "retroarch_config"  # Docker volume for /config (fast NVMe storage)
+retroarch_roms_source: "/mnt/ssd_media/roms"  # Host path for ROM library (bulk external storage)
+retroarch_roms_target: "/roms"  # Container mount point for ROM library
+
 # Bazarr configuration (Subtitle management)
 bazarr_image: "lscr.io/linuxserver/bazarr:latest"
 bazarr_container_name: "bazarr"
