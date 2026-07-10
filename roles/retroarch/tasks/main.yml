@@ -27,23 +27,38 @@
     driver: local
   delegate_to: "{{ inventory_hostname }}"
 
-- name: Generate RetroArch Compose template
+- name: Create RetroArch compose project directory
+  ansible.builtin.file:
+    path: "/opt/retroarch"
+    state: directory
+    mode: "0755"
+  delegate_to: "{{ inventory_hostname }}"
+
+- name: Generate RetroArch Compose file from template
   ansible.builtin.template:
     src: retroarch-compose.yml.j2
-    dest: "/tmp/retroarch-compose.yml"
+    dest: "/opt/retroarch/docker-compose.yml"
     mode: "0644"
   delegate_to: "{{ inventory_hostname }}"
   register: retroarch_compose_generated
 
-- name: Deploy RetroArch stack via stack_deployer
-  ansible.builtin.include_role:
-    name: stack_deployer
-  vars:
-    stack_deployer_stacks:
-      - name: "{{ retroarch_stack_name }}"
-        compose_file: "/tmp/retroarch-compose.yml"
-        state: "present"
-    stack_deployer_backend: "{{ retroarch_stack_deployer_backend }}"
+- name: Pull RetroArch image and deploy via docker compose
+  community.docker.docker_compose_v2:
+    project_src: "/opt/retroarch"
+    state: present
+    pull: always  # Always pull latest image to ensure updates
+  delegate_to: "{{ inventory_hostname }}"
+  register: retroarch_compose_result
+
+- name: Display compose deployment result
+  ansible.builtin.debug:
+    msg: |
+      RetroArch Compose Deployment:
+      {% if retroarch_compose_result.changed %}
+      ✅ Changes applied (container started or updated)
+      {% else %}
+      ℹ️  No changes (service already in desired state)
+      {% endif %}
 
 - name: Wait for RetroArch web UI to become ready
   ansible.builtin.include_tasks: wait_for_retroarch.yml

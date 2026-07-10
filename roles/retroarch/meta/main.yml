@@ -19,6 +19,4 @@ galaxy_info:
     - gpu
     - nvidia
 
-dependencies:
-  - role: stack_deployer
-    tags: [deploy, retroarch]
+dependencies: []

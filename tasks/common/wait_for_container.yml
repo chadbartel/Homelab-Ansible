@@ -1,0 +1,20 @@
+---
+# Common task: Wait for a container to become ready
+# Polls container HTTP port until it responds
+#
+# Expected variables:
+#   - wait_host: Host IP or hostname to poll
+#   - wait_port: Port number to test
+#   - wait_timeout: Maximum seconds to wait (default: 120)
+#   - wait_retries: Number of retries (default: 15)
+#   - wait_delay: Seconds between retries (default: 5)
+
+- name: Wait for container port to become available
+  ansible.builtin.wait_for:
+    host: "{{ wait_host }}"
+    port: "{{ wait_port }}"
+    timeout: "{{ wait_timeout | default(120) }}"
+    delay: "{{ wait_delay | default(5) }}"
+  retries: "{{ wait_retries | default(15) }}"
+  until: wait_for_result is succeeded
+  register: wait_for_result
