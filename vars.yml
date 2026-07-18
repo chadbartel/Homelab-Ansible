@@ -165,6 +165,8 @@ pihole_config_custom_dns_entries:
     hostname: "{{ bazarr_container_name }}.{{ local_domain }}"
   - ip: "{{ monolith_ip }}"
     hostname: "{{ open_webui_proxy_domain }}"  # Public domain for Open WebUI proxy
+  - ip: "{{ monolith_ip }}"
+    hostname: "books.{{ local_domain }}"  # Audiobookshelf proxy domain
 
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:
