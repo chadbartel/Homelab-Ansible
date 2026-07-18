@@ -1,0 +1,29 @@
+---
+services:
+  audiobookshelf:
+    container_name: {{ audiobookshelf_container_name }}
+    image: {{ audiobookshelf_image | default('ghcr.io/advplyr/audiobookshelf:latest') }}
+    restart: unless-stopped
+    ports:
+      # Flat LAN access for local Wi-Fi devices
+      - "{{ audiobookshelf_host_port }}:{{ audiobookshelf_dns_port | default(80) }}"
+    networks:
+      # Internal reverse-proxy network for NPM integration
+      - homelab-bridge
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ={{ timezone | default('America/Los_Angeles') }}
+    volumes:
+      # NVMe Storage: Fast DB writes, cache, and metadata
+      - /opt/audiobookshelf/config:/config
+      - /opt/audiobookshelf/metadata:/metadata
+      
+      # External USB SSD Storage: Bulk media ingestion
+      - /mnt/ssd_media/books:/ebooks
+      - /mnt/ssd_media/audiobooks:/audiobooks
+
+networks:
+  homelab-bridge:
+    name: homelab-bridge
+    external: true
