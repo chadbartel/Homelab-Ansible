@@ -1,0 +1,50 @@
+---
+# Audiobookshelf Docker Compose V2 Template
+# Single-node standalone deployment with dual networking
+
+version: "3.8"
+
+services:
+  audiobookshelf:
+    container_name: {{ audiobookshelf_container_name }}
+    image: {{ audiobookshelf_image }}
+    restart: {{ audiobookshelf_restart_policy }}
+    
+    # Dual networking:
+    # 1. Host port exposure (13378:80) for flat LAN access
+    # 2. Bridge network attachment for NPM reverse proxy routing
+    ports:
+      - "{{ audiobookshelf_host_port }}:{{ audiobookshelf_internal_port }}"
+    
+    networks:
+      - {{ audiobookshelf_network }}
+    
+    environment:
+      # User and group mapping (align with host volume permissions)
+      PUID: {{ audiobookshelf_puid }}
+      PGID: {{ audiobookshelf_pgid }}
+      TZ: {{ audiobookshelf_timezone }}
+    
+    # Storage tiering:
+    # - NVMe local storage: /opt/audiobookshelf (config, metadata, cache)
+    # - External USB SSD: /mnt/ssd_media (bulk audiobook/ebook media)
+    volumes:
+      # Configuration and metadata (fast NVMe)
+      - {{ audiobookshelf_config_path }}/config:/config
+      - {{ audiobookshelf_config_path }}/metadata:/metadata
+      
+      # Audiobook media (external USB SSD)
+      - {{ audiobookshelf_media_source }}/audiobooks:/audiobooks
+      - {{ audiobookshelf_media_source }}/books:/ebooks
+    
+{% if audiobookshelf_memory_limit is defined %}
+    deploy:
+      resources:
+        limits:
+          memory: {{ audiobookshelf_memory_limit }}
+{% endif %}
+
+networks:
+  {{ audiobookshelf_network }}:
+    name: {{ audiobookshelf_network }}
+    external: true

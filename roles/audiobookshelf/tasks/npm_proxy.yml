@@ -1,0 +1,175 @@
+---
+# NPM Proxy Configuration for Audiobookshelf
+# Idempotent proxy host management with API-based lifecycle control
+
+- name: Authenticate with NPM API
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[inventory_hostname]['ansible_host'] | default('192.168.1.17') }}:{{ proxy_host_port | default(8181) }}/api/tokens"
+    method: POST
+    body_format: json
+    body:
+      identity: "{{ npm_config_admin_email | default('admin@example.com') }}"
+      secret: "{{ npm_config_admin_password | default(vault_npm_admin_password) }}"
+    return_content: yes
+    status_code: 200
+    validate_certs: no
+  register: npm_auth_result
+  retries: 10
+  delay: 5
+  until: npm_auth_result.status == 200
+  become: false
+  no_log: true
+  ignore_errors: true
+
+- name: Set NPM authentication token
+  ansible.builtin.set_fact:
+    npm_auth_token: "{{ npm_auth_result.json.token }}"
+    npm_auth_success: true
+  no_log: true
+  when:
+    - npm_auth_result.status == 200
+    - npm_auth_result.json.token is defined
+
+- name: Warn if NPM authentication failed
+  ansible.builtin.debug:
+    msg: |
+      ⚠️  NPM authentication failed. Skipping proxy configuration.
+      This may be normal if NPM has not yet been deployed.
+      Re-run after NPM is ready to configure proxy hosts.
+  when: npm_auth_success is not defined or not npm_auth_success
+
+- name: Continue with proxy configuration only if NPM is reachable
+  when: npm_auth_success | default(false)
+  block:
+    # Fetch existing proxy hosts to ensure idempotency
+    - name: Fetch all existing proxy hosts from NPM
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[inventory_hostname]['ansible_host'] | default('192.168.1.17') }}:{{ proxy_host_port | default(8181) }}/api/nginx/proxy-hosts"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ npm_auth_token }}"
+        return_content: yes
+        status_code: 200
+        validate_certs: no
+      register: existing_proxy_hosts
+      become: false
+      no_log: true
+
+    # Extract existing domain names for idempotency check
+    - name: Extract existing domain names
+      ansible.builtin.set_fact:
+        existing_domains: "{{ existing_proxy_hosts.json | map(attribute='domain_names') | flatten | list }}"
+
+    - name: Debug - Show existing proxy domains
+      ansible.builtin.debug:
+        msg: |
+          📋 Existing proxy domains in NPM:
+          {{ existing_domains | join(', ') if existing_domains else '(none)' }}
+      when: audiobookshelf_display_results | default(true)
+
+    # Resolve SSL certificate ID for HTTPS enforcement
+    - name: Fetch all SSL certificates from NPM
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[inventory_hostname]['ansible_host'] | default('192.168.1.17') }}:{{ proxy_host_port | default(8181) }}/api/nginx/certificates"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ npm_auth_token }}"
+        return_content: yes
+        status_code: 200
+        validate_certs: no
+      register: npm_certificates
+      become: false
+      no_log: true
+
+    - name: Resolve Let's Encrypt certificate ID
+      ansible.builtin.set_fact:
+        le_cert_id: "{{ (le_certs | first).id if le_certs | length > 0 else 0 }}"
+        le_ssl_active: "{{ le_certs | length > 0 }}"
+      vars:
+        le_certs: "{{ npm_certificates.json | selectattr('provider', 'equalto', 'letsencrypt') | list }}"
+
+    - name: Debug - Show SSL certificate resolution
+      ansible.builtin.debug:
+        msg: |
+          {% set le_certs = npm_certificates.json | selectattr('provider', 'equalto', 'letsencrypt') | list %}
+          🔒 SSL Certificate:
+          {% if le_certs | length > 0 %}
+          ✅ Let's Encrypt certificate found (ID: {{ le_cert_id }})
+          Provider: {{ le_certs[0].provider }}, Expires: {{ le_certs[0].expires_on }}
+          {% else %}
+          ⚠️  No Let's Encrypt certificate found (using default: 0)
+          {% endif %}
+      when: audiobookshelf_display_results | default(true)
+
+    # Create proxy host only if domain doesn't already exist (idempotency check)
+    - name: Create Audiobookshelf proxy host (skip if exists)
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[inventory_hostname]['ansible_host'] | default('192.168.1.17') }}:{{ proxy_host_port | default(8181) }}/api/nginx/proxy-hosts"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ npm_auth_token }}"
+        body_format: json
+        body:
+          domain_names:
+            - "books.{{ local_domain }}"
+          forward_scheme: "http"
+          forward_host: "{{ audiobookshelf_container_name }}"
+          forward_port: "{{ audiobookshelf_internal_port | int }}"
+          ssl_forced: "{{ le_ssl_active | bool }}"
+          certificate_id: "{{ le_cert_id | int }}"
+          http2_support: "{{ le_ssl_active | bool }}"
+          hsts_enabled: "{{ le_ssl_active | bool }}"
+          hsts_subdomains: true
+          block_exploits: true
+          caching_enabled: true
+          allow_websocket_upgrade: true
+          access_list_id: 0
+          advanced_config: ""
+          enabled: true
+        status_code: [200, 201]
+        validate_certs: no
+      register: proxy_creation
+      become: false
+      when: "'books.' + local_domain not in existing_domains"
+      no_log: true
+
+    - name: Debug - Proxy host creation result
+      ansible.builtin.debug:
+        msg: |
+          {% if 'books.' + local_domain in existing_domains %}
+          ✅ Audiobookshelf proxy host already exists (books.{{ local_domain }})
+          {% elif proxy_creation.status in [200, 201] %}
+          ✅ Audiobookshelf proxy host created successfully
+          Domain: books.{{ local_domain }}
+          Forward: http://{{ audiobookshelf_container_name }}:{{ audiobookshelf_internal_port }}
+          WebSocket Support: ✅
+          SSL: Let's Encrypt Wildcard (*.{{ local_domain }})
+          {% endif %}
+      when: audiobookshelf_display_results | default(true)
+
+- name: Display Audiobookshelf deployment summary
+  ansible.builtin.debug:
+    msg: |
+      ✅ AUDIOBOOKSHELF DEPLOYMENT COMPLETE
+      ========================================
+      
+      🌐 Access URLs:
+      • Local LAN:     http://{{ audiobookshelf_host }}:{{ audiobookshelf_host_port }}
+      • Proxy Domain:  https://books.{{ local_domain }}
+      
+      📚 Media Paths:
+      • Config:        {{ audiobookshelf_config_path }}/config
+      • Metadata:      {{ audiobookshelf_config_path }}/metadata
+      • Audiobooks:    {{ audiobookshelf_media_source }}/audiobooks
+      • E-Books:       {{ audiobookshelf_media_source }}/books
+      
+      🐳 Docker Info:
+      • Container:     {{ audiobookshelf_container_name }}
+      • Network:       {{ audiobookshelf_network }}
+      • User:          {{ audiobookshelf_puid }}:{{ audiobookshelf_pgid }}
+      
+      💡 Next Steps:
+      1. Add audiobooks/ebooks to {{ audiobookshelf_media_source }}/audiobooks and {{ audiobookshelf_media_source }}/books
+      2. Access https://books.{{ local_domain }} to manage your library
+      3. Configure Audiobookshelf settings via the web UI
+  when: audiobookshelf_display_results | default(true)

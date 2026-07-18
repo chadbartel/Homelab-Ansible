@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  author: "Homelab Automation"
+  description: "Deploy Audiobookshelf media server with storage tiering and NPM integration"
+  company: "Homelab"
+  license: "MIT"
+  min_ansible_version: "2.18"
+  platforms:
+    - name: "Ubuntu"
+      versions:
+        - "22.04"
+        - "24.04"
+  tags:
+    - "docker"
+    - "compose"
+    - "media"
+    - "audiobookshelf"
+    - "audiobooks"
+
+dependencies:
+  - role: "stack_deployer"
+    when: false  # Will be called explicitly from main playbook

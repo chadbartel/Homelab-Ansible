@@ -1,0 +1,233 @@
+---
+# Complete End-to-End Audiobookshelf Deployment Guide
+# =====================================================
+#
+# This file demonstrates the complete setup process with all configuration pieces.
+
+# ============================================================================
+# STEP 1: Update vars.yml with Audiobookshelf Variables
+# ============================================================================
+
+# File: vars.yml
+# Add these entries (note: most use defaults, shown here for completeness):
+
+vars_yml_additions: |
+  # Audiobookshelf configuration (already in defaults, shown for reference)
+  audiobookshelf_container_name: "audiobookshelf"
+  audiobookshelf_host_port: 13378
+  audiobookshelf_config_path: "/opt/audiobookshelf"
+  audiobookshelf_media_source: "/mnt/ssd_media"
+  
+  # Add Audiobookshelf DNS entry
+  pihole_config_custom_dns_entries:
+    - ip: "{{ monolith_ip }}"
+      hostname: "{{ pihole_container_name }}.{{ local_domain }}"
+    # ... other entries ...
+    - ip: "{{ monolith_ip }}"
+      hostname: "books.{{ local_domain }}"  # ← AUDIOBOOKSHELF DNS
+
+# ============================================================================
+# STEP 2: Update group_vars/monolith.yml with Proxy Configuration
+# ============================================================================
+
+# File: group_vars/monolith.yml
+# Add this entry to the proxy_hosts list:
+
+group_vars_monolith_additions: |
+  proxy_hosts:
+    # ... existing entries ...
+    
+    # Audiobookshelf: Audiobook/ebook management on homelab-bridge network
+    - domain: "books.{{ local_domain }}"
+      host: "{{ audiobookshelf_container_name }}"
+      port: 80  # Internal Audiobookshelf port
+      scheme: "http"
+      websocket_upgrade: true  # REQUIRED: Library sync uses WebSocket protocol
+      ssl_forced: true  # Force HTTPS redirect via Let's Encrypt wildcard cert
+      http2_support: true  # Enable HTTP/2 for improved performance
+      block_exploits: true
+
+# ============================================================================
+# STEP 3: Update main.yml with Audiobookshelf Role
+# ============================================================================
+
+# File: main.yml
+# Option A: Add to existing deploy section
+
+main_yml_option_a: |
+  - name: Deploy stacks (phase 2/2 - container startup)
+    hosts: monolith
+    gather_facts: false
+    become: true
+    vars_files:
+      - vars.yml
+      - vault.yml
+    
+    roles:
+      - nginx_proxy_manager_config
+      - pihole_config
+      - jellyfin_config
+      - audiobookshelf  # ← ADD THIS LINE
+
+# Option B: Add dedicated playbook section
+
+main_yml_option_b: |
+  - name: Deploy Audiobookshelf media server
+    hosts: monolith
+    gather_facts: false
+    become: true
+    vars_files:
+      - vars.yml
+      - vault.yml
+    
+    roles:
+      - audiobookshelf  # ← NEW ROLE
+    
+    tags:
+      - deploy
+      - media
+      - audiobookshelf
+
+# ============================================================================
+# STEP 4: Deployment Commands
+# ============================================================================
+
+deployment_commands: |
+  # Full deployment (all stacks including Audiobookshelf)
+  ansible-playbook main.yml --tags deploy
+  
+  # Just Audiobookshelf
+  ansible-playbook main.yml --tags audiobookshelf
+  
+  # With verbose output (debug)
+  ansible-playbook main.yml --tags audiobookshelf -vvv
+  
+  # Dry-run (check mode)
+  ansible-playbook main.yml --tags audiobookshelf --check
+
+# ============================================================================
+# STEP 5: Verify Deployment
+# ============================================================================
+
+verification_commands: |
+  # Container running?
+  docker ps | grep audiobookshelf
+  
+  # Container logs
+  docker logs -f audiobookshelf
+  
+  # Local LAN access
+  curl -I http://192.168.1.17:13378
+  
+  # Proxy domain access
+  curl -I https://books.chadbartel.duckdns.org
+  
+  # Check bridge network attachment
+  docker network inspect homelab-bridge | grep -A 5 audiobookshelf
+  
+  # Check volume mounts
+  docker exec audiobookshelf mount | grep -E "audiobooks|ebooks|config|metadata"
+
+# ============================================================================
+# STEP 6: Add Media Content
+# ============================================================================
+
+add_media_commands: |
+  # Create media directories (if they don't exist)
+  mkdir -p /mnt/ssd_media/audiobooks
+  mkdir -p /mnt/ssd_media/books
+  
+  # Copy audiobooks (m4b format recommended for maximum compatibility)
+  cp /path/to/your/audiobooks/*.m4b /mnt/ssd_media/audiobooks/
+  
+  # Copy ebooks (epub, pdf, etc.)
+  cp /path/to/your/ebooks/*.epub /mnt/ssd_media/books/
+  
+  # Fix permissions (if copied as root)
+  sudo chown -R 1000:1000 /mnt/ssd_media/audiobooks /mnt/ssd_media/books
+  sudo chmod -R 0775 /mnt/ssd_media/audiobooks /mnt/ssd_media/books
+
+# ============================================================================
+# STEP 7: Access Audiobookshelf
+# ============================================================================
+
+access_urls: |
+  Local Network (no authentication required):
+  http://192.168.1.17:13378
+  
+  Via Reverse Proxy (Let's Encrypt SSL):
+  https://books.chadbartel.duckdns.org
+  
+  First Login:
+  - Username: admin
+  - Password: (auto-generated on first access, change in settings)
+
+# ============================================================================
+# STEP 8: Troubleshooting Quick Reference
+# ============================================================================
+
+troubleshooting: |
+  Container won't start?
+    docker logs audiobookshelf
+  
+  "502 Bad Gateway" via proxy?
+    docker network inspect homelab-bridge | grep audiobookshelf
+    # Ensure container is on the network
+  
+  Library not scanning?
+    docker exec audiobookshelf ls -la /audiobooks
+    docker exec audiobookshelf ls -la /ebooks
+    # Check permissions and media is present
+  
+  Can't connect to local port 13378?
+    sudo ss -tlnp | grep 13378
+    # Check if port is bound to container
+  
+  NPM proxy not configured?
+    curl -X GET http://192.168.1.17:8181/api/nginx/proxy-hosts \
+      -H "Authorization: Bearer YOUR_NPM_TOKEN" | grep books
+    # Check if proxy host entry exists
+  
+  DNS not resolving?
+    nslookup books.chadbartel.duckdns.org 192.168.1.17
+    # Verify Pi-hole has the DNS entry
+
+# ============================================================================
+# STEP 9: Performance Optimization
+# ============================================================================
+
+optimization_tips: |
+  For large audiobook libraries (>1000 items):
+  
+  1. Increase container memory:
+     audiobookshelf_memory_limit: "4GB"
+  
+  2. Ensure audiobook directory is on fast USB SSD (not slow mechanical drive)
+  
+  3. Use M4B format (single file per book) rather than many individual MP3s
+  
+  4. Monitor container performance:
+     docker stats audiobookshelf
+  
+  5. Check database rebuild:
+     docker logs audiobookshelf | grep -i "rebuild"
+
+# ============================================================================
+# STEP 10: Backup Considerations
+# ============================================================================
+
+backup_notes: |
+  Config/Metadata (should be backed up frequently):
+    - Location: /opt/audiobookshelf/config
+    - Location: /opt/audiobookshelf/metadata
+    - Frequency: Daily (contains user library, bookmarks)
+  
+  Media (may or may not need backup based on your strategy):
+    - Location: /mnt/ssd_media/audiobooks
+    - Location: /mnt/ssd_media/books
+    - Strategy: Keep original files elsewhere, USB SSD = copy only
+  
+  Backup command (excluding media, backing up config only):
+    sudo tar -czf audiobookshelf-config-$(date +%Y%m%d).tar.gz \
+      /opt/audiobookshelf/config \
+      /opt/audiobookshelf/metadata

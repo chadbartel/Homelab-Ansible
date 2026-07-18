@@ -1,0 +1,118 @@
+---
+# Audiobookshelf Deployment Role
+# Handles: host directory creation, Docker Compose templating, container deployment, and NPM proxy configuration
+
+- name: Display Audiobookshelf deployment information
+  ansible.builtin.debug:
+    msg: |
+      📚 Audiobookshelf Deployment Role
+      ========================================
+      Container: {{ audiobookshelf_container_name }}
+      Image: {{ audiobookshelf_image }}
+      
+      🌐 Network Access:
+      • Flat LAN: http://{{ audiobookshelf_host }}:{{ audiobookshelf_host_port }}
+      • Proxy Domain: http://audiobookshelf.{{ local_domain }}
+      
+      💾 Storage Configuration:
+      • Config/Metadata: {{ audiobookshelf_config_path }} (NVMe)
+      • Audiobooks: {{ audiobookshelf_media_source }}/audiobooks (USB SSD)
+      • E-Books: {{ audiobookshelf_media_source }}/books (USB SSD)
+      
+      👤 User/Group: {{ audiobookshelf_puid }}:{{ audiobookshelf_pgid }}
+  when: audiobookshelf_display_results | default(true)
+
+# ============================================================================
+# Directory Creation with Idempotency
+# ============================================================================
+
+- name: Create Audiobookshelf host directories with proper permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ audiobookshelf_puid }}"
+    group: "{{ audiobookshelf_pgid }}"
+    mode: "{{ audiobookshelf_dir_mode }}"
+  loop:
+    - "{{ audiobookshelf_config_path }}"
+    - "{{ audiobookshelf_config_path }}/config"
+    - "{{ audiobookshelf_config_path }}/metadata"
+  register: directory_creation
+
+- name: Debug - Directory creation results
+  ansible.builtin.debug:
+    msg: |
+      ✅ Directories created/verified:
+      {% for dir_item in directory_creation.results %}
+      - {{ dir_item.item }} (mode: {{ dir_item.mode }}, owner: {{ dir_item.owner }}:{{ dir_item.group }})
+      {% endfor %}
+  when: audiobookshelf_display_results | default(true)
+
+# ============================================================================
+# Docker Compose Template and Deployment
+# ============================================================================
+
+- name: Ensure Docker Compose staging directory exists
+  ansible.builtin.file:
+    path: "{{ stack_deployer_compose_dir | default('/opt/compose') }}"
+    state: directory
+    mode: "0755"
+
+- name: Template Audiobookshelf Docker Compose file
+  ansible.builtin.template:
+    src: "audiobookshelf-compose.yml.j2"
+    dest: "{{ stack_deployer_compose_dir | default('/opt/compose') }}/audiobookshelf.yml"
+    mode: "0644"
+  register: compose_template
+
+- name: Deploy Audiobookshelf stack via Docker Compose V2
+  community.docker.docker_compose_v2:
+    project_name: "audiobookshelf"
+    project_src: "{{ stack_deployer_compose_dir | default('/opt/compose') }}"
+    files:
+      - "audiobookshelf.yml"
+    state: present
+    pull: always
+    remove_orphans: true
+  register: compose_deployment
+
+- name: Debug - Compose deployment result
+  ansible.builtin.debug:
+    msg: |
+      {% if compose_deployment.changed %}
+      ✅ Audiobookshelf stack deployed successfully (CHANGED)
+      {% else %}
+      ✅ Audiobookshelf stack is already up to date
+      {% endif %}
+  when: audiobookshelf_display_results | default(true)
+
+# ============================================================================
+# Service Readiness Check
+# ============================================================================
+
+- name: Wait for Audiobookshelf service to be ready
+  ansible.builtin.uri:
+    url: "http://{{ audiobookshelf_host }}:{{ audiobookshelf_host_port }}"
+    method: GET
+    status_code: [200, 301, 302, 404]
+  register: service_ready
+  retries: 30
+  delay: 5
+  until: service_ready.status in [200, 301, 302, 404]
+  when: compose_deployment.changed
+
+- name: Debug - Service readiness
+  ansible.builtin.debug:
+    msg: |
+      ✅ Audiobookshelf service is responding on port {{ audiobookshelf_host_port }}
+      Status Code: {{ service_ready.status }}
+  when:
+    - audiobookshelf_display_results | default(true)
+    - compose_deployment.changed
+
+# ============================================================================
+# NPM Proxy Configuration (Idempotent via nginx_proxy_manager_config role)
+# ============================================================================
+
+- name: Include Nginx Proxy Manager configuration task
+  ansible.builtin.include_tasks: npm_proxy.yml

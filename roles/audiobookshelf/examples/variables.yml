@@ -1,0 +1,146 @@
+---
+# Example: Complete Audiobookshelf Deployment Configuration
+# ===========================================================
+#
+# Add these variables to your vars.yml or group_vars/monolith.yml to fully customize Audiobookshelf.
+# Most have sensible defaults, so you only need to override if you want non-standard behavior.
+
+# ========== CONTAINER AND IMAGE CONFIGURATION ==========
+
+# Docker image to use
+audiobookshelf_image: "ghcr.io/advplyr/audiobookshelf:latest"
+
+# Container name (must be unique, used for DNS and proxy routing)
+audiobookshelf_container_name: "audiobookshelf"
+
+# Docker network (must be pre-existing external network)
+audiobookshelf_network: "homelab-bridge"
+
+# Container restart policy
+audiobookshelf_restart_policy: "unless-stopped"
+
+# ========== NETWORKING AND PORTS ==========
+
+# Host IP where Audiobookshelf listens
+audiobookshelf_host: "{{ ansible_host | default('192.168.1.17') }}"
+
+# Port exposed to flat LAN (host:container mapping)
+audiobookshelf_host_port: 13378
+
+# Internal container port (must match Dockerfile EXPOSE)
+audiobookshelf_internal_port: 80
+
+# ========== STORAGE CONFIGURATION ==========
+
+# Fast NVMe storage for configuration and metadata
+# This directory must be on fast local storage (not USB, not NFS)
+audiobookshelf_config_path: "/opt/audiobookshelf"
+
+# Root mount point for media (bulk audiobooks and ebooks)
+# Typically an external USB SSD, can be mounted via /etc/fstab
+audiobookshelf_media_source: "/mnt/ssd_media"
+
+# Subdirectories within audiobookshelf_media_source:
+# - {{ audiobookshelf_media_source }}/audiobooks (container: /audiobooks)
+# - {{ audiobookshelf_media_source }}/books      (container: /ebooks)
+
+# ========== USER AND PERMISSIONS ==========
+
+# PUID and PGID map container processes to host user:group
+# 1000 = default unprivileged user on Ubuntu
+audiobookshelf_puid: 1000
+audiobookshelf_pgid: 1000
+
+# Directory permissions (octal mode)
+audiobookshelf_dir_mode: "0775"
+audiobookshelf_file_mode: "0664"
+
+# ========== TIMEZONE ==========
+
+# Container timezone (affects logging timestamps and scheduled tasks)
+audiobookshelf_timezone: "{{ timezone | default('America/Los_Angeles') }}"
+
+# ========== RESOURCE LIMITS (OPTIONAL) ==========
+
+# Uncomment to set memory limit (helps prevent runaway container consumption)
+# audiobookshelf_memory_limit: "2GB"
+
+# ========== NGINX PROXY MANAGER CONFIGURATION ==========
+#
+# The role automatically configures NPM proxy hosts, but requires these variables
+# to authenticate with the NPM API. Ensure they are defined in vault.yml:
+
+# npm_config_admin_email: "{{ vault_npm_admin_email }}"       # From vault.yml
+# npm_config_admin_password: "{{ vault_npm_admin_password }}" # From vault.yml
+# proxy_host_port: 8181                                        # NPM admin web port
+
+# ========== PROXY CONFIGURATION DETAILS ==========
+#
+# The role will automatically create an NPM proxy host with these settings:
+#
+#   Domain:             books.{{ local_domain }}  (e.g., books.chadbartel.duckdns.org)
+#   Forward Host:       audiobookshelf (container name on homelab-bridge)
+#   Forward Port:       80 (internal container port)
+#   Forward Scheme:     http
+#   Block Exploits:     true
+#   WebSocket Support:  true (REQUIRED for Audiobookshelf library syncing)
+#   SSL Certificate:    Let's Encrypt Wildcard (*.{{ local_domain }})
+#   SSL Forced:         true (all HTTP traffic redirected to HTTPS)
+#   HTTP/2:             true
+#   HSTS:               true (on Let's Encrypt cert)
+#   Caching:            true
+
+# ========== DISPLAY AND DEBUGGING ==========
+
+# Show deployment information and progress
+audiobookshelf_display_results: true
+
+# ========== DOCKER COMPOSE STAGING ==========
+
+# Directory where compose files are templated (usually /opt/compose)
+stack_deployer_compose_dir: "/opt/compose"
+
+# ========== VARIABLES REQUIRED FROM ELSEWHERE ==========
+#
+# These must be defined in your playbook or vars files:
+#
+#   From vars.yml:
+#     - local_domain:           "chadbartel.duckdns.org"
+#     - monolith_ip:            "192.168.1.17"
+#     - proxy_host_port:        8181
+#     - timezone:               "America/Los_Angeles"
+#
+#   From vault.yml:
+#     - vault_npm_admin_password: (NPM admin password)
+#
+#   From inventory or hostvars:
+#     - ansible_host:           "192.168.1.17" (for the monolith host)
+
+# ========== VOLUMES CREATED BY DOCKER COMPOSE ==========
+#
+# Docker volumes are created automatically by Compose:
+#
+#   1. pihole_etc
+#   2. pihole_dnsmasq
+#
+# Host directories (created by role tasks):
+#
+#   1. /opt/audiobookshelf/config       (ownership: 1000:1000)
+#   2. /opt/audiobookshelf/metadata     (ownership: 1000:1000)
+#   3. /mnt/ssd_media/audiobooks/       (ownership: pre-existing or created by bootstrap)
+#   4. /mnt/ssd_media/books/            (ownership: pre-existing or created by bootstrap)
+
+# ========== EXAMPLE: MINIMAL CONFIGURATION ==========
+#
+# If you only want to override one or two settings, add to vars.yml:
+#
+#   audiobookshelf_host_port: 13379  # Use different port
+#   audiobookshelf_memory_limit: "4GB"  # Increase memory
+
+# ========== EXAMPLE: ADVANCED CONFIGURATION ==========
+#
+# For a larger library with higher concurrent users:
+#
+#   audiobookshelf_memory_limit: "4GB"
+#   audiobookshelf_host_port: 13378
+#   audiobookshelf_media_source: "/mnt/ssd_media2"  # Alternative media mount
