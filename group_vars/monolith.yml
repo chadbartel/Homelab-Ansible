@@ -95,6 +95,16 @@ proxy_hosts:
     http2_support: true  # Enable HTTP/2 for improved performance
     block_exploits: true
 
+  # Audiobookshelf: Audiobook/ebook management on homelab-bridge network
+  - domain: "books.{{ local_domain }}"
+    host: "{{ audiobookshelf_container_name }}"
+    port: 80  # Internal Audiobookshelf port
+    scheme: "http"
+    websocket_upgrade: true  # REQUIRED: Library sync uses WebSocket protocol
+    ssl_forced: true  # Force HTTPS redirect via Let's Encrypt wildcard cert
+    http2_support: true  # Enable HTTP/2 for improved performance
+    block_exploits: true
+
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:
