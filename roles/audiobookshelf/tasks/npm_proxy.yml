@@ -8,8 +8,8 @@
     method: POST
     body_format: json
     body:
-      identity: "{{ npm_config_admin_email | default('admin@example.com') }}"
-      secret: "{{ npm_config_admin_password | default(vault_npm_admin_password) }}"
+      identity: "{{ admin_email }}"
+      secret: "{{ npm_admin_password }}"
     return_content: yes
     status_code: 200
     validate_certs: no
