@@ -100,6 +100,12 @@ retroarch_config_volume_name: "retroarch_config"  # Docker volume for /config (f
 retroarch_roms_source: "/mnt/ssd_media/roms"  # Host path for ROM library (bulk external storage)
 retroarch_roms_target: "/roms"  # Container mount point for ROM library
 
+# AudioBookShelf configuration (Audiobook management)
+audiobookshelf_image: "ghcr.io/advplyr/audiobookshelf:latest"
+audiobookshelf_container_name: "audiobookshelf"
+audiobookshelf_host_port: 13378  # Port exposed to host for direct access
+audiobookshelf_dns_port: 80  # Internal port used by containers on the bridge network
+
 # Bazarr configuration (Subtitle management)
 bazarr_image: "lscr.io/linuxserver/bazarr:latest"
 bazarr_container_name: "bazarr"
@@ -159,6 +165,8 @@ pihole_config_custom_dns_entries:
     hostname: "{{ bazarr_container_name }}.{{ local_domain }}"
   - ip: "{{ monolith_ip }}"
     hostname: "{{ open_webui_proxy_domain }}"  # Public domain for Open WebUI proxy
+  - ip: "{{ monolith_ip }}"
+    hostname: "books.{{ local_domain }}"  # Audiobookshelf proxy domain
 
 # Dnsmasq performance tuning
 pihole_config_dnsmasq_settings:

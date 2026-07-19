@@ -95,53 +95,69 @@ proxy_hosts:
     http2_support: true  # Enable HTTP/2 for improved performance
     block_exploits: true
 
+  # Audiobookshelf: Audiobook/ebook management on homelab-bridge network
+  - domain: "books.{{ local_domain }}"
+    host: "{{ audiobookshelf_container_name }}"
+    port: 80  # Internal Audiobookshelf port
+    scheme: "http"
+    websocket_upgrade: true  # REQUIRED: Library sync uses WebSocket protocol
+    ssl_forced: true  # Force HTTPS redirect via Let's Encrypt wildcard cert
+    http2_support: true  # Enable HTTP/2 for improved performance
+    block_exploits: true
+
 # Directories to create/prepare during bootstrap phase (before containers start)
 # These ensure state directories exist for rsync migration
 bootstrap_state_dirs:
-  - path: "/opt/pihole/etc-pihole"
-    owner: "root"
-    group: "root"
-    mode: "0755"
   - path: "/opt/pihole"
     owner: "root"
     group: "root"
-    mode: "0755"
-  - path: "/opt/npm/data"
+    mode: "0775"
+    recurse: yes
+  - path: "/opt/npm"
     owner: "root"
     group: "root"
-    mode: "0755"
-  - path: "/opt/npm/letsencrypt"
-    owner: "root"
-    group: "root"
-    mode: "0755"
-  - path: "/opt/jellyfin/config"
+    mode: "0775"
+    recurse: yes
+  - path: "/opt/jellyfin"
     owner: "1000"
     group: "1000"
-    mode: "0755"
-  - path: "/opt/bazarr/config"
+    mode: "0775"
+    recurse: yes
+  - path: "/opt/bazarr"
     owner: "1000"
     group: "1000"
-    mode: "0755"
-  - path: "/opt/ollama/data"
+    mode: "0775"
+    recurse: yes
+  - path: "/opt/ollama"
     owner: "root"
     group: "root"
-    mode: "0755"
-  - path: "/opt/open-webui/data"
+    mode: "0775"
+    recurse: yes
+  - path: "/opt/open-webui"
     owner: "root"
     group: "root"
-    mode: "0755"
+    mode: "0775"
+    recurse: yes
+  - path: "/opt/audiobookshelf"
+    owner: "1000"
+    group: "1000"
+    mode: "0775"
+    recurse: yes
   - path: "/mnt/ssd_media"
     owner: "1000"
     group: "1000"
-    mode: "0755"
+    mode: "0775"
+    recurse: yes
   - path: "/mnt/ssd_media2"
     owner: "1000"
     group: "1000"
-    mode: "0755"
+    mode: "0775"
+    recurse: yes
   - path: "/mnt/nvme_secondary"
     owner: "1000"
     group: "1000"
-    mode: "0755"
+    mode: "0775"
+    recurse: yes
 
 # Tailscale IP forwarding (required for Tailscale subnet router / exit node capability)
 enable_ipv4_forwarding: true

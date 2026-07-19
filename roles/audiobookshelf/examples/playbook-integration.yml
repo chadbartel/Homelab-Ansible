@@ -1,0 +1,103 @@
+---
+# Playbook Integration Example: Audiobookshelf Deployment
+# ========================================================
+#
+# This file shows the exact YAML snippet to add to your main.yml to integrate the Audiobookshelf role.
+# Copy the role invocation snippet into your main playbook's roles section.
+
+# ========== OPTION 1: Add to Existing Deploy Playbook ==========
+#
+# If you already have a playbook section like this:
+#
+#   - name: Deploy stacks (phase 2/2 - container startup)
+#     hosts: monolith
+#     gather_facts: false
+#     become: true
+#     vars_files:
+#       - vars.yml
+#       - vault.yml
+#     roles:
+#       - nginx_proxy_manager_config
+#       - pihole_config
+#       - jellyfin_config
+#       - bazarr
+#
+# Add the audiobookshelf role:
+#
+#   - name: Deploy stacks (phase 2/2 - container startup)
+#     hosts: monolith
+#     gather_facts: false
+#     become: true
+#     vars_files:
+#       - vars.yml
+#       - vault.yml
+#     roles:
+#       - nginx_proxy_manager_config
+#       - pihole_config
+#       - jellyfin_config
+#       - bazarr
+#       - audiobookshelf  # ← ADD THIS LINE
+#
+# Then run:
+#   ansible-playbook main.yml --tags deploy
+
+# ========== OPTION 2: Create Dedicated Playbook Section ==========
+#
+# Add this entire section to your main.yml:
+
+- name: Deploy Audiobookshelf media server
+  hosts: monolith
+  gather_facts: false
+  become: true
+  vars_files:
+    - vars.yml
+    - vault.yml
+  
+  roles:
+    - audiobookshelf
+  
+  tags:
+    - deploy
+    - media
+    - audiobookshelf
+
+# ========== OPTION 3: Standalone Playbook File ==========
+#
+# Create a new file named playbooks/deploy-audiobookshelf.yml:
+#
+#   ---
+#   - name: Deploy Audiobookshelf media server
+#     hosts: monolith
+#     gather_facts: false
+#     become: true
+#     vars_files:
+#       - vars.yml
+#       - vault.yml
+#     
+#     roles:
+#       - audiobookshelf
+#
+# Then run:
+#   ansible-playbook playbooks/deploy-audiobookshelf.yml
+
+# ========== DEPLOYMENT COMMANDS ==========
+
+# Deploy just Audiobookshelf (after adding to main.yml):
+#   ansible-playbook main.yml --tags audiobookshelf
+#
+# Deploy all media services:
+#   ansible-playbook main.yml --tags deploy
+#
+# Deploy with verbose output (for troubleshooting):
+#   ansible-playbook main.yml --tags audiobookshelf -vvv
+#
+# Dry-run (check mode):
+#   ansible-playbook main.yml --tags audiobookshelf --check
+
+# ========== VERIFY DEPLOYMENT ==========
+
+# After running the playbook, verify with:
+#   docker ps | grep audiobookshelf
+#   docker logs -f audiobookshelf
+#   curl -I http://192.168.1.17:13378
+#   curl -I https://books.chadbartel.duckdns.org

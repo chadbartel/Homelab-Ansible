@@ -193,6 +193,11 @@
         name: retroarch
       tags: ["deploy", "retroarch"]
 
+    - name: Deploy Audiobookshelf (Audiobook/ebook management)
+      ansible.builtin.include_role:
+        name: audiobookshelf
+      tags: ["deploy", "audiobookshelf"]
+
     - name: Run post-setup configuration for all services
       ansible.builtin.include_tasks: tasks/post_setup.yml
       tags: ["deploy", "post-setup"]
@@ -211,6 +216,7 @@
           - Open WebUI: http://open-webui.{{ local_domain }}/  (via NPM, GPU-accelerated AI frontend)
           - RetroArch: https://retroarch.{{ local_domain }}/  (via NPM, GPU-accelerated emulator frontend)
           - Portainer: https://portainer.{{ local_domain }}:{{ portainer_host_port }}
+          - Audiobookshelf: https://books.{{ local_domain }}/  (via NPM, audiobook/ebook management)
           
           To verify:
           - SSH to monolith and run: docker ps
@@ -218,4 +224,5 @@
           - Verify GPU acceleration in Jellyfin: Dashboard -> Playback -> Hardware Acceleration (if enabled)
           - Verify RetroArch GPU acceleration and ROM loading in Settings
           - Verify Open WebUI can reach Ollama backend (check UI settings)
+          - Verify Audiobookshelf is accessible and can sync libraries
       tags: ["deploy"]

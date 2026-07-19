@@ -1,0 +1,36 @@
+---
+# Audiobookshelf role defaults
+
+# Container and image configuration
+audiobookshelf_image: "ghcr.io/advplyr/audiobookshelf:latest"
+audiobookshelf_container_name: "audiobookshelf"
+
+# Host and networking
+audiobookshelf_host: "{{ ansible_host | default('127.0.0.1') }}"
+audiobookshelf_host_port: 13378
+audiobookshelf_internal_port: 80
+
+# Storage paths (NVMe for config, USB SSD for media)
+audiobookshelf_config_path: "/opt/audiobookshelf"
+audiobookshelf_media_source: "/mnt/ssd_media"
+
+# User and permissions (match Docker user 1000:1000)
+audiobookshelf_puid: 1000
+audiobookshelf_pgid: 1000
+audiobookshelf_dir_mode: "0775"
+audiobookshelf_file_mode: "0664"
+
+# Timezone (defaults to global timezone if not set)
+audiobookshelf_timezone: "{{ timezone | default('America/Los_Angeles') }}"
+
+# Docker network
+audiobookshelf_network: "homelab-bridge"
+
+# Container restart policy
+audiobookshelf_restart_policy: "unless-stopped"
+
+# Memory limits (optional, commented out by default for no limit)
+# audiobookshelf_memory_limit: "2GB"
+
+# Display configuration results
+audiobookshelf_display_results: true
