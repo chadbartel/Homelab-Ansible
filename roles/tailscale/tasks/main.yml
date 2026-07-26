@@ -41,14 +41,17 @@
   ansible.builtin.include_tasks: start_service.yml
   tags: ["tailscale", "setup"]
 
+- name: Include IP forwarding configuration (with handler-based restart)
+  ansible.builtin.include_tasks: configure_ip_forwarding.yml
+  tags: ["tailscale", "network"]
+
+- name: Flush handlers to restart tailscaled if kernel parameters changed
+  ansible.builtin.meta: flush_handlers
+  tags: ["tailscale", "network"]
+
 - name: Include authentication
   ansible.builtin.include_tasks: authenticate.yml
   tags: ["tailscale", "auth"]
-
-- name: Include IP forwarding verification
-  ansible.builtin.include_tasks: verify_ip_forwarding.yml
-  when: verify_ip_forwarding | default(true)
-  tags: ["tailscale", "verify"]
 
 - name: Display Tailscale installation complete
   ansible.builtin.debug:

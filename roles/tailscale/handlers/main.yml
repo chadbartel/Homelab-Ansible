@@ -1,0 +1,10 @@
+---
+# Tailscale handlers: triggered on configuration changes
+
+- name: Restart tailscaled
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: restarted
+    daemon_reload: false
+  listen: "Restart tailscaled"
+  tags: ["tailscale", "handlers"]

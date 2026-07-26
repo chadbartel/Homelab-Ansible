@@ -1,0 +1,26 @@
+---
+# Idempotent kernel IP forwarding configuration for Tailscale subnet router and exit node modes
+# Uses handlers to restart tailscaled only when sysctl values actually change
+
+- name: Enable IPv4 forwarding for Tailscale routing
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-tailscale.conf
+  notify: Restart tailscaled
+  tags: ["tailscale", "network"]
+
+- name: Enable IPv6 forwarding for Tailscale routing
+  ansible.posix.sysctl:
+    name: net.ipv6.conf.all.forwarding
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-tailscale.conf
+  when: enable_ipv6_forwarding | default(false)
+  notify: Restart tailscaled
+  tags: ["tailscale", "network"]
