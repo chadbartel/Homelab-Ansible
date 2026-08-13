@@ -212,7 +212,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  restart  - Restart SSH agent and reload keys"
     echo ""
     echo "Environment Variables:"
-    echo "  SSH_KEY_PATH     - Path to SSH private key (default: ~/.ssh/id_rsa)"
+    echo "  SSH_KEY_PATH     - Path to SSH private key (default: ~/.ssh/id_ed25519)"
     echo "  SSH_AGENT_TIMEOUT - Key timeout in seconds (default: 3600)"
     echo "  SSH_SKIP_TEST    - Set to '1' to skip connectivity test"
     exit 0
