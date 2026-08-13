@@ -6,9 +6,9 @@ services:
     image: {{ npm_image }}
     hostname: {{ nginx_proxy_container_name }}
     ports:
-      - "80:80"
-      - "443:443"
-      - "{{ proxy_host_port }}:81"
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+      - "0.0.0.0:81:81"
     environment:
       DB_SQLITE_FILE: "/data/database.sqlite"
       INITIAL_ADMIN_EMAIL: "{{ admin_email }}"
@@ -19,8 +19,8 @@ services:
       - 1.1.1.1       # Cloudflare fallback
       - 8.8.8.8       # Google fallback
     volumes:
-      - npm_data:/data
-      - npm_letsencrypt:/etc/letsencrypt
+      - /mnt/data/npm/data:/data
+      - /mnt/data/npm/letsencrypt:/etc/letsencrypt
 {% for storage_mount in shared_storage_mounts | default([]) %}
       - type: bind
         source: {{ storage_mount.source }}
@@ -30,10 +30,6 @@ services:
     networks:
       - homelab-bridge
     restart: unless-stopped
-
-volumes:
-  npm_data:
-  npm_letsencrypt:
 
 networks:
   homelab-bridge:

@@ -7,7 +7,7 @@ npm_config_service_name: "npm-stack_npm"
 npm_config_target_node: "monolith"
 
 # NPM connection settings
-npm_config_web_port: 8181
+npm_config_web_port: 81
 npm_config_admin_email: "admin@example.com"
 npm_config_admin_password: ""  # Should be overridden with vault variable
 

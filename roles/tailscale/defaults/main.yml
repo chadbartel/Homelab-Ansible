@@ -15,6 +15,10 @@ tailscale_advertise_exit_node: true           # Enable exit node mode for VPN pa
 # Examples: --ssh, --accept-routes, --shields-up
 tailscale_additional_flags: ""
 
+# Keep DNS local to the server by default so it can still resolve public
+# package mirrors. Set to true only if you specifically want Tailscale MagicDNS.
+tailscale_accept_dns: false
+
 # IP forwarding verification
 verify_ip_forwarding: true
 

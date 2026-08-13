@@ -53,4 +53,5 @@ networks:
 
 volumes:
   bazarr_config:
-    driver: local
+    external: true
+    name: bazarr-stack_bazarr_config

@@ -11,13 +11,11 @@ ssd_media_drives:
     format: false
     mount_path: "/mnt/ssd_media2"
 
-# Secondary NVMe inventory for migration planning.
-# The current device has no partition table or filesystem yet, so bootstrap will
-# create the mountpoint and skip mounting until the drive is initialized.
-nvme_data_drives:
-  - device: "/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_2TB_S7L9NJ0L314443P"
-    format: false
-    mount_path: "/mnt/nvme_secondary"
+# Dedicated Docker data disk. This is mounted before Docker is installed or
+# restarted so the daemon always uses the secondary NVMe for /var/lib/docker.
+docker_data_device: "/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_2TB_S7L9NJ0L314443P"
+docker_data_format: true
+docker_data_mount_path: "/var/lib/docker"
 
 # Shared host storage exposed to all service containers.
 # These mounts provide cross-service access to media/data paths.
@@ -28,10 +26,6 @@ shared_storage_mounts:
   - source: "/mnt/ssd_media2"
     target: "/mnt/ssd_media2"
     read_only: false
-  - source: "/mnt/nvme_secondary"
-    target: "/mnt/nvme_secondary"
-    read_only: false
-
 # Nginx Proxy Manager configuration (monolith acts as both upstream server and proxy)
 proxy_hosts:
   # Pi-hole: use container name on homelab-bridge network
@@ -153,12 +147,6 @@ bootstrap_state_dirs:
     group: "1000"
     mode: "0775"
     recurse: yes
-  - path: "/mnt/nvme_secondary"
-    owner: "1000"
-    group: "1000"
-    mode: "0775"
-    recurse: yes
-
 # Tailscale IP forwarding (required for Tailscale subnet router / exit node capability)
 enable_ipv4_forwarding: true
 enable_ipv6_forwarding: false  # Set to true if running Tailscale subnet router with IPv6
@@ -178,8 +166,9 @@ ollama_gpu_capabilities: ["gpu"]
 # CRITICAL: These values MUST be set to deterministic values to maintain
 # database connectivity across playbook runs. Random generation causes
 # PostgreSQL password mismatches and 502 errors.
+# Fresh reset: old DB password was lost; use the new known values below.
 # ============================================================================
-dispatcharr_postgres_password: "{{ vault_dispatcharr_postgres_password | default('dispatcharr_secure_db_password_2026') }}"
-dispatcharr_django_secret_key: "{{ vault_dispatcharr_django_secret_key | default('dispatcharr_django_secret_key_change_this_in_vault_12345') }}"
-dispatcharr_enable_gpu: true  # RTX 2070 SUPER passthrough enabled
+dispatcharr_postgres_password: "dispatcharr_db_password_2026!"
+dispatcharr_django_secret_key: "dispatcharr_django_secret_key_2026_7b3f5d87d9a9f0ee"
+dispatcharr_enable_gpu: true  # RTX 2070 SUPER passthrough disabled
 dispatcharr_celery_concurrency: 4

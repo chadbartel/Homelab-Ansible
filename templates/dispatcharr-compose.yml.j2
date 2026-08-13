@@ -3,8 +3,6 @@
 # Single-host deployment with separate containers for web, postgres, redis, celery
 # Flat LAN architecture: web container binds directly to host port 9191
 
-version: "3.8"
-
 services:
   # ============================================================================
   # PostgreSQL Database (modular mode: external service)
@@ -22,13 +20,13 @@ services:
     volumes:
       - "{{ dispatcharr_db_dir }}:/var/lib/postgresql/data"
     ports:
-      - "127.0.0.1:{{ dispatcharr_postgres_port }}:{{ dispatcharr_postgres_port }}"
+      - "0.0.0.0:{{ dispatcharr_postgres_port }}:{{ dispatcharr_postgres_port }}"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U {{ dispatcharr_postgres_user }}"]
-      interval: {{ dispatcharr_healthcheck_interval }}s
-      timeout: {{ dispatcharr_healthcheck_timeout }}s
-      retries: {{ dispatcharr_healthcheck_retries }}
-      start_period: {{ dispatcharr_healthcheck_start_period }}s
+      test: ["CMD-SHELL", "pg_isready -U {{ dispatcharr_postgres_user }} -d {{ dispatcharr_postgres_db }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     restart: "{{ dispatcharr_restart_policy }}"
     logging:
       driver: "json-file"
@@ -44,17 +42,17 @@ services:
     container_name: "{{ dispatcharr_container_name_redis }}"
     networks:
       - homelab-bridge
-    command: redis-server --appendonly yes
+    command: ["redis-server", "--appendonly", "yes", "--protected-mode", "no"]
     volumes:
       - "{{ dispatcharr_redis_dir }}:/data"
     ports:
-      - "127.0.0.1:{{ dispatcharr_redis_port }}:{{ dispatcharr_redis_port }}"
+      - "0.0.0.0:{{ dispatcharr_redis_port }}:{{ dispatcharr_redis_port }}"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: {{ dispatcharr_healthcheck_interval }}s
-      timeout: {{ dispatcharr_healthcheck_timeout }}s
-      retries: {{ dispatcharr_healthcheck_retries }}
-      start_period: {{ dispatcharr_healthcheck_start_period }}s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     restart: "{{ dispatcharr_restart_policy }}"
     logging:
       driver: "json-file"
@@ -82,36 +80,47 @@ services:
       DISPATCHARR_DEBUG: "false"
       DISPATCHARR_LOG_LEVEL: "{{ dispatcharr_log_level }}"
       DISPATCHARR_PORT: "{{ dispatcharr_port_internal }}"
-      
+
       # PostgreSQL (external service)
       POSTGRES_HOST: "{{ dispatcharr_container_name_db }}"
       POSTGRES_PORT: "{{ dispatcharr_postgres_port }}"
       POSTGRES_USER: "{{ dispatcharr_postgres_user }}"
       POSTGRES_PASSWORD: "{{ dispatcharr_postgres_password }}"
       POSTGRES_DB: "{{ dispatcharr_postgres_db }}"
-      
+
       # Redis (external service)
       REDIS_HOST: "{{ dispatcharr_container_name_redis }}"
       REDIS_PORT: "{{ dispatcharr_redis_port }}"
       REDIS_DB: "0"
-      
+
       # Django
       DJANGO_SECRET_KEY: "{{ dispatcharr_django_secret_key }}"
-      
+
       # System
       PUID: "{{ dispatcharr_puid }}"
       PGID: "{{ dispatcharr_pgid }}"
     volumes:
       - "{{ dispatcharr_data_dir }}/data:/data"
+      - "{{ dispatcharr_data_dir }}/logs:/var/log/dispatcharr"
     ports:
-      # Flat LAN: bind directly to host for local IoT access
-      - "{{ dispatcharr_host }}:{{ dispatcharr_port }}:{{ dispatcharr_port_internal }}"
+      - "0.0.0.0:{{ dispatcharr_port }}:{{ dispatcharr_port_internal }}"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:{{ dispatcharr_port_internal }}/api/"]
-      interval: {{ dispatcharr_healthcheck_interval }}s
-      timeout: {{ dispatcharr_healthcheck_timeout }}s
-      retries: {{ dispatcharr_healthcheck_retries }}
-      start_period: {{ dispatcharr_healthcheck_start_period }}s
+      test:
+        - CMD-SHELL
+        - >
+          python - <<'PY'
+          import os, sys, urllib.request
+          url = f"http://127.0.0.1:{os.environ.get('DISPATCHARR_PORT', '{{ dispatcharr_port_internal }}')}/api/"
+          try:
+              with urllib.request.urlopen(url, timeout=5) as response:
+                  sys.exit(0 if response.status < 400 else 1)
+          except Exception:
+              sys.exit(1)
+          PY
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
     restart: "{{ dispatcharr_restart_policy }}"
     logging:
       driver: "json-file"
@@ -144,36 +153,37 @@ services:
       {{ dispatcharr_container_name_redis }}:
         condition: service_healthy
       {{ dispatcharr_container_name_web }}:
-        condition: service_healthy
+        condition: service_started
     environment:
       DISPATCHARR_ENV: "{{ dispatcharr_env }}"
       DISPATCHARR_DEBUG: "false"
       DISPATCHARR_LOG_LEVEL: "{{ dispatcharr_log_level }}"
-      
+
       # PostgreSQL (external service)
       POSTGRES_HOST: "{{ dispatcharr_container_name_db }}"
       POSTGRES_PORT: "{{ dispatcharr_postgres_port }}"
       POSTGRES_USER: "{{ dispatcharr_postgres_user }}"
       POSTGRES_PASSWORD: "{{ dispatcharr_postgres_password }}"
       POSTGRES_DB: "{{ dispatcharr_postgres_db }}"
-      
+
       # Redis (external service)
       REDIS_HOST: "{{ dispatcharr_container_name_redis }}"
       REDIS_PORT: "{{ dispatcharr_redis_port }}"
       REDIS_DB: "0"
-      
+
       # Django
       DJANGO_SECRET_KEY: "{{ dispatcharr_django_secret_key }}"
-      
+
       # System
       PUID: "{{ dispatcharr_puid }}"
       PGID: "{{ dispatcharr_pgid }}"
-      
+
       # Celery worker configuration
       CELERY_BROKER_URL: "redis://{{ dispatcharr_container_name_redis }}:{{ dispatcharr_redis_port }}/0"
       CELERY_RESULT_BACKEND: "redis://{{ dispatcharr_container_name_redis }}:{{ dispatcharr_redis_port }}/0"
     volumes:
       - "{{ dispatcharr_data_dir }}/data:/data"
+      - "{{ dispatcharr_data_dir }}/logs:/var/log/dispatcharr"
     entrypoint: ["/app/docker/entrypoint.celery.sh"]
     restart: "{{ dispatcharr_restart_policy }}"
     logging:

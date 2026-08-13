@@ -2,12 +2,12 @@
 
 services:
   jellyfin:
-    container_name: {{ jellyfin_container_name }}
-    hostname: {{ jellyfin_container_name }}
+    container_name: jellyfin
+    hostname: jellyfin
     image: {{ jellyfin_image | default('jellyfin/jellyfin:10') }}
     user: "1000:1000"
     ports:
-      - "{{ jellyfin_host_port }}:8096"  # Publish port for direct access and API automation
+      - "0.0.0.0:8096:8096"  # Publish port for direct access and API automation
     networks:
       - homelab-bridge
     dns:
@@ -36,18 +36,15 @@ services:
       JELLYFIN_FFmpeg__probesize: '1G'
       JELLYFIN_FFmpeg__analyzeduration: '3000000'
     deploy:
-      replicas: 1
       resources:
         limits:
           memory: 4G
         reservations:
           memory: 1G
-{% if jellyfin_gpu_enabled | default(false) %}
           devices:
             - driver: nvidia
-              count: {{ jellyfin_gpu_device_count | default(1) }}
-              capabilities: {{ jellyfin_gpu_capabilities | default(['gpu']) }}
-{% endif %}
+              count: 1
+              capabilities: [gpu]
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -64,6 +61,8 @@ networks:
 
 volumes:
   jellyfin_config:
-    driver: local
+    external: true
+    name: jellyfin-stack_jellyfin_config
   jellyfin_cache:
-    driver: local
+    external: true
+    name: jellyfin-stack_jellyfin_cache

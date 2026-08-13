@@ -34,7 +34,7 @@ gateway_ip: "192.168.1.1"
 local_domain: "chadbartel.duckdns.org"
 
 # Service host ports
-proxy_host_port: 8181
+proxy_host_port: 81
 pihole_host_port: 8081
 
 # Legacy compatibility alias retained for templates/tasks still being migrated
