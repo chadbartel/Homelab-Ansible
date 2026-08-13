@@ -57,9 +57,85 @@
     state: link
     force: true
 
+# Prepare Docker's data filesystem before tasks/docker.yml can start or restart
+# the daemon. The filesystem module is non-destructive when already formatted.
+- name: Gather Docker service facts before changing its data mount
+  ansible.builtin.service_facts:
+
+- name: Check whether the Docker data device exists
+  ansible.builtin.stat:
+    path: "{{ docker_data_device | default('') }}"
+  register: docker_data_device_stat
+  when: docker_data_device | default('') | length > 0
+
+- name: Ensure the Docker data device is formatted as ext4
+  community.general.filesystem:
+    dev: "{{ docker_data_device }}"
+    fstype: ext4
+  when:
+    - docker_data_device | default('') | length > 0
+    - docker_data_device_stat.stat.exists | default(false)
+    - docker_data_format | default(false) | bool
+
+- name: Read the Docker data filesystem UUID
+  ansible.builtin.command:
+    cmd: "blkid -s UUID -o value {{ docker_data_device }}"
+  register: docker_data_uuid
+  changed_when: false
+  when:
+    - docker_data_device | default('') | length > 0
+    - docker_data_device_stat.stat.exists | default(false)
+
+- name: Check the currently mounted Docker data filesystem
+  ansible.builtin.command:
+    cmd: "findmnt --noheadings --output UUID --target {{ docker_data_mount_path }}"
+  register: docker_current_mount_uuid
+  changed_when: false
+  failed_when: false
+  when:
+    - docker_data_uuid.stdout | default('') | length > 0
+
+- name: Stop Docker before changing its data mount
+  ansible.builtin.systemd_service:
+    name: docker
+    state: stopped
+  when:
+    - ansible_facts.services['docker.service'] is defined
+    - ansible_facts.services['docker.service'].state == 'running'
+    - docker_current_mount_uuid.stdout | default('') != docker_data_uuid.stdout | default('')
+
+- name: Ensure Docker data mount directory exists
+  ansible.builtin.file:
+    path: "{{ docker_data_mount_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0711"
+  when:
+    - docker_data_uuid.stdout | default('') | length > 0
+
+- name: Mount Docker data filesystem by UUID
+  ansible.posix.mount:
+    path: "{{ docker_data_mount_path }}"
+    src: "UUID={{ docker_data_uuid.stdout }}"
+    fstype: ext4
+    opts: defaults,nofail
+    state: mounted
+  when:
+    - docker_data_uuid.stdout | default('') | length > 0
+
+- name: Start Docker after changing its data mount
+  ansible.builtin.systemd_service:
+    name: docker
+    state: started
+  when:
+    - ansible_facts.services['docker.service'] is defined
+    - ansible_facts.services['docker.service'].state == 'running'
+    - docker_current_mount_uuid.stdout | default('') != docker_data_uuid.stdout | default('')
+
 # Configure IP forwarding for Tailscale and other networking features
 - name: Enable persistent IPv4 forwarding for Tailscale
-  ansible.builtin.sysctl:
+  ansible.posix.sysctl:
     name: net.ipv4.ip_forward
     value: '1'
     sysctl_set: true

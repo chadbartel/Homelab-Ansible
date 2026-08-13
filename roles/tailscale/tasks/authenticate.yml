@@ -59,6 +59,39 @@
     - vault_tailscale_auth_key | length > 0
   tags: ["tailscale", "auth"]
 
+- name: Read the locally configured Tailscale preferences
+  ansible.builtin.command:
+    cmd: "{{ tailscale_cli_path }} debug prefs"
+  register: tailscale_preferences_raw
+  changed_when: false
+  failed_when: false
+  when: not (tailscale_needs_auth | default(false))
+  tags: ["tailscale", "auth"]
+
+- name: Parse locally configured Tailscale preferences
+  ansible.builtin.set_fact:
+    tailscale_preferences: "{{ tailscale_preferences_raw.stdout | from_json }}"
+  when:
+    - tailscale_preferences_raw is defined
+    - tailscale_preferences_raw.rc == 0
+    - tailscale_preferences_raw.stdout | length > 0
+  tags: ["tailscale", "auth"]
+
+- name: Advertise the LAN route when local route state differs
+  ansible.builtin.command:
+    argv:
+      - "{{ tailscale_cli_path }}"
+      - up
+      - "--advertise-routes={{ tailscale_advertise_routes }}"
+      - "--advertise-exit-node={{ tailscale_advertise_exit_node | bool }}"
+  when:
+    - tailscale_preferences is defined
+    - >-
+      (tailscale_preferences.AdvertiseRoutes | default([], true) | sort) !=
+      (tailscale_advertise_routes.split(',') | map('trim') | reject('equalto', '') | list | sort)
+  changed_when: true
+  tags: ["tailscale", "auth"]
+
 - name: Wait for Tailscale to establish connection
   ansible.builtin.pause:
     seconds: 5

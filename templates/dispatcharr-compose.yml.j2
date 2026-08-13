@@ -3,8 +3,6 @@
 # Single-host deployment with separate containers for web, postgres, redis, celery
 # Flat LAN architecture: web container binds directly to host port 9191
 
-version: "3.8"
-
 services:
   # ============================================================================
   # PostgreSQL Database (modular mode: external service)
@@ -22,7 +20,7 @@ services:
     volumes:
       - "{{ dispatcharr_db_dir }}:/var/lib/postgresql/data"
     ports:
-      - "127.0.0.1:{{ dispatcharr_postgres_port }}:{{ dispatcharr_postgres_port }}"
+      - "0.0.0.0:{{ dispatcharr_postgres_port }}:{{ dispatcharr_postgres_port }}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ dispatcharr_postgres_user }}"]
       interval: {{ dispatcharr_healthcheck_interval }}s
@@ -48,7 +46,7 @@ services:
     volumes:
       - "{{ dispatcharr_redis_dir }}:/data"
     ports:
-      - "127.0.0.1:{{ dispatcharr_redis_port }}:{{ dispatcharr_redis_port }}"
+      - "0.0.0.0:{{ dispatcharr_redis_port }}:{{ dispatcharr_redis_port }}"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: {{ dispatcharr_healthcheck_interval }}s

@@ -2,17 +2,18 @@
 
 services:
   pihole:
-    container_name: {{ pihole_container_name }}
-    hostname: {{ pihole_container_name }}
+    container_name: pihole
+    hostname: pihole
     image: {{ pihole_image }}
     ports:
       - "445:443/tcp"
-      - "53:53/tcp"
-      - "53:53/udp"
+      - "0.0.0.0:53:53/tcp"
+      - "0.0.0.0:53:53/udp"
       - "{{ pihole_web_port }}:{{ pihole_dns_port | default(80) }}/tcp"
     environment:
       TZ: '{{ timezone }}'
       FTLCONF_webserver_api_password: '{{ pihole_web_password }}'
+      FTLCONF_MAXDBDAYS: '14'
       # Upstream DNS servers (prevents query failures and timeouts)
       FTLCONF_dns_upstreams: '{{ pihole_upstream_dns_servers | default(["1.1.1.1", "8.8.8.8"]) | join(";") }}'
       # DNS listening mode - must be 'all' to accept queries from LAN clients (router, devices)
