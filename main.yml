@@ -188,10 +188,10 @@
       ansible.builtin.include_tasks: tasks/deploy_stacks.yml
       tags: ["deploy", "stacks"]
 
-    - name: Deploy RetroArch (Emulator frontend with GPU acceleration)
-      ansible.builtin.include_role:
-        name: retroarch
-      tags: ["deploy", "retroarch"]
+    # - name: Deploy RetroArch (Emulator frontend with GPU acceleration)
+    #   ansible.builtin.include_role:
+    #     name: retroarch
+    #   tags: ["deploy", "retroarch"]
 
     - name: Deploy Audiobookshelf (Audiobook/ebook management)
       ansible.builtin.include_role:

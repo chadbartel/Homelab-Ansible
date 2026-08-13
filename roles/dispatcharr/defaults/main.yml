@@ -24,7 +24,7 @@ dispatcharr_container_name_celery: "dispatcharr-celery"
 
 # Database credentials (MUST override in group_vars/monolith.yml)
 dispatcharr_postgres_user: "dispatch"
-dispatcharr_postgres_password: "changeme_postgres_password_123"  # ⚠️ OVERRIDE IN GROUP_VARS
+dispatcharr_postgres_password: "dispatcharr_db_password_2026!"  # Fresh reset value
 dispatcharr_postgres_db: "dispatcharr"
 dispatcharr_postgres_port: 5432
 
@@ -36,7 +36,7 @@ dispatcharr_env: "modular"
 dispatcharr_port_internal: 9191
 
 # Django secret key (MUST override in group_vars/monolith.yml)
-dispatcharr_django_secret_key: "changeme_django_secret_key_12345678901234567890"  # ⚠️ OVERRIDE IN GROUP_VARS
+dispatcharr_django_secret_key: "dispatcharr_django_secret_key_2026_7b3f5d87d9a9f0ee"  # Fresh reset value
 
 # PUID/PGID for container user (optional; used if defined)
 dispatcharr_puid: 1000

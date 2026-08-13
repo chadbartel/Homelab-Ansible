@@ -166,8 +166,9 @@ ollama_gpu_capabilities: ["gpu"]
 # CRITICAL: These values MUST be set to deterministic values to maintain
 # database connectivity across playbook runs. Random generation causes
 # PostgreSQL password mismatches and 502 errors.
+# Fresh reset: old DB password was lost; use the new known values below.
 # ============================================================================
-dispatcharr_postgres_password: "{{ vault_dispatcharr_postgres_password | default('dispatcharr_secure_db_password_2026') }}"
-dispatcharr_django_secret_key: "{{ vault_dispatcharr_django_secret_key | default('dispatcharr_django_secret_key_change_this_in_vault_12345') }}"
-dispatcharr_enable_gpu: true  # RTX 2070 SUPER passthrough enabled
+dispatcharr_postgres_password: "dispatcharr_db_password_2026!"
+dispatcharr_django_secret_key: "dispatcharr_django_secret_key_2026_7b3f5d87d9a9f0ee"
+dispatcharr_enable_gpu: true  # RTX 2070 SUPER passthrough disabled
 dispatcharr_celery_concurrency: 4

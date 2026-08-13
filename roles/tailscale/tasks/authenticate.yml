@@ -50,7 +50,8 @@
       --reset \
       --auth-key={{ vault_tailscale_auth_key }} \
       --advertise-routes={{ tailscale_advertise_routes }} \
-      --advertise-exit-node {% if tailscale_additional_flags %}{{ tailscale_additional_flags }}{% endif %}
+      --advertise-exit-node={{ tailscale_advertise_exit_node | bool | string | lower }} \
+      --accept-dns={{ tailscale_accept_dns | bool | string | lower }} {% if tailscale_additional_flags %}{{ tailscale_additional_flags }}{% endif %}
   register: tailscale_auth_result
   changed_when: "'Success' in tailscale_auth_result.stdout or 'Logged in' in tailscale_auth_result.stdout"
   when:
@@ -82,8 +83,10 @@
     argv:
       - "{{ tailscale_cli_path }}"
       - up
+      - "--reset"
       - "--advertise-routes={{ tailscale_advertise_routes }}"
-      - "--advertise-exit-node={{ tailscale_advertise_exit_node | bool }}"
+      - "--advertise-exit-node={{ tailscale_advertise_exit_node | bool | string | lower }}"
+      - "--accept-dns={{ tailscale_accept_dns | bool | string | lower }}"
   when:
     - tailscale_preferences is defined
     - >-

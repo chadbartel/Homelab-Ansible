@@ -22,6 +22,27 @@
       - python3-dev
     state: present
 
+- name: Install proprietary NVIDIA headless driver stack for Ubuntu 24.04 RTX 2070 SUPER
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name:
+      - nvidia-driver-550
+      - nvidia-headless-550
+      - nvidia-utils-550
+    state: present
+  register: nvidia_driver_install
+  retries: 3
+  delay: 10
+  until: nvidia_driver_install is success
+
+- name: Enable NVIDIA persistence daemon
+  ansible.builtin.systemd_service:
+    name: nvidia-persistenced
+    enabled: true
+    state: started
+    daemon_reload: true
+
 - name: Create Python virtual environment directory
   ansible.builtin.file:
     path: "{{ python_venv_path }}"

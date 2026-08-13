@@ -61,6 +61,8 @@ networks:
 
 volumes:
   jellyfin_config:
-    driver: local
+    external: true
+    name: jellyfin-stack_jellyfin_config
   jellyfin_cache:
-    driver: local
+    external: true
+    name: jellyfin-stack_jellyfin_cache
