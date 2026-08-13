@@ -1,22 +1,45 @@
 ---
-# Encrypted variables - create this file using ansible-vault
-# Example: ansible-vault create vault.yml
+# Ansible Vault - Encrypted Secrets
+# Create with: ansible-vault create vault.yml
+# Edit with: ansible-vault edit vault.yml
+# View with: ansible-vault view vault.yml
 
-# Use strong, unique passwords for all services
-Vault password: 
-vault_admin_username: "changeme"
-vault_admin_password: "changeme"
-vault_portainer_admin_password: "changeme"
-vault_npm_admin_password: "changeme"
-vault_pihole_admin_password: "changeme"
-vault_heimdall_admin_password: "changeme"
-vault_admin_ssh_key_public: "changeme"
-vault_portainer_agent_secret: "changeme"
-vault_aws_access_key_id: "changeme"
-vault_aws_secret_access_key: "changeme"
-vault_jellyfin_user1_password: "changeme"
-vault_duckdns_token: "changeme"
-vault_duckdns_domain: "changeme"
-vault_koffan_admin_password: "changeme"
-vault_tailscale_auth_key: "changeme"
-vault_tailscale_api_key: "changeme"
+# ===== ADMINISTRATION =====
+vault_admin_username: "admin"
+vault_admin_password: "CHANGE_ME_STRONG_PASSWORD_HERE"
+vault_admin_ssh_key_public: "ssh-rsa AAAA... your@email.com"
+
+# ===== CONTAINER MANAGEMENT =====
+vault_portainer_admin_password: "CHANGE_ME_STRONG_PASSWORD_HERE"
+vault_portainer_agent_secret: "CHANGE_ME_RANDOM_SECRET_HERE"
+
+# ===== NETWORK & PROXY =====
+vault_npm_admin_password: "CHANGE_ME_STRONG_PASSWORD_HERE"
+vault_duckdns_token: "CHANGE_ME_WITH_YOUR_DUCKDNS_API_TOKEN"
+vault_duckdns_domain: "example.duckdns.org"
+
+# ===== DNS & AD BLOCKING =====
+vault_pihole_admin_password: "CHANGE_ME_STRONG_PASSWORD_HERE"
+
+# ===== MEDIA SERVERS =====
+vault_jellyfin_user1_password: "CHANGE_ME_STRONG_PASSWORD_HERE"
+vault_jellyfin_api_token: "GENERATE_AFTER_JELLYFIN_SETUP"
+vault_jellyfin_url: "jellyfin.example.duckdns.org"
+
+# ===== VPN & MESH NETWORK =====
+vault_tailscale_auth_key: "tskey-auth-CHANGE_ME_FROM_TAILSCALE_CONSOLE"
+vault_tailscale_api_key: "tsk_api-CHANGE_ME_FROM_TAILSCALE_CONSOLE"
+
+# ===== SPECIALIZED SERVICES =====
+vault_dispatcharr_postgres_password: "CHANGE_ME_STRONG_PASSWORD_HERE"
+vault_dispatcharr_django_secret_key: "CHANGE_ME_GENERATE_NEW_DJANGO_SECRET_KEY"
+
+# ===== OPTIONAL: AWS (If Used) =====
+# vault_aws_access_key_id: "AKIA..."
+# vault_aws_secret_access_key: "CHANGE_ME_AWS_SECRET"
+
+# ===== OPTIONAL: DASHBOARD =====
+# vault_heimdall_admin_password: "CHANGE_ME_STRONG_PASSWORD_HERE"
+
+# ===== OPTIONAL: EMULATORS =====
+# vault_retroarch_password: "CHANGE_ME_STRONG_PASSWORD_HERE"
