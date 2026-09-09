@@ -52,7 +52,7 @@ portainer_agent_secret: "{{ vault_portainer_agent_secret }}"
 jellyfin_user1_password: "{{ vault_jellyfin_user1_password }}"
 jellyfin_enable_hw_accel: false  # Hardware acceleration via NVIDIA GPU; enabled via Compose reservations
 jellyfin_host: monolith  # Ansible inventory hostname where Jellyfin runs
-jellyfin_image: "jellyfin/jellyfin:10"  # Official Jellyfin image
+jellyfin_image: "jellyfin/jellyfin:12"  # Official Jellyfin image
 jellyfin_container_name: "jellyfin"
 jellyfin_host_port: 8096
 jellyfin_memory_limit: "4GB"  # Container memory limit
