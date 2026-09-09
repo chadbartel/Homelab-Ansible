@@ -45,7 +45,8 @@
     url: "{{ jellyfin_target_url }}/Users/AuthenticateByName"
     method: POST
     headers:
-      X-Emby-Authorization: 'MediaBrowser Client="Ansible", Device="Homelab-Ansible", DeviceId="ansible-{{ inventory_hostname }}", Version="1.0.0"'
+      # X-Emby-Authorization is silently ignored unless EnableLegacyAuthorization is set server-side
+      Authorization: 'MediaBrowser Client="Ansible", Device="Homelab-Ansible", DeviceId="ansible-{{ inventory_hostname }}", Version="1.0.0"'
       Content-Type: "application/json"
     body_format: json
     body:
@@ -258,7 +259,8 @@
     url: "{{ jellyfin_target_url }}/Users/AuthenticateByName"
     method: POST
     headers:
-      X-Emby-Authorization: 'MediaBrowser Client="Ansible", Device="Homelab-Ansible", DeviceId="ansible-{{ inventory_hostname }}", Version="1.0.0"'
+      # X-Emby-Authorization is silently ignored unless EnableLegacyAuthorization is set server-side
+      Authorization: 'MediaBrowser Client="Ansible", Device="Homelab-Ansible", DeviceId="ansible-{{ inventory_hostname }}", Version="1.0.0"'
       Content-Type: "application/json"
     body_format: json
     body:
