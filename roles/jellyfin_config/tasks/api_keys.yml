@@ -36,7 +36,8 @@
     url: "{{ jellyfin_target_url }}/Users/AuthenticateByName"
     method: POST
     headers:
-      X-Emby-Authorization: 'MediaBrowser Client="Ansible", Device="Homelab-Ansible", DeviceId="ansible-{{ inventory_hostname }}", Version="1.0.0"'
+      # X-Emby-Authorization is silently ignored unless EnableLegacyAuthorization is set server-side
+      Authorization: 'MediaBrowser Client="Ansible", Device="Homelab-Ansible", DeviceId="ansible-{{ inventory_hostname }}", Version="1.0.0"'
       Content-Type: "application/json"
     body_format: json
     body:
@@ -101,7 +102,8 @@
     url: "{{ jellyfin_target_url }}/Auth/Keys"
     method: GET
     headers:
-      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+      # X-Emby-Token is silently ignored unless EnableLegacyAuthorization is set server-side
+      Authorization: 'MediaBrowser Token="{{ jellyfin_auth.json.AccessToken }}"'
     status_code: [200]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: existing_keys
@@ -142,7 +144,8 @@
     url: "{{ jellyfin_target_url }}/Auth/Keys?app={{ jellyfin_config_api_key_app_name | urlencode }}"
     method: POST
     headers:
-      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+      # X-Emby-Token is silently ignored unless EnableLegacyAuthorization is set server-side
+      Authorization: 'MediaBrowser Token="{{ jellyfin_auth.json.AccessToken }}"'
     status_code: [204]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: key_creation
@@ -163,7 +166,8 @@
     url: "{{ jellyfin_target_url }}/Auth/Keys"
     method: GET
     headers:
-      X-Emby-Token: "{{ jellyfin_auth.json.AccessToken }}"
+      # X-Emby-Token is silently ignored unless EnableLegacyAuthorization is set server-side
+      Authorization: 'MediaBrowser Token="{{ jellyfin_auth.json.AccessToken }}"'
     status_code: [200]
     validate_certs: "{{ jellyfin_config_validate_certs }}"
   register: updated_keys
