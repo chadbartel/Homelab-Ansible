@@ -38,6 +38,7 @@
       - nvidia-driver-550
       - nvidia-headless-550
       - nvidia-utils-550
+      - nvidia-modprobe
     state: present
   register: nvidia_driver_install
   retries: 3
@@ -87,7 +88,7 @@
     cmd: nvidia-modprobe -c0 -u
   register: nvidia_modprobe_devices
   changed_when: false
-  failed_when: false
+  failed_when: nvidia_modprobe_devices.rc != 0
 
 # Make device-node creation self-healing across reboots/module reloads, since this
 # host has no display manager to trigger udev's usual nvidia device creation path.
