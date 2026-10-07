@@ -63,6 +63,36 @@
     - dispatcharr
     - compose
 
+# GPU-reserved containers (web/celery) bake the host's NVIDIA library mount list in
+# at creation time. If a previous deploy failed mid-creation (e.g. because the
+# NVIDIA driver/kernel module was stale at that moment), the container is left
+# behind in a non-running state with that bad mount list baked in. Since the
+# compose definition hash hasn't changed, a plain "up" would just try to start
+# that same broken container forever instead of recreating it. Remove any
+# non-running copies here so compose always recreates them fresh.
+- name: Check state of GPU-reserved Dispatcharr containers
+  community.docker.docker_container_info:
+    name: "{{ item }}"
+  loop:
+    - "{{ dispatcharr_container_name_web }}"
+    - "{{ dispatcharr_container_name_celery }}"
+  register: dispatcharr_gpu_container_state
+  tags:
+    - dispatcharr
+    - deploy
+
+- name: Remove GPU-reserved Dispatcharr containers stuck in a non-running state
+  community.docker.docker_container:
+    name: "{{ item.item }}"
+    state: absent
+  loop: "{{ dispatcharr_gpu_container_state.results }}"
+  when:
+    - item.exists | default(false)
+    - not item.container.State.Running
+  tags:
+    - dispatcharr
+    - deploy
+
 - name: Deploy Dispatcharr stack (modular mode)
   community.docker.docker_compose_v2:
     project_name: dispatcharr
