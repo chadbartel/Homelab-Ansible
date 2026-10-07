@@ -79,6 +79,37 @@
   changed_when: false
   failed_when: false
 
+# Headless hosts have no Xorg/udev trigger to create /dev/nvidia*, so
+# nvidia-persistenced (running as its unprivileged service user) finds no device
+# files on first boot after a module (re)load. nvidia-modprobe creates them directly.
+- name: Ensure NVIDIA device nodes exist for the persistence daemon
+  ansible.builtin.command:
+    cmd: nvidia-modprobe -c0 -u
+  register: nvidia_modprobe_devices
+  changed_when: false
+  failed_when: false
+
+# Make device-node creation self-healing across reboots/module reloads, since this
+# host has no display manager to trigger udev's usual nvidia device creation path.
+- name: Create systemd drop-in directory for nvidia-persistenced
+  ansible.builtin.file:
+    path: /etc/systemd/system/nvidia-persistenced.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install systemd drop-in to recreate NVIDIA device nodes before the daemon starts
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nvidia-persistenced.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Service]
+      ExecStartPre=-/usr/bin/nvidia-modprobe -c0 -u
+  register: nvidia_persistenced_override
+
 - name: Enable NVIDIA persistence daemon
   block:
     - name: Start and enable the NVIDIA persistence daemon
@@ -86,7 +117,7 @@
         name: nvidia-persistenced
         enabled: true
         state: started
-        daemon_reload: true
+        daemon_reload: "{{ nvidia_persistenced_override is changed }}"
   rescue:
     - name: Gather NVIDIA persistence daemon failure diagnostics
       ansible.builtin.command:
@@ -100,10 +131,12 @@
         msg: >-
           nvidia-persistenced failed to start even though the DKMS module reports
           "installed" for kernel {{ ansible_kernel }}. This is commonly caused by
-          Secure Boot rejecting the unsigned kernel module at load time, or a stale
+          Secure Boot rejecting the unsigned kernel module at load time, a stale
           module still resident in the kernel from before a driver upgrade (requires
-          a reboot to clear). Check 'mokutil --sb-state' and the journal below, then
-          enroll/import the DKMS signing key or reboot the host and re-run the playbook.
+          a reboot to clear), or missing/unreadable /dev/nvidia* device files on a
+          headless host with no udev trigger to create them. Check 'mokutil --sb-state',
+          confirm 'nvidia-modprobe -c0 -u' succeeds and /dev/nvidia* exist with correct
+          permissions, then review the journal below.
           journalctl: {{ nvidia_persistenced_journal.stdout | default('n/a') }}
 
 - name: Create Python virtual environment directory
