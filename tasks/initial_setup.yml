@@ -80,6 +80,49 @@
   changed_when: false
   failed_when: false
 
+- name: Determine on-disk NVIDIA kernel module version
+  ansible.builtin.command:
+    cmd: modinfo -F version nvidia
+  register: nvidia_ondisk_version
+  changed_when: false
+  failed_when: false
+
+- name: Determine currently loaded NVIDIA kernel module version
+  ansible.builtin.shell:
+    cmd: "awk '/Kernel Module/{print $8}' /proc/driver/nvidia/version"
+  register: nvidia_loaded_version
+  changed_when: false
+  failed_when: false
+
+# An apt upgrade of the nvidia-* packages does not swap the module already resident
+# in the running kernel, so nvidia-smi/nvidia-persistenced fail with an NVML/library
+# version mismatch until the stale module is unloaded and the on-disk (upgraded) one
+# is loaded in its place. Safe to do here without a reboot since this bootstrap phase
+# runs before any containers start using the GPU.
+- name: Reload NVIDIA kernel modules when the loaded module is stale
+  when:
+    - nvidia_loaded_version.stdout | default('') | length > 0
+    - nvidia_loaded_version.stdout != nvidia_ondisk_version.stdout
+  block:
+    - name: Stop NVIDIA persistence daemon before reloading kernel modules
+      ansible.builtin.systemd_service:
+        name: nvidia-persistenced
+        state: stopped
+      failed_when: false
+
+    - name: Unload stale NVIDIA kernel modules
+      ansible.builtin.command:
+        cmd: modprobe -r nvidia_uvm nvidia_drm nvidia_modeset nvidia
+
+    - name: Load the current NVIDIA kernel modules
+      ansible.builtin.command:
+        cmd: "modprobe {{ item }}"
+      loop:
+        - nvidia
+        - nvidia_uvm
+        - nvidia_modeset
+        - nvidia_drm
+
 # Headless hosts have no Xorg/udev trigger to create /dev/nvidia*, so
 # nvidia-persistenced (running as its unprivileged service user) finds no device
 # files on first boot after a module (re)load. nvidia-modprobe creates them directly.
