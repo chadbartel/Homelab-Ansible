@@ -22,6 +22,14 @@
       - python3-dev
     state: present
 
+- name: Ensure Linux headers for the running kernel are installed (required for NVIDIA DKMS build)
+  ansible.builtin.apt:
+    name: "linux-headers-{{ ansible_kernel }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: nvidia_kernel_headers_install
+
 - name: Install proprietary NVIDIA headless driver stack for Ubuntu 24.04 RTX 2070 SUPER
   ansible.builtin.apt:
     update_cache: true
@@ -36,12 +44,67 @@
   delay: 10
   until: nvidia_driver_install is success
 
+# A kernel update (e.g. via unattended-upgrades) can leave the NVIDIA DKMS module
+# built only for a previous kernel. Re-run dkms here so the module always matches
+# the kernel we just confirmed headers for, instead of only retrying at first install.
+- name: Rebuild NVIDIA DKMS module for the currently running kernel
+  ansible.builtin.command:
+    cmd: dkms autoinstall
+  register: nvidia_dkms_autoinstall
+  changed_when: "'Building module' in nvidia_dkms_autoinstall.stdout"
+  failed_when: false
+
+- name: Check NVIDIA DKMS module status for the running kernel
+  ansible.builtin.command:
+    cmd: "dkms status -k {{ ansible_kernel }}"
+  register: nvidia_dkms_status
+  changed_when: false
+  failed_when: false
+
+- name: Fail with actionable diagnostics if NVIDIA module is not built for the running kernel
+  ansible.builtin.fail:
+    msg: >-
+      NVIDIA DKMS module is not installed for the running kernel ({{ ansible_kernel }}).
+      dkms status: "{{ nvidia_dkms_status.stdout | default('n/a') }}".
+      This usually means Secure Boot is rejecting the unsigned module, or the module
+      failed to build against the headers above. Enroll an MOK key for Secure Boot
+      (or disable it), confirm 'dkms autoinstall' succeeds manually on the host, then
+      re-run the playbook.
+  when: "'installed' not in nvidia_dkms_status.stdout"
+
+- name: Load the NVIDIA kernel module
+  ansible.builtin.command:
+    cmd: modprobe nvidia
+  register: nvidia_modprobe
+  changed_when: false
+  failed_when: false
+
 - name: Enable NVIDIA persistence daemon
-  ansible.builtin.systemd_service:
-    name: nvidia-persistenced
-    enabled: true
-    state: started
-    daemon_reload: true
+  block:
+    - name: Start and enable the NVIDIA persistence daemon
+      ansible.builtin.systemd_service:
+        name: nvidia-persistenced
+        enabled: true
+        state: started
+        daemon_reload: true
+  rescue:
+    - name: Gather NVIDIA persistence daemon failure diagnostics
+      ansible.builtin.command:
+        cmd: journalctl -xeu nvidia-persistenced.service --no-pager -n 50
+      register: nvidia_persistenced_journal
+      changed_when: false
+      failed_when: false
+
+    - name: Fail with NVIDIA persistence daemon diagnostics
+      ansible.builtin.fail:
+        msg: >-
+          nvidia-persistenced failed to start even though the DKMS module reports
+          "installed" for kernel {{ ansible_kernel }}. This is commonly caused by
+          Secure Boot rejecting the unsigned kernel module at load time, or a stale
+          module still resident in the kernel from before a driver upgrade (requires
+          a reboot to clear). Check 'mokutil --sb-state' and the journal below, then
+          enroll/import the DKMS signing key or reboot the host and re-run the playbook.
+          journalctl: {{ nvidia_persistenced_journal.stdout | default('n/a') }}
 
 - name: Create Python virtual environment directory
   ansible.builtin.file:
