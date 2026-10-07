@@ -4,6 +4,7 @@ services:
     container_name: {{ audiobookshelf_container_name }}
     image: {{ audiobookshelf_image | default('ghcr.io/advplyr/audiobookshelf:latest') }}
     restart: unless-stopped
+    user: "1000:1000"
     ports:
       # Flat LAN access for local Wi-Fi devices
       - "{{ audiobookshelf_host_port }}:{{ audiobookshelf_dns_port | default(80) }}"
