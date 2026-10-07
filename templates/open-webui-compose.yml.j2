@@ -32,6 +32,7 @@ services:
       OLLAMA_BASE_URL: "http://{{ ollama_container_name }}:{{ ollama_internal_port | default(11434) }}"
       # Optional: Set default model (update after deployment)
       WEBUI_DEFAULT_MODELS: "{{ open_webui_default_models | default('') }}"
+      WHISPER_COMPUTE_TYPE: "float16"
     deploy:
       replicas: 1
       resources:

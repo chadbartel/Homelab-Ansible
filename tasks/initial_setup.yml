@@ -22,6 +22,14 @@
       - python3-dev
     state: present
 
+- name: Ensure Linux headers for the running kernel are installed (required for NVIDIA DKMS build)
+  ansible.builtin.apt:
+    name: "linux-headers-{{ ansible_kernel }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: nvidia_kernel_headers_install
+
 - name: Install proprietary NVIDIA headless driver stack for Ubuntu 24.04 RTX 2070 SUPER
   ansible.builtin.apt:
     update_cache: true
@@ -30,18 +38,171 @@
       - nvidia-driver-550
       - nvidia-headless-550
       - nvidia-utils-550
+      - nvidia-modprobe
     state: present
   register: nvidia_driver_install
   retries: 3
   delay: 10
   until: nvidia_driver_install is success
 
+# dpkg's ldconfig trigger is not always reliable when several nvidia-* packages
+# upgrade in one transaction, which can leave /etc/ld.so.cache pointing at a
+# versioned .so file (e.g. libEGL_nvidia.so.<old-version>) that the upgrade just
+# deleted. GPU containers then fail to start with "no such file or directory" for
+# that stale path. Force a cache rebuild so it always matches what's on disk.
+- name: Refresh shared library cache after NVIDIA package changes
+  ansible.builtin.command:
+    cmd: ldconfig
+  changed_when: false
+
+# A kernel update (e.g. via unattended-upgrades) can leave the NVIDIA DKMS module
+# built only for a previous kernel. Re-run dkms here so the module always matches
+# the kernel we just confirmed headers for, instead of only retrying at first install.
+- name: Rebuild NVIDIA DKMS module for the currently running kernel
+  ansible.builtin.command:
+    cmd: dkms autoinstall
+  register: nvidia_dkms_autoinstall
+  changed_when: "'Building module' in nvidia_dkms_autoinstall.stdout"
+  failed_when: false
+
+- name: Check NVIDIA DKMS module status for the running kernel
+  ansible.builtin.command:
+    cmd: "dkms status -k {{ ansible_kernel }}"
+  register: nvidia_dkms_status
+  changed_when: false
+  failed_when: false
+
+- name: Fail with actionable diagnostics if NVIDIA module is not built for the running kernel
+  ansible.builtin.fail:
+    msg: >-
+      NVIDIA DKMS module is not installed for the running kernel ({{ ansible_kernel }}).
+      dkms status: "{{ nvidia_dkms_status.stdout | default('n/a') }}".
+      This usually means Secure Boot is rejecting the unsigned module, or the module
+      failed to build against the headers above. Enroll an MOK key for Secure Boot
+      (or disable it), confirm 'dkms autoinstall' succeeds manually on the host, then
+      re-run the playbook.
+  when: "'installed' not in nvidia_dkms_status.stdout"
+
+- name: Load the NVIDIA kernel module
+  ansible.builtin.command:
+    cmd: modprobe nvidia
+  register: nvidia_modprobe
+  changed_when: false
+  failed_when: false
+
+- name: Determine on-disk NVIDIA kernel module version
+  ansible.builtin.command:
+    cmd: modinfo -F version nvidia
+  register: nvidia_ondisk_version
+  changed_when: false
+  failed_when: false
+
+- name: Determine currently loaded NVIDIA kernel module version
+  ansible.builtin.shell:
+    cmd: "awk '/Kernel Module/{print $8}' /proc/driver/nvidia/version"
+  register: nvidia_loaded_version
+  changed_when: false
+  failed_when: false
+
+# An apt upgrade of the nvidia-* packages does not swap the module already resident
+# in the running kernel, so nvidia-smi/nvidia-persistenced fail with an NVML/library
+# version mismatch until the stale module is unloaded and the on-disk (upgraded) one
+# is loaded in its place. Safe to do here without a reboot since this bootstrap phase
+# runs before any containers start using the GPU.
+- name: Reload NVIDIA kernel modules when the loaded module is stale
+  when:
+    - nvidia_loaded_version.stdout | default('') | length > 0
+    - nvidia_loaded_version.stdout != nvidia_ondisk_version.stdout
+  block:
+    - name: Stop NVIDIA persistence daemon before reloading kernel modules
+      ansible.builtin.systemd_service:
+        name: nvidia-persistenced
+        state: stopped
+      failed_when: false
+
+    - name: Unload stale NVIDIA kernel modules
+      ansible.builtin.command:
+        cmd: modprobe -r nvidia_uvm nvidia_drm nvidia_modeset nvidia
+
+    - name: Load the current NVIDIA kernel modules
+      ansible.builtin.command:
+        cmd: "modprobe {{ item }}"
+      loop:
+        - nvidia
+        - nvidia_uvm
+        - nvidia_modeset
+        - nvidia_drm
+
+    # dockerd resolves GPU devices/libraries once and keeps them in memory for its
+    # whole lifetime, so a long-running daemon (ours had been up since before this
+    # driver change) keeps handing containers a mount list for the module that was
+    # loaded when it last started. Restart it now, before any GPU containers are
+    # (re)created later in this playbook, instead of discovering this per-service.
+    - name: Restart Docker so its NVIDIA device cache matches the reloaded driver
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+      failed_when: false
+
+# Headless hosts have no Xorg/udev trigger to create /dev/nvidia*, so
+# nvidia-persistenced (running as its unprivileged service user) finds no device
+# files on first boot after a module (re)load. nvidia-modprobe creates them directly.
+- name: Ensure NVIDIA device nodes exist for the persistence daemon
+  ansible.builtin.command:
+    cmd: nvidia-modprobe -c0 -u
+  register: nvidia_modprobe_devices
+  changed_when: false
+  failed_when: nvidia_modprobe_devices.rc != 0
+
+# Make device-node creation self-healing across reboots/module reloads, since this
+# host has no display manager to trigger udev's usual nvidia device creation path.
+- name: Create systemd drop-in directory for nvidia-persistenced
+  ansible.builtin.file:
+    path: /etc/systemd/system/nvidia-persistenced.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install systemd drop-in to recreate NVIDIA device nodes before the daemon starts
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nvidia-persistenced.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Service]
+      ExecStartPre=-/usr/bin/nvidia-modprobe -c0 -u
+  register: nvidia_persistenced_override
+
 - name: Enable NVIDIA persistence daemon
-  ansible.builtin.systemd_service:
-    name: nvidia-persistenced
-    enabled: true
-    state: started
-    daemon_reload: true
+  block:
+    - name: Start and enable the NVIDIA persistence daemon
+      ansible.builtin.systemd_service:
+        name: nvidia-persistenced
+        enabled: true
+        state: started
+        daemon_reload: "{{ nvidia_persistenced_override is changed }}"
+  rescue:
+    - name: Gather NVIDIA persistence daemon failure diagnostics
+      ansible.builtin.command:
+        cmd: journalctl -xeu nvidia-persistenced.service --no-pager -n 50
+      register: nvidia_persistenced_journal
+      changed_when: false
+      failed_when: false
+
+    - name: Fail with NVIDIA persistence daemon diagnostics
+      ansible.builtin.fail:
+        msg: >-
+          nvidia-persistenced failed to start even though the DKMS module reports
+          "installed" for kernel {{ ansible_kernel }}. This is commonly caused by
+          Secure Boot rejecting the unsigned kernel module at load time, a stale
+          module still resident in the kernel from before a driver upgrade (requires
+          a reboot to clear), or missing/unreadable /dev/nvidia* device files on a
+          headless host with no udev trigger to create them. Check 'mokutil --sb-state',
+          confirm 'nvidia-modprobe -c0 -u' succeeds and /dev/nvidia* exist with correct
+          permissions, then review the journal below.
+          journalctl: {{ nvidia_persistenced_journal.stdout | default('n/a') }}
 
 - name: Create Python virtual environment directory
   ansible.builtin.file:
