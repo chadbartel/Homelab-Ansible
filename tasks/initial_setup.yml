@@ -45,6 +45,16 @@
   delay: 10
   until: nvidia_driver_install is success
 
+# dpkg's ldconfig trigger is not always reliable when several nvidia-* packages
+# upgrade in one transaction, which can leave /etc/ld.so.cache pointing at a
+# versioned .so file (e.g. libEGL_nvidia.so.<old-version>) that the upgrade just
+# deleted. GPU containers then fail to start with "no such file or directory" for
+# that stale path. Force a cache rebuild so it always matches what's on disk.
+- name: Refresh shared library cache after NVIDIA package changes
+  ansible.builtin.command:
+    cmd: ldconfig
+  changed_when: false
+
 # A kernel update (e.g. via unattended-upgrades) can leave the NVIDIA DKMS module
 # built only for a previous kernel. Re-run dkms here so the module always matches
 # the kernel we just confirmed headers for, instead of only retrying at first install.
@@ -122,6 +132,17 @@
         - nvidia_uvm
         - nvidia_modeset
         - nvidia_drm
+
+    # dockerd resolves GPU devices/libraries once and keeps them in memory for its
+    # whole lifetime, so a long-running daemon (ours had been up since before this
+    # driver change) keeps handing containers a mount list for the module that was
+    # loaded when it last started. Restart it now, before any GPU containers are
+    # (re)created later in this playbook, instead of discovering this per-service.
+    - name: Restart Docker so its NVIDIA device cache matches the reloaded driver
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+      failed_when: false
 
 # Headless hosts have no Xorg/udev trigger to create /dev/nvidia*, so
 # nvidia-persistenced (running as its unprivileged service user) finds no device
