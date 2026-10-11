@@ -17,6 +17,7 @@ services:
     dns_search:
       - local  # Optional: for local domain resolution
     volumes:
+      - /opt/jellyfin-ffmpeg-override:/custom-ffmpeg:ro
       - jellyfin_config:/config
       - jellyfin_cache:/cache
       - type: bind
