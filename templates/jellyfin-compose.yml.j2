@@ -34,7 +34,7 @@ services:
       - SYS_NICE  # Allow FFmpeg to set process priority for smoother transcoding
     environment:
       # Force Jellyfin to use our interceptor wrapper
-      JELLYFIN_FFmpeg__Path=/custom-ffmpeg/ffmpeg
+      JELLYFIN_FFmpeg__Path: '/custom-ffmpeg/ffmpeg'
       # Optimize FFmpeg for better stream handling
       JELLYFIN_FFmpeg__probesize: '1G'
       JELLYFIN_FFmpeg__analyzeduration: '3000000'
