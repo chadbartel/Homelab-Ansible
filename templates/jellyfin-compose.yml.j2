@@ -5,6 +5,7 @@ services:
     container_name: jellyfin
     hostname: jellyfin
     image: {{ jellyfin_image | default('jellyfin/jellyfin:12') }}
+    restart: unless-stopped
     user: "1000:1000"
     ports:
       - "0.0.0.0:8096:8096"  # Publish port for direct access and API automation
@@ -45,11 +46,6 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
       update_config:
         order: start-first
         failure_action: rollback

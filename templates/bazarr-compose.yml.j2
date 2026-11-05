@@ -4,6 +4,7 @@ services:
     container_name: {{ bazarr_container_name }}
     hostname: {{ bazarr_container_name }}
     image: {{ bazarr_image | default('lscr.io/linuxserver/bazarr:latest') }}
+    restart: unless-stopped
     ports:
       - "{{ bazarr_host_port }}:6767"
     networks:
@@ -37,11 +38,6 @@ services:
           memory: 1G
         reservations:
           memory: 256M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
       update_config:
         order: start-first
         failure_action: rollback
