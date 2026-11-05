@@ -17,8 +17,8 @@ stack_deployer_default_target_host: "monolith"
 # Each stack requires: name, compose_template, target_host
 stack_deployer_stacks: []
 
-# Directory where compose files are templated (for direct/kompose backends)
-stack_deployer_compose_dir: "/tmp/docker-stacks"
+# Directory where compose files are templated (persistent across reboots)
+stack_deployer_compose_dir: "/opt/docker-stacks"
 
 # =============================================================================
 # Portainer Backend Configuration

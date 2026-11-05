@@ -5,6 +5,7 @@ services:
     container_name: {{ ollama_container_name }}
     hostname: {{ ollama_container_name }}
     image: {{ ollama_image | default('ollama/ollama:latest') }}
+    restart: unless-stopped
     ports:
       - "{{ ollama_host_port | default(11434) }}:11434"  # Ollama API port
     networks:
@@ -41,11 +42,6 @@ services:
               count: {{ ollama_gpu_device_count | default(1) }}
               capabilities: {{ ollama_gpu_capabilities | default(['gpu']) }}
 {% endif %}
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
       update_config:
         order: start-first
         failure_action: rollback

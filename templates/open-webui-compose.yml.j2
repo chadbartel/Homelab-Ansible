@@ -5,6 +5,7 @@ services:
     container_name: {{ open_webui_container_name }}
     hostname: {{ open_webui_container_name }}
     image: {{ open_webui_image | default('ghcr.io/open-webui/open-webui:main') }}
+    restart: unless-stopped
     ports:
       - "{{ open_webui_host_port | default(8080) }}:8080"  # Open WebUI web interface
     networks:
@@ -40,11 +41,6 @@ services:
           memory: 4G
         reservations:
           memory: 1G
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
       update_config:
         order: start-first
         failure_action: rollback
