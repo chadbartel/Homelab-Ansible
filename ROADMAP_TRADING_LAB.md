@@ -57,7 +57,7 @@
   - Verify `dig @192.168.1.17 trading.chadbartel.duckdns.org +short` == `192.168.1.17` and `curl -skL https://trading.chadbartel.duckdns.org` returns HTTP 200 with Trading Lab dashboard content (failing on NPM landing page or 502/404).
   - Prove full role idempotency (`changed=0`, `failed=0`) on second tagged run.
 
-- [ ] **Milestone 6: Live End-to-End Pipeline Verification on `monolith`**
+- [x] **Milestone 6: Live End-to-End Pipeline Verification on `monolith`**
   - Execute a live trading cycle and weekend reflection cycle on `monolith` hitting live Ollama on RTX 2070 SUPER.
   - Verify market/news ingest, deterministic indicators, Ollama JSON thesis, RiskGate evaluations/rejections, paper/virtual order execution, TimescaleDB hypertable/ledger writes, SPY benchmark comparison, live HTTPS dashboard rendering, and scheduler health.
   - Confirm core services (`pihole`, `proxy`, `ollama`, `open-webui`, `kokoro-fastapi`, `jellyfin`) and existing routes remain untouched and healthy.

@@ -215,8 +215,12 @@ async def test_weekly_reflection_clamps_weights_and_writes_artifact(settings, re
 def test_fastapi_dashboard_and_end_to_end_cycle_api(test_client) -> None:
     health_resp = test_client.get("/health")
     assert health_resp.status_code == 200
-    assert health_resp.json()["status"] == "ok"
-    assert health_resp.json()["paper_only"] is True
+    health_data = health_resp.json()
+    assert health_data["status"] == "ok"
+    assert health_data["paper_only"] is True
+    assert health_data["db_ok"] is True
+    assert health_data["ollama_ok"] is True
+    assert "scheduler_running" in health_data
 
     status_resp = test_client.get("/api/status")
     assert status_resp.status_code == 200

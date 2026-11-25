@@ -197,14 +197,20 @@ def create_app(
     @app.get("/health")
     async def health() -> dict[str, Any]:
         db_health = repo.check_health()
+        ollama_health = await llm.check_health()
         sched_status = sched.status()
-        overall = "ok" if db_health.get("status") == "ok" else "degraded"
+        db_ok = db_health.get("status") == "ok"
+        ollama_ok = ollama_health.get("status") == "ok"
+        overall = "ok" if db_ok else "degraded"
         return {
             "status": overall,
             "service": "trading-lab",
             "paper_only": cfg.paper_only,
             "broker_mode": cfg.execution_mode,
+            "db_ok": db_ok,
+            "ollama_ok": ollama_ok,
             "database": db_health,
+            "ollama": ollama_health,
             "scheduler_running": sched_status["running"],
         }
 

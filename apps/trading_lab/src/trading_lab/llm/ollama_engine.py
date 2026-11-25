@@ -320,7 +320,7 @@ class OllamaThesisEngine(LLMThesisEngine):
 
     async def check_health(self) -> dict[str, Any]:
         try:
-            async with httpx.AsyncClient(timeout=5.0, transport=self._transport) as client:
+            async with httpx.AsyncClient(timeout=2.0, transport=self._transport) as client:
                 resp = await client.get(f"{self.base_url}/api/tags")
                 resp.raise_for_status()
                 data = resp.json()
