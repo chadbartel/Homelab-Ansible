@@ -1,0 +1,23 @@
+---
+# Handlers for isolated Jarvis AI stack role
+
+- name: Restart Open WebUI container after persistent audio sync
+  community.docker.docker_compose_v2:
+    project_name: open-webui-stack
+    project_src: "{{ ai_stack_compose_dir }}"
+    files:
+      - open-webui-stack.yml
+    state: restarted
+  listen: "Restart Open WebUI after persistent audio config sync"
+
+- name: Wait for Open WebUI health after restart
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ai_stack_open_webui_host_port }}/health"
+    method: GET
+    status_code: 200
+  register: ai_stack_open_webui_restart_health
+  retries: 30
+  delay: 5
+  until: ai_stack_open_webui_restart_health.status == 200
+  when: not ansible_check_mode
+  listen: "Restart Open WebUI after persistent audio config sync"
