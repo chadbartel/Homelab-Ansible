@@ -1,0 +1,57 @@
+---
+# Defaults for isolated Jarvis AI stack on monolith
+
+ai_stack_compose_dir: "/opt/docker-stacks"
+ai_stack_monolith_ip: "{{ monolith_ip | default('192.168.1.17') }}"
+ai_stack_timezone: "{{ timezone | default('America/Los_Angeles') }}"
+ai_stack_shared_storage_mounts: "{{ shared_storage_mounts | default([]) }}"
+
+# Ollama configuration (GPU-exclusive on RTX 2070 SUPER 8 GB VRAM)
+ai_stack_ollama_container_name: "{{ ollama_container_name | default('ollama') }}"
+ai_stack_ollama_image: "{{ ollama_image | default('ollama/ollama:latest') }}"
+ai_stack_ollama_host_port: "{{ ollama_host_port | default(11434) }}"
+ai_stack_ollama_internal_port: "{{ ollama_internal_port | default(11434) }}"
+ai_stack_ollama_storage_mount: "/mnt/ollama_storage"
+ai_stack_ollama_legacy_data_path: "/opt/ollama/data"
+ai_stack_ollama_data_path: "/mnt/ollama_storage/ollama/data"
+ai_stack_ollama_flash_attention: "1"
+ai_stack_ollama_kv_cache_type: "q8_0"
+ai_stack_ollama_max_loaded_models: "1"
+ai_stack_ollama_num_parallel: "1"
+ai_stack_ollama_keep_alive: "15m"
+ai_stack_ollama_memory_limit: "12G"
+ai_stack_ollama_memory_reservation: "2G"
+ai_stack_ollama_gpu_enabled: "{{ ollama_gpu_enabled | default(true) }}"
+ai_stack_ollama_gpu_device_count: "{{ ollama_gpu_device_count | default(1) }}"
+ai_stack_ollama_gpu_capabilities: "{{ ollama_gpu_capabilities | default(['gpu']) }}"
+ai_stack_ollama_models:
+  - "huihui_ai/gemma-4-abliterated:E4b-qat"
+  - "huihui_ai/qwen3-abliterated:8b-v2"
+
+# Open WebUI configuration
+ai_stack_open_webui_container_name: "{{ open_webui_container_name | default('open-webui') }}"
+ai_stack_open_webui_image: "{{ open_webui_image | default('ghcr.io/open-webui/open-webui:main') }}"
+ai_stack_open_webui_host_port: "{{ open_webui_host_port | default(8080) }}"
+ai_stack_open_webui_data_path: "{{ open_webui_data_path | default('/opt/open-webui/data') }}"
+ai_stack_open_webui_default_models: "{{ open_webui_default_models | default('') }}"
+ai_stack_open_webui_audio_stt_engine: ""
+ai_stack_open_webui_whisper_model: "base"
+ai_stack_open_webui_whisper_compute_type: "int8"
+ai_stack_open_webui_audio_tts_engine: "openai"
+ai_stack_open_webui_audio_tts_openai_api_base_url: "http://{{ ai_stack_kokoro_container_name }}:{{ ai_stack_kokoro_internal_port }}/v1"
+ai_stack_open_webui_audio_tts_openai_api_key: "not-needed"
+ai_stack_open_webui_audio_tts_model: "kokoro"
+ai_stack_open_webui_audio_tts_voice: "bm_george"
+ai_stack_open_webui_memory_limit: "4G"
+ai_stack_open_webui_memory_reservation: "1G"
+
+# Kokoro-FastAPI TTS configuration (CPU-pinned on Ryzen 9 5900XT)
+ai_stack_kokoro_container_name: "kokoro-fastapi"
+ai_stack_kokoro_image: "ghcr.io/remsky/kokoro-fastapi-cpu:latest"
+ai_stack_kokoro_host_port: 8880
+ai_stack_kokoro_internal_port: 8880
+ai_stack_kokoro_onnx_num_threads: "8"
+ai_stack_kokoro_onnx_inter_op_threads: "4"
+ai_stack_kokoro_onnx_execution_mode: "parallel"
+ai_stack_kokoro_memory_limit: "4G"
+ai_stack_kokoro_memory_reservation: "1G"

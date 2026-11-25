@@ -1,0 +1,63 @@
+---
+# Open WebUI deployment tasks (isolated from core infrastructure)
+
+- name: Template Open WebUI Docker Compose stack file
+  ansible.builtin.template:
+    src: open-webui-compose.yml.j2
+    dest: "{{ ai_stack_compose_dir }}/open-webui-stack.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Check whether Open WebUI Compose stack file exists
+  ansible.builtin.stat:
+    path: "{{ ai_stack_compose_dir }}/open-webui-stack.yml"
+  register: ai_stack_open_webui_compose_stat
+
+- name: Deploy Open WebUI stack via Docker Compose V2
+  community.docker.docker_compose_v2:
+    project_name: open-webui-stack
+    project_src: "{{ ai_stack_compose_dir }}"
+    files:
+      - open-webui-stack.yml
+    state: present
+    remove_orphans: true
+  when: not ansible_check_mode or ai_stack_open_webui_compose_stat.stat.exists
+
+- name: Wait for Open WebUI health endpoint readiness
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ai_stack_open_webui_host_port }}/health"
+    method: GET
+    status_code: 200
+  register: ai_stack_open_webui_health_ready
+  retries: 30
+  delay: 5
+  until: ai_stack_open_webui_health_ready.status == 200
+  when: not ansible_check_mode
+
+- name: Build desired Open WebUI persistent audio configuration map
+  ansible.builtin.set_fact:
+    ai_stack_open_webui_persistent_audio_config:
+      audio.stt.engine: "{{ ai_stack_open_webui_audio_stt_engine }}"
+      audio.stt.whisper_model: "{{ ai_stack_open_webui_whisper_model }}"
+      audio.tts.engine: "{{ ai_stack_open_webui_audio_tts_engine }}"
+      audio.tts.openai.api_base_url: "{{ ai_stack_open_webui_audio_tts_openai_api_base_url }}"
+      audio.tts.openai.api_key: "{{ ai_stack_open_webui_audio_tts_openai_api_key }}"
+      audio.tts.model: "{{ ai_stack_open_webui_audio_tts_model }}"
+      audio.tts.voice: "{{ ai_stack_open_webui_audio_tts_voice }}"
+
+- name: Reconcile Open WebUI persistent audio settings in webui.db
+  ansible.builtin.script:
+    cmd: >-
+      sync_open_webui_audio.py
+      --db {{ ai_stack_open_webui_data_path }}/webui.db
+      --config-json {{ ai_stack_open_webui_persistent_audio_config | to_json | quote }}
+      {{ '--check' if ansible_check_mode else '' }}
+    executable: python3
+  register: ai_stack_open_webui_audio_sync
+  check_mode: false
+  changed_when: "'CHANGED:' in ai_stack_open_webui_audio_sync.stdout"
+  notify: "Restart Open WebUI after persistent audio config sync"
+
+- name: Flush Open WebUI restart handlers
+  ansible.builtin.meta: flush_handlers

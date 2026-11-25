@@ -1,0 +1,89 @@
+---
+# Ollama storage migration and 8 GB VRAM-tuned Compose deployment
+
+- name: Verify dedicated NVMe storage mountpoint is active
+  ansible.builtin.command:
+    cmd: "mountpoint -q {{ ai_stack_ollama_storage_mount }}"
+  changed_when: false
+  check_mode: false
+
+- name: Ensure Ollama data directories exist on dedicated NVMe SSD
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ ai_stack_ollama_data_path | dirname }}"
+    - "{{ ai_stack_ollama_data_path }}"
+
+- name: Check whether legacy Ollama models directory exists
+  ansible.builtin.stat:
+    path: "{{ ai_stack_ollama_legacy_data_path }}/models"
+  register: ai_stack_legacy_models
+
+- name: Check whether Ollama data migration marker exists
+  ansible.builtin.stat:
+    path: "{{ ai_stack_ollama_data_path }}/.migrated_from_opt"
+  register: ai_stack_migrated_marker
+
+- name: Migrate legacy Ollama data to dedicated NVMe SSD
+  when:
+    - ai_stack_legacy_models.stat.exists
+    - not ai_stack_migrated_marker.stat.exists
+    - not ansible_check_mode
+  block:
+    - name: Inspect Ollama container state before migration
+      community.docker.docker_container_info:
+        name: "{{ ai_stack_ollama_container_name }}"
+      register: ai_stack_ollama_container_info
+
+    - name: Stop Ollama container before migrating model data
+      community.docker.docker_container:
+        name: "{{ ai_stack_ollama_container_name }}"
+        state: stopped
+      when:
+        - ai_stack_ollama_container_info.exists
+        - ai_stack_ollama_container_info.container.State.Running | default(false)
+
+    - name: Copy legacy Ollama data to dedicated NVMe SSD
+      ansible.builtin.command:
+        cmd: "cp -a {{ ai_stack_ollama_legacy_data_path }}/. {{ ai_stack_ollama_data_path }}/"
+      changed_when: true
+
+    - name: Write Ollama data migration marker
+      ansible.builtin.copy:
+        dest: "{{ ai_stack_ollama_data_path }}/.migrated_from_opt"
+        content: "migrated_from={{ ai_stack_ollama_legacy_data_path }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+
+- name: Template Ollama Docker Compose stack file
+  ansible.builtin.template:
+    src: ollama-compose.yml.j2
+    dest: "{{ ai_stack_compose_dir }}/ollama-stack.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Deploy Ollama stack via Docker Compose V2
+  community.docker.docker_compose_v2:
+    project_name: ollama-stack
+    project_src: "{{ ai_stack_compose_dir }}"
+    files:
+      - ollama-stack.yml
+    state: present
+    remove_orphans: true
+
+- name: Wait for Ollama API readiness
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ai_stack_ollama_host_port }}/api/tags"
+    method: GET
+    status_code: 200
+  register: ai_stack_ollama_api_ready
+  retries: 15
+  delay: 2
+  until: ai_stack_ollama_api_ready.status == 200
+  when: not ansible_check_mode

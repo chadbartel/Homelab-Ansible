@@ -1,0 +1,24 @@
+---
+# Idempotent Ollama model pull and verification tasks
+
+- name: Query installed Ollama models
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ai_stack_ollama_host_port }}/api/tags"
+    method: GET
+    status_code: 200
+  register: ai_stack_ollama_tags
+  check_mode: false
+  failed_when: not ansible_check_mode and (ai_stack_ollama_tags.status | default(0)) != 200
+
+- name: Compute normalized list of installed Ollama models
+  ansible.builtin.set_fact:
+    ai_stack_installed_models_lower: >-
+      {{ ((ai_stack_ollama_tags.json | default({})).models | default([], true))
+      | map(attribute='name') | map('lower') | list }}
+
+- name: Pull missing Ollama models
+  ansible.builtin.command:
+    cmd: "docker exec {{ ai_stack_ollama_container_name }} ollama pull {{ item }}"
+  loop: "{{ ai_stack_ollama_models }}"
+  when: ((item if ':' in item else item ~ ':latest') | lower) not in ai_stack_installed_models_lower
+  changed_when: true
