@@ -45,13 +45,13 @@
   - Production multi-stage / slim Python 3.12 Dockerfile and local `docker-compose.yml` validation.
   - Independent SOLID/security review and local end-to-end smoke test of full pipeline -> DB -> FastAPI dashboard & scheduler.
 
-- [ ] **Milestone 4: Isolated Ansible Role (`roles/trading_lab`) & Idempotent Deployment**
+- [x] **Milestone 4: Isolated Ansible Role (`roles/trading_lab`) & Idempotent Deployment**
   - Create `roles/trading_lab` tagged `trading_lab` in `main.yml`.
   - Verify `/mnt/ollama_storage` mountpoint, create `/mnt/ollama_storage/trading_lab/{app,timescaledb,logs,artifacts,certs}`, sync app source, build/deploy CPU-only Compose V2 stack (`trading-lab-db` TimescaleDB PG16 + `trading-lab-app` on port `8085`).
   - Pass `ansible-lint`, `--check --diff`, pre/post-flight DNS & Docker health checks, apply, and second-run `changed=0` verification.
 
-- [ ] **Milestone 5: Internal Endpoint Registration (Pi-hole v6 + SAN TLS + NPM API)**
-  - Idempotently add local DNS A record `192.168.1.17 trading.chadbartel.duckdns.org` via Pi-hole v6 REST API (`/api/config/dns/hosts`).
+- [x] **Milestone 5: Internal Endpoint Registration (Pi-hole v6 + SAN TLS + NPM API)**
+  - Idempotently add local DNS A record `192.168.1.17 trading.chadbartel.duckdns.org` via Pi-hole v6 REST API (`/api/config/dns/hosts`, with automatic fallback to `/api/config/misc/dnsmasq_lines` when `FTLCONF_dns_hosts` is env-locked).
   - Generate SAN-enabled self-signed TLS cert under `/mnt/ollama_storage/trading_lab/certs/`.
   - Idempotently upload custom cert to NPM (`/api/nginx/certificates` + `/upload`) and register HTTPS proxy host forwarding to `http://trading-lab-app:8085` without touching existing proxy hosts.
   - Verify `dig @192.168.1.17 trading.chadbartel.duckdns.org +short` == `192.168.1.17` and `curl -skL https://trading.chadbartel.duckdns.org` returns HTTP 200 with Trading Lab dashboard content (failing on NPM landing page or 502/404).

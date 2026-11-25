@@ -1,0 +1,46 @@
+---
+# Post-deploy internal DNS and HTTPS dashboard verification on monolith
+
+- name: Verify Trading Lab DNS A record resolves locally via Pi-hole
+  ansible.builtin.command:
+    cmd: "dig @127.0.0.1 {{ trading_lab_domain }} +short +time=2"
+  register: trading_lab_dns_verify
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Assert Trading Lab DNS resolves to monolith IP
+  ansible.builtin.assert:
+    that:
+      - trading_lab_monolith_ip in trading_lab_dns_verify.stdout_lines
+    fail_msg: >-
+      Expected {{ trading_lab_domain }} to resolve to {{ trading_lab_monolith_ip }},
+      got: {{ trading_lab_dns_verify.stdout | trim }}
+  when: not ansible_check_mode
+
+- name: Verify Trading Lab HTTPS endpoint via Nginx Proxy Manager # noqa: command-instead-of-module
+  ansible.builtin.command:
+    cmd: >-
+      curl -skL -w "\n__HTTP_CODE__:%{http_code}"
+      --resolve {{ trading_lab_domain }}:443:127.0.0.1
+      https://{{ trading_lab_domain }}
+  register: trading_lab_https_verify
+  changed_when: false
+  retries: 6
+  delay: 3
+  until:
+    - trading_lab_https_verify.rc == 0
+    - "'__HTTP_CODE__:200' in trading_lab_https_verify.stdout"
+    - "'Trading Lab' in trading_lab_https_verify.stdout"
+    - "'data-trading-lab-health=\"ok\"' in trading_lab_https_verify.stdout"
+    - "'Congratulations!' not in trading_lab_https_verify.stdout"
+  when: not ansible_check_mode
+
+- name: Assert Trading Lab HTTPS dashboard response is healthy and valid
+  ansible.builtin.assert:
+    that:
+      - "'__HTTP_CODE__:200' in trading_lab_https_verify.stdout"
+      - "'Trading Lab' in trading_lab_https_verify.stdout"
+      - "'data-trading-lab-health=\"ok\"' in trading_lab_https_verify.stdout"
+      - "'Congratulations!' not in trading_lab_https_verify.stdout"
+    fail_msg: "HTTPS verification for https://{{ trading_lab_domain }} failed or returned NPM default page."
+  when: not ansible_check_mode

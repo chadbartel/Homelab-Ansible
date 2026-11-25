@@ -1,0 +1,61 @@
+---
+# Defaults for isolated CPU-only Trading Lab stack on monolith
+
+trading_lab_compose_dir: "/opt/docker-stacks"
+trading_lab_storage_mount: "/mnt/ollama_storage"
+trading_lab_root_dir: "/mnt/ollama_storage/trading_lab"
+trading_lab_app_src_dir: "/mnt/ollama_storage/trading_lab/app"
+trading_lab_db_dir: "/mnt/ollama_storage/trading_lab/timescaledb"
+trading_lab_logs_dir: "/mnt/ollama_storage/trading_lab/logs"
+trading_lab_artifacts_dir: "/mnt/ollama_storage/trading_lab/artifacts"
+trading_lab_certs_dir: "/mnt/ollama_storage/trading_lab/certs"
+
+trading_lab_monolith_ip: "{{ monolith_ip | default('192.168.1.17') }}"
+trading_lab_local_domain: "{{ local_domain | default('chadbartel.duckdns.org') }}"
+trading_lab_domain: "trading.{{ trading_lab_local_domain }}"
+
+trading_lab_app_container_name: "trading-lab-app"
+trading_lab_db_container_name: "trading-lab-db"
+trading_lab_app_image: "trading-lab-app:latest"
+trading_lab_app_port: 8085
+trading_lab_db_host_port: 5433
+
+trading_lab_db_image: "timescale/timescaledb:latest-pg16"
+trading_lab_db_name: "trading_lab"
+trading_lab_db_user: "trading_lab"
+trading_lab_db_password: "{{ vault_trading_lab_db_password | default('trading_lab_timescale_2026') }}"
+
+trading_lab_ollama_base_url: "http://ollama:11434"
+trading_lab_ollama_model: "huihui_ai/qwen3-abliterated:8b-v2"
+trading_lab_alpaca_api_key: "{{ vault_alpaca_api_key | default('') }}"
+trading_lab_alpaca_secret_key: "{{ vault_alpaca_secret_key | default('') }}"
+
+trading_lab_ticker_allowlist: "AAPL,MSFT,NVDA,AMZN,GOOGL,SPY"
+trading_lab_benchmark_symbol: "SPY"
+trading_lab_max_position_pct: "0.05"
+trading_lab_daily_drawdown_limit_pct: "0.03"
+trading_lab_default_stop_loss_pct: "0.03"
+
+trading_lab_scheduler_timezone: "America/New_York"
+trading_lab_scheduler_market_cron: "*/30 9-16 * * 1-5"
+trading_lab_scheduler_reflection_cron: "0 10 * * 6"
+trading_lab_timezone: "{{ timezone | default('America/Los_Angeles') }}"
+
+# CPU-only resource budgets (Ryzen 9 5900XT; ZERO GPU reservations)
+trading_lab_db_cpu_limit: "2.0"
+trading_lab_db_memory_limit: "1G"
+trading_lab_db_memory_reservation: "256M"
+trading_lab_app_cpu_limit: "2.0"
+trading_lab_app_memory_limit: "1536M"
+trading_lab_app_memory_reservation: "512M"
+
+# Internal endpoint registration (Pi-hole v6 + SAN self-signed TLS + NPM REST API)
+trading_lab_pihole_api_url: "http://127.0.0.1:{{ pihole_host_port | default(8081) }}/api"
+trading_lab_npm_api_url: "http://127.0.0.1:{{ proxy_host_port | default(81) }}/api"
+trading_lab_npm_cert_name: "trading-lab-selfsigned"
+trading_lab_npm_admin_email: "{{ admin_email | default('me@chadbartel.com') }}"
+trading_lab_npm_admin_password: "{{ npm_admin_password | default('') }}"
+trading_lab_pihole_password: "{{ pihole_web_password | default('') }}"
+
+trading_lab_cert_key_path: "{{ trading_lab_certs_dir }}/{{ trading_lab_domain }}.key"
+trading_lab_cert_crt_path: "{{ trading_lab_certs_dir }}/{{ trading_lab_domain }}.crt"

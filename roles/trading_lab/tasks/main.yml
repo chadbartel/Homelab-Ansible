@@ -1,0 +1,14 @@
+---
+# Isolated Trading Lab deployment and internal endpoint registration role
+
+- name: Prepare NVMe persistent storage directories for Trading Lab
+  ansible.builtin.import_tasks: storage.yml
+
+- name: Sync source, build image, and deploy Trading Lab Compose stack
+  ansible.builtin.import_tasks: deploy.yml
+
+- name: Register Pi-hole DNS, SAN TLS certificate, and NPM HTTPS proxy host
+  ansible.builtin.import_tasks: endpoint.yml
+
+- name: Verify internal DNS resolution and HTTPS dashboard endpoint
+  ansible.builtin.import_tasks: verify.yml

@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: trading_lab
+  namespace: homelab
+  author: "Homelab Automation"
+  description: "Deploy isolated CPU-only autonomous paper-trading lab (TimescaleDB + FastAPI) and register internal HTTPS endpoint"
+  company: "Homelab"
+  license: "MIT"
+  min_ansible_version: "2.18"
+  platforms:
+    - name: "Ubuntu"
+      versions:
+        - "jammy"
+        - "noble"
+  galaxy_tags:
+    - docker
+    - compose
+    - trading
+    - timescaledb
+    - fastapi
+
+dependencies: []

@@ -1,0 +1,150 @@
+---
+# Idempotently register internal DNS (Pi-hole v6 API), SAN TLS cert, and NPM HTTPS proxy host
+# NEVER restarts Pi-hole or NPM containers and NEVER modifies other proxy hosts.
+
+- name: Manage Pi-hole v6 local DNS A record for Trading Lab
+  block:
+    - name: Authenticate with Pi-hole v6 REST API
+      ansible.builtin.uri:
+        url: "{{ trading_lab_pihole_api_url }}/auth"
+        method: POST
+        body_format: json
+        body:
+          password: "{{ trading_lab_pihole_password }}"
+        return_content: true
+        status_code: 200
+      register: trading_lab_pihole_auth
+      check_mode: false
+      no_log: true
+
+    - name: Set Pi-hole v6 session ID fact
+      ansible.builtin.set_fact:
+        trading_lab_pihole_sid: "{{ trading_lab_pihole_auth.json.session.sid }}"
+      no_log: true
+
+    - name: Query current Pi-hole v6 local DNS host entries
+      ansible.builtin.uri:
+        url: "{{ trading_lab_pihole_api_url }}/config/dns/hosts"
+        method: GET
+        headers:
+          X-FTL-SID: "{{ trading_lab_pihole_sid }}"
+        return_content: true
+        status_code: 200
+      register: trading_lab_pihole_hosts
+      check_mode: false
+
+    - name: Query current Pi-hole v6 custom dnsmasq lines
+      ansible.builtin.uri:
+        url: "{{ trading_lab_pihole_api_url }}/config/misc/dnsmasq_lines"
+        method: GET
+        headers:
+          X-FTL-SID: "{{ trading_lab_pihole_sid }}"
+        return_content: true
+        status_code: 200
+      register: trading_lab_pihole_dnsmasq
+      check_mode: false
+
+    - name: Determine whether Trading Lab DNS A record already exists
+      ansible.builtin.set_fact:
+        trading_lab_dns_entry: "{{ trading_lab_monolith_ip }} {{ trading_lab_domain }}"
+        trading_lab_dnsmasq_entry: "host-record={{ trading_lab_domain }},{{ trading_lab_monolith_ip }}"
+        trading_lab_dns_entry_present: >-
+          {{
+            ((trading_lab_monolith_ip ~ ' ' ~ trading_lab_domain)
+              in (trading_lab_pihole_hosts.json.config.dns.hosts | default([])))
+            or
+            (('host-record=' ~ trading_lab_domain ~ ',' ~ trading_lab_monolith_ip)
+              in (trading_lab_pihole_dnsmasq.json.config.misc.dnsmasq_lines | default([])))
+          }}
+
+    - name: Add Trading Lab local DNS A record via Pi-hole v6 dns.hosts API
+      ansible.builtin.uri:
+        url: "{{ trading_lab_pihole_api_url }}/config/dns/hosts/{{ trading_lab_monolith_ip }}%20{{ trading_lab_domain }}"
+        method: PUT
+        headers:
+          X-FTL-SID: "{{ trading_lab_pihole_sid }}"
+        return_content: true
+      register: trading_lab_pihole_hosts_put
+      failed_when: false
+      changed_when: trading_lab_pihole_hosts_put.status | default(0) in [200, 201]
+      when:
+        - not (trading_lab_dns_entry_present | bool)
+        - not ansible_check_mode
+
+    - name: Fallback to Pi-hole v6 misc.dnsmasq_lines API when dns.hosts is env-locked
+      ansible.builtin.uri:
+        url: "{{ trading_lab_pihole_api_url }}/config/misc/dnsmasq_lines/host-record%3D{{ trading_lab_domain }}%2C{{ trading_lab_monolith_ip }}"
+        method: PUT
+        headers:
+          X-FTL-SID: "{{ trading_lab_pihole_sid }}"
+        status_code:
+          - 200
+          - 201
+      changed_when: true
+      when:
+        - not (trading_lab_dns_entry_present | bool)
+        - not ansible_check_mode
+        - (trading_lab_pihole_hosts_put.status | default(0)) not in [200, 201]
+  always:
+    - name: Destroy Pi-hole v6 authentication session
+      ansible.builtin.uri:
+        url: "{{ trading_lab_pihole_api_url }}/auth"
+        method: DELETE
+        headers:
+          X-FTL-SID: "{{ trading_lab_pihole_sid }}"
+        status_code:
+          - 200
+          - 204
+          - 401
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: trading_lab_pihole_sid | default('') | length > 0
+
+- name: Generate SAN self-signed TLS certificate for Trading Lab
+  ansible.builtin.command:
+    cmd: >-
+      openssl req -x509 -nodes -newkey rsa:2048 -days 825
+      -keyout {{ trading_lab_cert_key_path }}
+      -out {{ trading_lab_cert_crt_path }}
+      -subj /CN={{ trading_lab_domain }}
+      -addext subjectAltName=DNS:{{ trading_lab_domain }}
+    creates: "{{ trading_lab_cert_crt_path }}"
+
+- name: Enforce permissions on Trading Lab TLS private key
+  ansible.builtin.file:
+    path: "{{ trading_lab_cert_key_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  when: not ansible_check_mode
+
+- name: Enforce permissions on Trading Lab TLS certificate
+  ansible.builtin.file:
+    path: "{{ trading_lab_cert_crt_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: not ansible_check_mode
+
+- name: Register Trading Lab custom TLS cert and HTTPS proxy host via NPM REST API
+  ansible.builtin.script:
+    cmd: >-
+      register_npm_endpoint.py
+      --api-url {{ trading_lab_npm_api_url }}
+      --domain {{ trading_lab_domain }}
+      --forward-host {{ trading_lab_app_container_name }}
+      --forward-port {{ trading_lab_app_port }}
+      --cert-name {{ trading_lab_npm_cert_name }}
+      --cert-path {{ trading_lab_cert_crt_path }}
+      --key-path {{ trading_lab_cert_key_path }}
+      {{ '--check' if ansible_check_mode else '' }}
+  args:
+    executable: python3
+  environment:
+    NPM_ADMIN_EMAIL: "{{ trading_lab_npm_admin_email }}"
+    NPM_ADMIN_PASSWORD: "{{ trading_lab_npm_admin_password }}"
+  register: trading_lab_npm_register
+  changed_when: (trading_lab_npm_register.stdout | from_json).changed | bool
+  check_mode: false
+  no_log: true

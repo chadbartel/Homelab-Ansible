@@ -1,0 +1,84 @@
+---
+# Sync Trading Lab app source, build image when needed, and deploy isolated Compose V2 stack
+
+- name: Check whether Trading Lab application source staging directory exists
+  ansible.builtin.stat:
+    path: "{{ trading_lab_app_src_dir }}"
+  register: trading_lab_app_src_stat
+
+- name: Sync Trading Lab application source to NVMe storage
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/apps/trading_lab/"
+    dest: "{{ trading_lab_app_src_dir }}/"
+    archive: false
+    recursive: true
+    checksum: true
+    delete: true
+    rsync_opts:
+      - "--exclude=.venv"
+      - "--exclude=__pycache__"
+      - "--exclude=.pytest_cache"
+      - "--exclude=.ruff_cache"
+      - "--exclude=*.pyc"
+      - "--exclude=.git"
+      - "--exclude=tests"
+      - "--exclude=docker-compose.yml"
+  become: false
+  register: trading_lab_source_sync
+  when: not ansible_check_mode or trading_lab_app_src_stat.stat.exists
+
+- name: Template Trading Lab Docker Compose stack file
+  ansible.builtin.template:
+    src: trading-lab-compose.yml.j2
+    dest: "{{ trading_lab_compose_dir }}/trading-lab-stack.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Check whether Trading Lab Docker image already exists
+  ansible.builtin.command:
+    cmd: "docker image inspect {{ trading_lab_app_image }}"
+  register: trading_lab_image_inspect
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Build Trading Lab application image when source changed or image is missing
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      -p trading-lab-stack
+      -f {{ trading_lab_compose_dir }}/trading-lab-stack.yml
+      build trading-lab-app
+  when:
+    - not ansible_check_mode
+    - (trading_lab_image_inspect.rc != 0) or (trading_lab_source_sync.changed | default(false))
+  changed_when: true
+
+- name: Check whether Trading Lab Compose stack file exists
+  ansible.builtin.stat:
+    path: "{{ trading_lab_compose_dir }}/trading-lab-stack.yml"
+  register: trading_lab_compose_stat
+
+- name: Deploy Trading Lab stack via Docker Compose V2
+  community.docker.docker_compose_v2:
+    project_name: trading-lab-stack
+    project_src: "{{ trading_lab_compose_dir }}"
+    files:
+      - trading-lab-stack.yml
+    state: present
+    remove_orphans: true
+    build: never
+  when: not ansible_check_mode or trading_lab_compose_stat.stat.exists
+
+- name: Wait for Trading Lab health endpoint readiness
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ trading_lab_app_port }}/health"
+    method: GET
+    status_code: 200
+  register: trading_lab_health_ready
+  retries: 30
+  delay: 5
+  until: trading_lab_health_ready.status == 200
+  when: not ansible_check_mode

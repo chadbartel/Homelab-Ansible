@@ -1,0 +1,58 @@
+---
+# Verify dedicated 2 TB NVMe mountpoint and provision persistent Trading Lab directories
+
+- name: Verify dedicated NVMe storage mountpoint is active
+  ansible.builtin.command:
+    cmd: "mountpoint -q {{ trading_lab_storage_mount }}"
+  changed_when: false
+  check_mode: false
+
+- name: Ensure Docker Compose staging and Trading Lab root directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ trading_lab_compose_dir }}"
+    - "{{ trading_lab_root_dir }}"
+
+- name: Ensure Trading Lab application source staging directory exists
+  ansible.builtin.file:
+    path: "{{ trading_lab_app_src_dir }}"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0755"
+
+- name: Check whether Trading Lab TimescaleDB data directory exists
+  ansible.builtin.stat:
+    path: "{{ trading_lab_db_dir }}"
+  register: trading_lab_db_dir_stat
+
+- name: Ensure Trading Lab TimescaleDB data directory exists on NVMe SSD
+  ansible.builtin.file:
+    path: "{{ trading_lab_db_dir }}"
+    state: directory
+    mode: "0700"
+  when: not trading_lab_db_dir_stat.stat.exists
+
+- name: Ensure Trading Lab logs and artifacts directories are writable by container UID 1000
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+  loop:
+    - "{{ trading_lab_logs_dir }}"
+    - "{{ trading_lab_artifacts_dir }}"
+
+- name: Ensure Trading Lab TLS certificates directory exists with restricted permissions
+  ansible.builtin.file:
+    path: "{{ trading_lab_certs_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"

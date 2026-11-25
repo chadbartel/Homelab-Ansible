@@ -1,0 +1,104 @@
+---
+# Isolated CPU-only Trading Lab stack (TimescaleDB PG16 + FastAPI app)
+# ZERO NVIDIA GPU reservations; LLM inference routes to existing ollama on homelab-bridge.
+
+services:
+  trading-lab-db:
+    image: {{ trading_lab_db_image }}
+    container_name: {{ trading_lab_db_container_name }}
+    hostname: {{ trading_lab_db_container_name }}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:{{ trading_lab_db_host_port }}:5432"
+    environment:
+      TZ: "{{ trading_lab_timezone }}"
+      POSTGRES_DB: "{{ trading_lab_db_name }}"
+      POSTGRES_USER: "{{ trading_lab_db_user }}"
+      POSTGRES_PASSWORD: "{{ trading_lab_db_password }}"
+    volumes:
+      - "{{ trading_lab_db_dir }}:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ trading_lab_db_user }} -d {{ trading_lab_db_name }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "{{ trading_lab_db_cpu_limit }}"
+          memory: {{ trading_lab_db_memory_limit }}
+        reservations:
+          memory: {{ trading_lab_db_memory_reservation }}
+    networks:
+      - trading-lab-net
+
+  trading-lab-app:
+    image: {{ trading_lab_app_image }}
+    build:
+      context: {{ trading_lab_app_src_dir }}
+      dockerfile: Dockerfile
+    container_name: {{ trading_lab_app_container_name }}
+    hostname: {{ trading_lab_app_container_name }}
+    restart: unless-stopped
+    depends_on:
+      trading-lab-db:
+        condition: service_healthy
+    ports:
+      - "{{ trading_lab_app_port }}:{{ trading_lab_app_port }}"
+    dns:
+      - {{ trading_lab_monolith_ip }}
+      - 1.1.1.1
+      - 8.8.8.8
+    environment:
+      TZ: "{{ trading_lab_timezone }}"
+      DATABASE_URL: "postgresql+psycopg://{{ trading_lab_db_user }}:{{ trading_lab_db_password }}@{{ trading_lab_db_container_name }}:5432/{{ trading_lab_db_name }}"
+      OLLAMA_BASE_URL: "{{ trading_lab_ollama_base_url }}"
+      OLLAMA_MODEL: "{{ trading_lab_ollama_model }}"
+      OLLAMA_TIMEOUT_SECONDS: "120"
+      ALPACA_API_KEY: "{{ trading_lab_alpaca_api_key }}"
+      ALPACA_SECRET_KEY: "{{ trading_lab_alpaca_secret_key }}"
+      ALPACA_PAPER_BASE_URL: "https://paper-api.alpaca.markets"
+      PAPER_ONLY: "true"
+      TICKER_ALLOWLIST: "{{ trading_lab_ticker_allowlist }}"
+      BENCHMARK_SYMBOL: "{{ trading_lab_benchmark_symbol }}"
+      MAX_POSITION_PCT: "{{ trading_lab_max_position_pct }}"
+      DEFAULT_STOP_LOSS_PCT: "{{ trading_lab_default_stop_loss_pct }}"
+      MIN_STOP_LOSS_PCT: "0.005"
+      MAX_STOP_LOSS_PCT: "0.15"
+      DAILY_DRAWDOWN_LIMIT_PCT: "{{ trading_lab_daily_drawdown_limit_pct }}"
+      INITIAL_CASH: "100000.0"
+      SCHEDULER_ENABLED: "true"
+      SCHEDULER_TIMEZONE: "{{ trading_lab_scheduler_timezone }}"
+      SCHEDULER_MARKET_CRON: "{{ trading_lab_scheduler_market_cron }}"
+      SCHEDULER_REFLECTION_CRON: "{{ trading_lab_scheduler_reflection_cron }}"
+      LOG_DIR: "/app/logs"
+      ARTIFACTS_DIR: "/app/artifacts"
+    volumes:
+      - "{{ trading_lab_logs_dir }}:/app/logs"
+      - "{{ trading_lab_artifacts_dir }}:/app/artifacts"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:{{ trading_lab_app_port }}/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "{{ trading_lab_app_cpu_limit }}"
+          memory: {{ trading_lab_app_memory_limit }}
+        reservations:
+          memory: {{ trading_lab_app_memory_reservation }}
+    networks:
+      - trading-lab-net
+      - homelab-bridge
+
+networks:
+  trading-lab-net:
+    driver: bridge
+  homelab-bridge:
+    name: homelab-bridge
+    external: true

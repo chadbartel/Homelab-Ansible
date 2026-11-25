@@ -166,7 +166,7 @@
     - name: Gather facts without privilege escalation
       ansible.builtin.setup:
       become: false
-      tags: ["deploy", "setup", "ai_stack"]
+      tags: ["deploy", "setup", "ai_stack", "trading_lab"]
 
     - name: Ensure homelab-bridge Docker network exists
       community.docker.docker_network:
@@ -204,6 +204,13 @@
         apply:
           tags: ["deploy", "ai_stack"]
       tags: ["deploy", "ai_stack"]
+
+    - name: Deploy Trading Lab stack (CPU-only TimescaleDB + FastAPI paper-trading lab)
+      ansible.builtin.include_role:
+        name: trading_lab
+        apply:
+          tags: ["deploy", "trading_lab"]
+      tags: ["deploy", "trading_lab"]
 
     - name: Run post-setup configuration for all services
       ansible.builtin.include_tasks: tasks/post_setup.yml
