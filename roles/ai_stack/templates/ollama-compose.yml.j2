@@ -1,0 +1,63 @@
+---
+
+services:
+  ollama:
+    container_name: {{ ai_stack_ollama_container_name }}
+    hostname: {{ ai_stack_ollama_container_name }}
+    image: {{ ai_stack_ollama_image }}
+    restart: unless-stopped
+    ports:
+      - "{{ ai_stack_ollama_host_port }}:11434"  # Ollama API port
+    networks:
+      - homelab-bridge
+    dns:
+      - {{ ai_stack_monolith_ip }}  # Host IP where Pi-hole DNS binds on port 53
+      - 1.1.1.1  # Cloudflare DNS for reliable external resolution
+      - 8.8.8.8  # Google DNS fallback
+    dns_search:
+      - local  # Optional: for local domain resolution
+    volumes:
+      - type: bind
+        source: {{ ai_stack_ollama_data_path }}
+        target: /root/.ollama
+        read_only: false
+{% for storage_mount in ai_stack_shared_storage_mounts %}
+      - type: bind
+        source: {{ storage_mount.source }}
+        target: {{ storage_mount.target }}
+        read_only: {{ 'true' if storage_mount.read_only | default(false) else 'false' }}
+{% endfor %}
+    environment:
+      TZ: {{ ai_stack_timezone }}
+      OLLAMA_FLASH_ATTENTION: "{{ ai_stack_ollama_flash_attention }}"
+      OLLAMA_KV_CACHE_TYPE: "{{ ai_stack_ollama_kv_cache_type }}"
+      OLLAMA_MAX_LOADED_MODELS: "{{ ai_stack_ollama_max_loaded_models }}"
+      OLLAMA_NUM_PARALLEL: "{{ ai_stack_ollama_num_parallel }}"
+      OLLAMA_KEEP_ALIVE: "{{ ai_stack_ollama_keep_alive }}"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: {{ ai_stack_ollama_memory_limit }}
+        reservations:
+          memory: {{ ai_stack_ollama_memory_reservation }}
+{% if ai_stack_ollama_gpu_enabled %}
+          devices:
+            - driver: nvidia
+              count: {{ ai_stack_ollama_gpu_device_count }}
+              capabilities: {{ ai_stack_ollama_gpu_capabilities }}
+{% endif %}
+      update_config:
+        order: start-first
+        failure_action: rollback
+
+networks:
+  homelab-bridge:
+    name: homelab-bridge
+    external: true

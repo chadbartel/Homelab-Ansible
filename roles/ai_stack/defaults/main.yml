@@ -1,0 +1,36 @@
+---
+# Defaults for isolated Jarvis AI stack on monolith
+
+ai_stack_compose_dir: "/opt/docker-stacks"
+ai_stack_monolith_ip: "{{ monolith_ip | default('192.168.1.17') }}"
+ai_stack_timezone: "{{ timezone | default('America/Los_Angeles') }}"
+ai_stack_shared_storage_mounts: "{{ shared_storage_mounts | default([]) }}"
+
+# Ollama configuration (GPU-exclusive on RTX 2070 SUPER 8 GB VRAM)
+ai_stack_ollama_container_name: "{{ ollama_container_name | default('ollama') }}"
+ai_stack_ollama_image: "{{ ollama_image | default('ollama/ollama:latest') }}"
+ai_stack_ollama_host_port: "{{ ollama_host_port | default(11434) }}"
+ai_stack_ollama_internal_port: "{{ ollama_internal_port | default(11434) }}"
+ai_stack_ollama_storage_mount: "/mnt/ollama_storage"
+ai_stack_ollama_legacy_data_path: "/opt/ollama/data"
+ai_stack_ollama_data_path: "/mnt/ollama_storage/ollama/data"
+ai_stack_ollama_flash_attention: "1"
+ai_stack_ollama_kv_cache_type: "q8_0"
+ai_stack_ollama_max_loaded_models: "1"
+ai_stack_ollama_num_parallel: "1"
+ai_stack_ollama_keep_alive: "15m"
+ai_stack_ollama_memory_limit: "12G"
+ai_stack_ollama_memory_reservation: "2G"
+ai_stack_ollama_gpu_enabled: "{{ ollama_gpu_enabled | default(true) }}"
+ai_stack_ollama_gpu_device_count: "{{ ollama_gpu_device_count | default(1) }}"
+ai_stack_ollama_gpu_capabilities: "{{ ollama_gpu_capabilities | default(['gpu']) }}"
+
+# Open WebUI configuration
+ai_stack_open_webui_container_name: "{{ open_webui_container_name | default('open-webui') }}"
+ai_stack_open_webui_image: "{{ open_webui_image | default('ghcr.io/open-webui/open-webui:main') }}"
+ai_stack_open_webui_host_port: "{{ open_webui_host_port | default(8080) }}"
+ai_stack_open_webui_data_path: "{{ open_webui_data_path | default('/opt/open-webui/data') }}"
+ai_stack_open_webui_default_models: "{{ open_webui_default_models | default('') }}"
+ai_stack_open_webui_whisper_compute_type: "float16"
+ai_stack_open_webui_memory_limit: "4G"
+ai_stack_open_webui_memory_reservation: "1G"

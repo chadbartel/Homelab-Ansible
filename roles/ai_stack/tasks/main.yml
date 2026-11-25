@@ -1,0 +1,16 @@
+---
+# Isolated Jarvis AI stack deployment role
+
+- name: Ensure Docker Compose staging directory exists
+  ansible.builtin.file:
+    path: "{{ ai_stack_compose_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy and tune Ollama service
+  ansible.builtin.import_tasks: ollama.yml
+
+- name: Deploy Open WebUI service
+  ansible.builtin.import_tasks: open_webui.yml

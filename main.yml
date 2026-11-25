@@ -166,7 +166,7 @@
     - name: Gather facts without privilege escalation
       ansible.builtin.setup:
       become: false
-      tags: ["deploy", "setup"]
+      tags: ["deploy", "setup", "ai_stack"]
 
     - name: Ensure homelab-bridge Docker network exists
       community.docker.docker_network:
@@ -198,6 +198,13 @@
         name: audiobookshelf
       tags: ["deploy", "audiobookshelf"]
 
+    - name: Deploy Jarvis AI stack (Ollama and Open WebUI)
+      ansible.builtin.include_role:
+        name: ai_stack
+        apply:
+          tags: ["deploy", "ai_stack"]
+      tags: ["deploy", "ai_stack"]
+
     - name: Run post-setup configuration for all services
       ansible.builtin.include_tasks: tasks/post_setup.yml
       tags: ["deploy", "post-setup"]
@@ -206,7 +213,7 @@
       ansible.builtin.debug:
         msg: |
           ✅ Deployment phase complete!
-          
+
           Core services are running:
           - Nginx Proxy Manager: https://proxy.{{ local_domain }}:{{ proxy_host_port }}
           - Pi-hole: http://pihole.{{ local_domain }}:{{ pihole_host_port }}/admin
@@ -217,7 +224,7 @@
           - RetroArch: https://retroarch.{{ local_domain }}/  (via NPM, GPU-accelerated emulator frontend)
           - Portainer: https://portainer.{{ local_domain }}:{{ portainer_host_port }}
           - Audiobookshelf: https://books.{{ local_domain }}/  (via NPM, audiobook/ebook management)
-          
+
           To verify:
           - SSH to monolith and run: docker ps
           - Check each service is accessible at URLs above

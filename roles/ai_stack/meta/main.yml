@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: ai_stack
+  namespace: homelab
+  author: "Homelab Automation"
+  description: "Deploy and manage isolated Jarvis AI stack (Ollama, Open WebUI, Kokoro-FastAPI)"
+  company: "Homelab"
+  license: "MIT"
+  min_ansible_version: "2.18"
+  platforms:
+    - name: "Ubuntu"
+      versions:
+        - "jammy"
+        - "noble"
+  galaxy_tags:
+    - docker
+    - compose
+    - ollama
+    - openwebui
+    - ai
+
+dependencies: []
