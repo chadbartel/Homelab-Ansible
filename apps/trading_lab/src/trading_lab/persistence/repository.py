@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -250,7 +251,7 @@ class TimescaleTradeLedgerRepository(TradeLedgerRepository):
             logger.info("Initialized PostgreSQL/TimescaleDB hypertables.")
         self.get_latest_heuristics()
 
-    def check_health(self) -> dict[str, object]:
+    def check_health(self) -> dict[str, Any]:
         try:
             with self.engine.connect() as conn:
                 conn.execute(text("SELECT 1"))

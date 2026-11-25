@@ -41,7 +41,7 @@
   - FastAPI web dashboard + JSON status/trigger APIs + built-in APScheduler (weekday market-hours cycle + weekend reflection).
   - Comprehensive `pytest` unit test suite with shared `conftest.py` fixtures (math, risk rejections, LLM JSON/fallback, ledger persistence, API/scheduler).
 
-- [ ] **Milestone 3: Containerization, Local Compose Validation & App QA Gate**
+- [x] **Milestone 3: Containerization, Local Compose Validation & App QA Gate**
   - Production multi-stage / slim Python 3.12 Dockerfile and local `docker-compose.yml` validation.
   - Independent SOLID/security review and local end-to-end smoke test of full pipeline -> DB -> FastAPI dashboard & scheduler.
 

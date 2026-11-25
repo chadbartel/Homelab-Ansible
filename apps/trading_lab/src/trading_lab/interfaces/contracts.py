@@ -113,6 +113,14 @@ class TradeLedgerRepository(ABC):
         """Create tables and TimescaleDB hypertables idempotently."""
 
     @abstractmethod
+    def check_health(self) -> dict[str, Any]:
+        """Return database connectivity health metadata."""
+
+    @abstractmethod
+    def get_day_anchor(self, day_str: str, fallback_equity: float) -> float:
+        """Return opening equity anchor for the given YYYY-MM-DD trading day."""
+
+    @abstractmethod
     def upsert_bars(self, bars: list[Bar]) -> int:
         """Persist OHLCV bars idempotently."""
 

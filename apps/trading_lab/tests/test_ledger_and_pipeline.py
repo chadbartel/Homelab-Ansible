@@ -36,6 +36,11 @@ from trading_lab.services.reflection import WeeklyReflectionService
 
 
 def test_repository_bars_upsert_and_broker_factory(settings, repo) -> None:
+    # Calling init_schema repeatedly remains idempotent and preserves seeded heuristics.
+    repo.init_schema()
+    assert repo.check_health()["status"] == "ok"
+    assert repo.get_latest_heuristics().version == 1
+
     bars = make_bars("AAPL", [150.0 + i for i in range(60)])
     inserted = repo.upsert_bars(bars)
     assert inserted == 60

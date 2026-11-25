@@ -15,7 +15,11 @@ from trading_lab.domain.models import (
     utc_now,
 )
 from trading_lab.interfaces.contracts import BrokerExecutor, TradeLedgerRepository
-from trading_lab.risk.gate import PaperOnlyViolationError, validate_paper_only_config
+from trading_lab.risk.gate import (
+    PaperOnlyViolationError,
+    is_valid_alpaca_paper_url,
+    validate_paper_only_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +51,7 @@ class AlpacaPaperBrokerExecutor(BrokerExecutor):
             url_override=self._settings.alpaca_paper_base_url,
         )
         base_url = str(getattr(client, "_base_url", self._settings.alpaca_paper_base_url))
-        if "paper-api.alpaca.markets" not in base_url.lower():
+        if not is_valid_alpaca_paper_url(base_url):
             raise PaperOnlyViolationError(
                 f"TradingClient resolved non-paper endpoint {base_url!r}; aborting."
             )

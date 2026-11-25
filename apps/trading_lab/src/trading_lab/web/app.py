@@ -196,11 +196,7 @@ def create_app(
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        db_health = (
-            repo.check_health()
-            if hasattr(repo, "check_health")
-            else {"status": "ok", "dialect": "custom"}
-        )
+        db_health = repo.check_health()
         sched_status = sched.status()
         overall = "ok" if db_health.get("status") == "ok" else "degraded"
         return {
@@ -215,11 +211,7 @@ def create_app(
     @app.get("/api/status")
     async def api_status() -> dict[str, Any]:
         ollama_health = await llm.check_health()
-        db_health = (
-            repo.check_health()
-            if hasattr(repo, "check_health")
-            else {"status": "ok", "dialect": "custom"}
-        )
+        db_health = repo.check_health()
         latest_snapshot = repo.get_latest_snapshot()
         heuristics = repo.get_latest_heuristics()
         return {

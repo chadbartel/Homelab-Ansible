@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from typing import Any
 
@@ -39,18 +40,24 @@ def extract_json_object(raw_text: str) -> dict[str, Any]:
         pass
 
     # 2. Markdown code fence extraction.
-    fence_match = _FENCE_RE.search(text)
-    if fence_match:
-        parsed = json.loads(fence_match.group(1))
-        if isinstance(parsed, dict):
-            return parsed
+    for fence_match in _FENCE_RE.finditer(text):
+        try:
+            parsed = json.loads(fence_match.group(1))
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            continue
 
-    # 3. Balanced braces scan from first '{'.
-    start = text.find("{")
-    if start != -1:
+    # 3. Balanced braces scan across every candidate '{' offset.
+    search_pos = 0
+    while True:
+        start = text.find("{", search_pos)
+        if start == -1:
+            break
         depth = 0
         in_str = False
         escape = False
+        matched_end = -1
         for idx in range(start, len(text)):
             ch = text[idx]
             if escape:
@@ -68,11 +75,19 @@ def extract_json_object(raw_text: str) -> dict[str, Any]:
                 elif ch == "}":
                     depth -= 1
                     if depth == 0:
-                        candidate = text[start : idx + 1]
-                        parsed = json.loads(candidate)
-                        if isinstance(parsed, dict):
-                            return parsed
+                        matched_end = idx
                         break
+        if matched_end != -1:
+            candidate = text[start : matched_end + 1]
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+            search_pos = start + 1
+        else:
+            break
 
     raise ValueError("No valid JSON object found in LLM response")
 
@@ -219,17 +234,23 @@ class OllamaThesisEngine(LLMThesisEngine):
             raise ValueError(f"Invalid action returned by LLM: {raw_action!r}")
         action = TradeAction(raw_action)
 
-        confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.5))))
-        sentiment_score = max(-1.0, min(1.0, float(parsed.get("sentiment_score", 0.0))))
-        target_position_pct = max(
-            0.0, min(1.0, float(parsed.get("target_position_pct", 0.03)))
-        )
+        raw_conf = float(parsed.get("confidence", 0.5))
+        raw_sent = float(parsed.get("sentiment_score", 0.0))
+        raw_target = float(parsed.get("target_position_pct", 0.03))
+        if not all(math.isfinite(v) for v in (raw_conf, raw_sent, raw_target)):
+            raise ValueError("Non-finite numeric value returned by LLM")
+
+        confidence = max(0.0, min(1.0, raw_conf))
+        sentiment_score = max(-1.0, min(1.0, raw_sent))
+        target_position_pct = max(0.0, min(1.0, raw_target))
 
         raw_stop = parsed.get("stop_loss_pct")
         if raw_stop is None:
             stop_loss_pct = self.default_stop_loss_pct if action == TradeAction.BUY else None
         else:
             stop_loss_pct = float(raw_stop)
+            if not math.isfinite(stop_loss_pct):
+                raise ValueError("Non-finite stop_loss_pct returned by LLM")
 
         catalyst_summary = str(
             parsed.get("catalyst_summary") or "No distinct catalyst noted."
@@ -304,9 +325,13 @@ class OllamaThesisEngine(LLMThesisEngine):
                 resp.raise_for_status()
                 data = resp.json()
             models = [m.get("name", "") for m in data.get("models", [])]
-            available = any(
-                m == self.model or m.startswith(self.model.split(":")[0]) for m in models
-            )
+            if ":" in self.model:
+                available = self.model in models
+            else:
+                available = any(
+                    m == self.model or m == f"{self.model}:latest" or m.split(":")[0] == self.model
+                    for m in models
+                )
             return {
                 "status": "ok",
                 "base_url": self.base_url,

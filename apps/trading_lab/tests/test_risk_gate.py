@@ -170,6 +170,66 @@ def test_rejects_paper_only_disabled_and_live_alpaca_url(
         AlpacaPaperBrokerExecutor(live_url_settings)
 
 
+@pytest.mark.parametrize(
+    "bad_url",
+    [
+        "https://paper-api.alpaca.markets.evil.com",
+        "http://paper-api.alpaca.markets",
+        "https://api.alpaca.markets/paper-api.alpaca.markets",
+    ],
+)
+def test_rejects_spoofed_or_non_https_alpaca_paper_urls(
+    sample_indicators, sample_snapshot, bad_url
+) -> None:
+    bad_settings = TradingLabSettings(
+        paper_only=True,
+        alpaca_api_key="PKTEST",
+        alpaca_secret_key="SKTEST",
+        alpaca_paper_base_url=bad_url,
+    )
+    gate = DeterministicRiskGate(bad_settings)
+    decision = gate.evaluate(
+        thesis=make_thesis(),
+        indicators=sample_indicators,
+        snapshot=sample_snapshot,
+        current_position=None,
+        broker_mode="alpaca_paper",
+    )
+    assert decision.approved is False
+    assert decision.rule_code == "RULE_PAPER_ONLY_VIOLATION"
+
+    with pytest.raises(PaperOnlyViolationError):
+        AlpacaPaperBrokerExecutor(bad_settings)
+
+
+def test_rejects_non_finite_stop_loss_and_drawdown(
+    settings, sample_indicators, sample_snapshot
+) -> None:
+    gate = DeterministicRiskGate(settings)
+
+    nan_stop = make_thesis(stop_loss_pct=float("nan"))
+    res_stop = gate.evaluate(
+        thesis=nan_stop,
+        indicators=sample_indicators,
+        snapshot=sample_snapshot,
+        current_position=None,
+        broker_mode="virtual_ledger",
+    )
+    assert res_stop.approved is False
+    assert res_stop.rule_code == "RULE_MISSING_OR_INVALID_STOP_LOSS"
+
+    nan_dd_snap = sample_snapshot.model_copy(update={"daily_drawdown_pct": float("nan")})
+    res_dd = gate.evaluate(
+        thesis=make_thesis(),
+        indicators=sample_indicators,
+        snapshot=nan_dd_snap,
+        current_position=None,
+        broker_mode="virtual_ledger",
+    )
+    assert res_dd.approved is False
+    assert res_dd.rule_code == "RULE_DAILY_DRAWDOWN_KILLSWITCH"
+
+
 def test_rejects_low_confidence_and_insufficient_cash(
     settings, sample_indicators, sample_snapshot
 ) -> None:

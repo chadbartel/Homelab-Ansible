@@ -188,10 +188,7 @@ class TradingPipelineOrchestrator:
         equity = round(cash + positions_value, 4)
 
         day_str = now.strftime("%Y-%m-%d")
-        if hasattr(self._repo, "get_day_anchor"):
-            day_anchor = self._repo.get_day_anchor(day_str, equity)
-        else:
-            day_anchor = self._settings.initial_cash
+        day_anchor = self._repo.get_day_anchor(day_str, equity)
 
         daily_return_pct = (
             round((equity - day_anchor) / day_anchor, 6) if day_anchor > 0 else 0.0

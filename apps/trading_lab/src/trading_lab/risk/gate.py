@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from urllib.parse import urlparse
 
 from trading_lab.config import TradingLabSettings
@@ -20,20 +21,25 @@ class PaperOnlyViolationError(RuntimeError):
     """Raised when configuration attempts to route orders outside paper trading."""
 
 
+def is_valid_alpaca_paper_url(raw_url: str) -> bool:
+    """Return True strictly for HTTPS URLs targeting paper-api.alpaca.markets."""
+    parsed = urlparse(raw_url.strip())
+    hostname = (parsed.hostname or "").lower()
+    return parsed.scheme.lower() == "https" and hostname == "paper-api.alpaca.markets"
+
+
 def validate_paper_only_config(settings: TradingLabSettings, broker_mode: str) -> str | None:
     """Return violation message if paper-only invariants are broken, else None."""
     if not settings.paper_only:
         return "PAPER_ONLY must be True; live trading is strictly prohibited."
 
-    if broker_mode == "alpaca_paper":
-        url = settings.alpaca_paper_base_url.strip().lower()
-        parsed = urlparse(url)
-        host = parsed.netloc or parsed.path
-        if "paper-api.alpaca.markets" not in host or host == "api.alpaca.markets":
-            return (
-                f"Alpaca base URL {settings.alpaca_paper_base_url!r} violates paper-only "
-                "guardrail (must target paper-api.alpaca.markets)."
-            )
+    if broker_mode == "alpaca_paper" and not is_valid_alpaca_paper_url(
+        settings.alpaca_paper_base_url
+    ):
+        return (
+            f"Alpaca base URL {settings.alpaca_paper_base_url!r} violates paper-only "
+            "guardrail (must use https://paper-api.alpaca.markets)."
+        )
     return None
 
 
@@ -112,7 +118,7 @@ class DeterministicRiskGate(RiskGate):
             )
 
         entry_price = float(indicators.latest_close)
-        if entry_price <= 0:
+        if not math.isfinite(entry_price) or entry_price <= 0:
             return RiskDecision(
                 thesis_id=thesis.id,
                 symbol=symbol,
@@ -152,7 +158,7 @@ class DeterministicRiskGate(RiskGate):
             )
 
         # 6. BUY evaluation: Daily drawdown kill-switch.
-        if drawdown >= self._settings.daily_drawdown_limit_pct:
+        if not math.isfinite(drawdown) or drawdown >= self._settings.daily_drawdown_limit_pct:
             return RiskDecision(
                 thesis_id=thesis.id,
                 symbol=symbol,
@@ -171,6 +177,7 @@ class DeterministicRiskGate(RiskGate):
         stop_pct = thesis.stop_loss_pct
         if (
             stop_pct is None
+            or not math.isfinite(stop_pct)
             or stop_pct < self._settings.min_stop_loss_pct
             or stop_pct > self._settings.max_stop_loss_pct
         ):
@@ -206,7 +213,12 @@ class DeterministicRiskGate(RiskGate):
             )
 
         # 8. BUY evaluation: Hard max 5% single-position cap (order & cumulative).
-        if equity <= 0 or thesis.target_position_pct <= 0:
+        if (
+            not math.isfinite(equity)
+            or not math.isfinite(thesis.target_position_pct)
+            or equity <= 0
+            or thesis.target_position_pct <= 0
+        ):
             return RiskDecision(
                 thesis_id=thesis.id,
                 symbol=symbol,

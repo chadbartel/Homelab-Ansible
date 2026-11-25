@@ -154,3 +154,27 @@ async def test_ollama_health_check_ok() -> None:
     assert health["status"] == "ok"
     assert health["model_available"] is True
     assert health["installed_models_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_prose_with_leading_braces_and_strict_tag_health_check() -> None:
+    wrapped = (
+        'Note {disclaimer: paper mode}: '
+        '{"action": "BUY", "confidence": 0.75, "sentiment_score": 0.4, '
+        '"target_position_pct": 0.03, "stop_loss_pct": 0.03, '
+        '"catalyst_summary": "Steady growth", "rationale": "Trend intact"}'
+    )
+    extracted = extract_json_object(wrapped)
+    assert extracted["action"] == "BUY"
+
+    engine = OllamaThesisEngine(
+        base_url="http://mock-ollama:11434",
+        model="huihui_ai/qwen3-abliterated:8b-v2",
+        transport=make_mock_ollama_transport(
+            lambda _b: httpx.Response(200, json={"message": {"content": "{}"}}),
+            models=["huihui_ai/qwen3-abliterated:32b"],
+        ),
+    )
+    health = await engine.check_health()
+    assert health["status"] == "ok"
+    assert health["model_available"] is False
