@@ -62,5 +62,5 @@
   - Verify market/news ingest, deterministic indicators, Ollama JSON thesis, RiskGate evaluations/rejections, paper/virtual order execution, TimescaleDB hypertable/ledger writes, SPY benchmark comparison, live HTTPS dashboard rendering, and scheduler health.
   - Confirm core services (`pihole`, `proxy`, `ollama`, `open-webui`, `kokoro-fastapi`, `jellyfin`) and existing routes remain untouched and healthy.
 
-- [ ] **Milestone 7: Shared Wiki Sync (`My-LLM-Wiki`)**
-  - Document `trading_lab` architecture, `/mnt/ollama_storage/trading_lab` storage paths, schedule, ports, internal DNS/NPM endpoint, and benchmark dashboard in `My-LLM-Wiki` on branch `wiki/trading-lab` published via `~/.local/bin/wiki-pr`.
+- [x] **Milestone 7: Shared Wiki Sync (`My-LLM-Wiki`)**
+  - Document `trading_lab` architecture, `/mnt/ollama_storage/trading_lab` storage paths, schedule, ports, internal DNS/NPM endpoint, and benchmark dashboard in `My-LLM-Wiki` on branch `wiki/trading-lab` published via `~/.local/bin/wiki-pr` (merged PR: https://github.com/chadbartel/My-LLM-Wiki/pull/15).
