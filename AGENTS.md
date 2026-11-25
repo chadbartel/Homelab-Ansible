@@ -2,7 +2,7 @@
 
 ## Critical Network Protection (Non-Negotiable)
 - `monolith` (`192.168.1.17`) is the live LAN DNS (Pi-hole/Unbound) and reverse proxy (Nginx Proxy Manager) for the entire network.
-- **NEVER** modify Pi-hole, Unbound, Nginx Proxy Manager, Docker daemon config, or host firewall/networking roles.
+- NEVER restart, stop, recreate, or modify existing Pi-hole, Unbound, or Nginx Proxy Manager containers/routes. You MAY add new internal DNS records in Pi-hole and upload new self-signed TLS certs / proxy hosts in Nginx Proxy Manager exclusively via their REST APIs (or existing repo conventions) using Ansible Vault variables.
 - Keep the Jarvis/AI stack (`ollama`, `open-webui`, `kokoro-fastapi`) in isolated Compose projects (`/opt/docker-stacks`) so restarts or `--remove-orphans` never touch `pihole-stack` or `npm-stack`.
 - Preserve existing Ollama (`/mnt/ollama_storage/ollama/data` on dedicated 2 TB SSD) and Open WebUI (`/opt/open-webui/data`) data mounts—never relocate model storage to the OS drive or create duplicate containers.
 - If a new Nginx Proxy Manager proxy host or SSL route is needed, document exact hostname, upstream container/port, and flags in `MANUAL_NPM_STEPS.md` and continue—never touch NPM containers.
