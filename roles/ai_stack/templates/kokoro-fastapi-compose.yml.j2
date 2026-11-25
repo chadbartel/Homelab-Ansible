@@ -1,0 +1,45 @@
+---
+
+services:
+  kokoro-fastapi:
+    container_name: {{ ai_stack_kokoro_container_name }}
+    hostname: {{ ai_stack_kokoro_container_name }}
+    image: {{ ai_stack_kokoro_image }}
+    restart: unless-stopped
+    ports:
+      - "{{ ai_stack_kokoro_host_port }}:{{ ai_stack_kokoro_internal_port }}"  # Kokoro-FastAPI TTS API port
+    networks:
+      - homelab-bridge
+    dns:
+      - {{ ai_stack_monolith_ip }}  # Host IP where Pi-hole DNS binds on port 53
+      - 1.1.1.1  # Cloudflare DNS for reliable external resolution
+      - 8.8.8.8  # Google DNS fallback
+    dns_search:
+      - local  # Optional: for local domain resolution
+    environment:
+      TZ: {{ ai_stack_timezone }}
+      USE_GPU: "false"
+      ONNX_NUM_THREADS: "{{ ai_stack_kokoro_onnx_num_threads }}"
+      ONNX_INTER_OP_THREADS: "{{ ai_stack_kokoro_onnx_inter_op_threads }}"
+      ONNX_EXECUTION_MODE: "{{ ai_stack_kokoro_onnx_execution_mode }}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:{{ ai_stack_kokoro_internal_port }}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: {{ ai_stack_kokoro_memory_limit }}
+        reservations:
+          memory: {{ ai_stack_kokoro_memory_reservation }}
+      update_config:
+        order: start-first
+        failure_action: rollback
+
+networks:
+  homelab-bridge:
+    name: homelab-bridge
+    external: true

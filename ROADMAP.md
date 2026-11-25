@@ -26,7 +26,7 @@ Scoped Apply Command: `ansible-playbook main.yml --tags ai_stack`
   - Pull 8B abliterated text model: `huihui_ai/qwen3-abliterated:8b-v2` (5.03 GB Q4_K_M, fast conversational inference with generous KV cache headroom).
   - Verify `ansible-lint`, `--check --diff --tags ai_stack`, pre/post-flight DNS & NPM checks, apply + re-run (`changed=0`), and inference + `ollama ps` (`100% GPU`, max 1 loaded model) for both models.
 
-- [ ] **Milestone 3: Deploy CPU-Pinned Kokoro-FastAPI TTS Container**
+- [x] **Milestone 3: Deploy CPU-Pinned Kokoro-FastAPI TTS Container**
   - Add isolated `kokoro-fastapi-stack` Compose template (`ghcr.io/remsky/kokoro-fastapi-cpu:latest`) and tasks in `roles/ai_stack`, pinned strictly to CPU with Ryzen 9 5900XT ONNX thread tuning (`ONNX_NUM_THREADS=8`, `ONNX_INTER_OP_THREADS=4`, `ONNX_EXECUTION_MODE=parallel`), attached to `homelab-bridge` on port `8880` with container healthcheck.
   - Document optional NPM proxy host details in `MANUAL_NPM_STEPS.md` without modifying NPM.
   - Verify `ansible-lint`, `--check --diff --tags ai_stack`, pre/post-flight DNS & NPM checks, apply + re-run (`changed=0`), live Kokoro `/health`, `/v1/audio/voices`, and `/v1/audio/speech` synthesis on CPU, and Ollama `100% GPU` status.

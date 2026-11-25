@@ -15,5 +15,8 @@
 - name: Pull and verify Ollama models
   ansible.builtin.import_tasks: models.yml
 
+- name: Deploy Kokoro-FastAPI TTS service
+  ansible.builtin.import_tasks: kokoro.yml
+
 - name: Deploy Open WebUI service
   ansible.builtin.import_tasks: open_webui.yml
