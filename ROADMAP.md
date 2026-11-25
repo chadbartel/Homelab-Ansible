@@ -20,7 +20,7 @@ Scoped Apply Command: `ansible-playbook main.yml --tags ai_stack`
   - Tune Ollama Compose template for 8 GB VRAM (`OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`, `OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_KEEP_ALIVE=15m`, 12 GB container RAM limit, native healthcheck).
   - Verify `ansible-lint`, `--check --diff --tags ai_stack`, pre/post-flight DNS & NPM checks, apply + re-run (`changed=0`), and inference + `ollama ps` (`100% GPU`).
 
-- [ ] **Milestone 2: Idempotently Pull & Verify Unlocked Multimodal and 8B Abliterated Text Models**
+- [x] **Milestone 2: Idempotently Pull & Verify Unlocked Multimodal and 8B Abliterated Text Models**
   - Add idempotent model provisioning tasks (`roles/ai_stack/tasks/models.yml`) checking `ollama list` before pulling so repeated runs report `changed=0`.
   - Pull unlocked multimodal model: `huihui_ai/gemma-4-abliterated:E4b-qat` (6.29 GB Q4_K_M + multimodal projector, fits 100% in 8 GB VRAM).
   - Pull 8B abliterated text model: `huihui_ai/qwen3-abliterated:8b-v2` (5.03 GB Q4_K_M, fast conversational inference with generous KV cache headroom).

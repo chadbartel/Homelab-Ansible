@@ -24,6 +24,9 @@ ai_stack_ollama_memory_reservation: "2G"
 ai_stack_ollama_gpu_enabled: "{{ ollama_gpu_enabled | default(true) }}"
 ai_stack_ollama_gpu_device_count: "{{ ollama_gpu_device_count | default(1) }}"
 ai_stack_ollama_gpu_capabilities: "{{ ollama_gpu_capabilities | default(['gpu']) }}"
+ai_stack_ollama_models:
+  - "huihui_ai/gemma-4-abliterated:E4b-qat"
+  - "huihui_ai/qwen3-abliterated:8b-v2"
 
 # Open WebUI configuration
 ai_stack_open_webui_container_name: "{{ open_webui_container_name | default('open-webui') }}"
