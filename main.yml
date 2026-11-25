@@ -198,7 +198,7 @@
         name: audiobookshelf
       tags: ["deploy", "audiobookshelf"]
 
-    - name: Deploy Jarvis AI stack (Ollama and Open WebUI)
+    - name: Deploy Jarvis AI stack (Ollama, Kokoro-FastAPI, and Open WebUI)
       ansible.builtin.include_role:
         name: ai_stack
         apply:

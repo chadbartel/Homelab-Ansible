@@ -33,7 +33,16 @@ services:
       OLLAMA_BASE_URL: "http://{{ ai_stack_ollama_container_name }}:{{ ai_stack_ollama_internal_port }}"
       # Optional: Set default model (update after deployment)
       WEBUI_DEFAULT_MODELS: "{{ ai_stack_open_webui_default_models }}"
+      # CPU-pinned Whisper STT configuration
+      AUDIO_STT_ENGINE: "{{ ai_stack_open_webui_audio_stt_engine }}"
+      WHISPER_MODEL: "{{ ai_stack_open_webui_whisper_model }}"
       WHISPER_COMPUTE_TYPE: "{{ ai_stack_open_webui_whisper_compute_type }}"
+      # Kokoro-FastAPI TTS configuration (OpenAI-compatible endpoint over homelab-bridge)
+      AUDIO_TTS_ENGINE: "{{ ai_stack_open_webui_audio_tts_engine }}"
+      AUDIO_TTS_OPENAI_API_BASE_URL: "{{ ai_stack_open_webui_audio_tts_openai_api_base_url }}"
+      AUDIO_TTS_OPENAI_API_KEY: "{{ ai_stack_open_webui_audio_tts_openai_api_key }}"
+      AUDIO_TTS_MODEL: "{{ ai_stack_open_webui_audio_tts_model }}"
+      AUDIO_TTS_VOICE: "{{ ai_stack_open_webui_audio_tts_voice }}"
     deploy:
       replicas: 1
       resources:

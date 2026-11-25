@@ -31,6 +31,6 @@ Scoped Apply Command: `ansible-playbook main.yml --tags ai_stack`
   - Document optional NPM proxy host details in `MANUAL_NPM_STEPS.md` without modifying NPM.
   - Verify `ansible-lint`, `--check --diff --tags ai_stack`, pre/post-flight DNS & NPM checks, apply + re-run (`changed=0`), live Kokoro `/health`, `/v1/audio/voices`, and `/v1/audio/speech` synthesis on CPU, and Ollama `100% GPU` status.
 
-- [ ] **Milestone 4: Configure Open WebUI CPU `int8` Whisper STT & Kokoro-FastAPI TTS Integration**
+- [x] **Milestone 4: Configure Open WebUI CPU `int8` Whisper STT & Kokoro-FastAPI TTS Integration**
   - Update `roles/ai_stack/templates/open-webui-compose.yml.j2` (preserving `/opt/open-webui/data` mount): set `WHISPER_COMPUTE_TYPE=int8`, `AUDIO_STT_ENGINE=""`, `WHISPER_MODEL=base`, and wire Kokoro-FastAPI OpenAI-compatible TTS (`AUDIO_TTS_ENGINE=openai`, `AUDIO_TTS_OPENAI_API_BASE_URL=http://kokoro-fastapi:8880/v1`, `AUDIO_TTS_OPENAI_API_KEY=not-needed`, `AUDIO_TTS_MODEL=kokoro`, `AUDIO_TTS_VOICE=bm_george`).
   - Verify `ansible-lint`, `--check --diff --tags ai_stack`, pre/post-flight DNS & NPM checks, apply + re-run (`changed=0`), Open WebUI health and internal network reachability to `kokoro-fastapi:8880` and `ollama:11434`, Ollama `100% GPU` via `ollama ps`, and `nvidia-smi` confirming only Ollama uses GPU.

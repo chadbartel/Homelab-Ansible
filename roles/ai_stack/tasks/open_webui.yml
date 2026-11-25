@@ -9,6 +9,11 @@
     group: root
     mode: "0644"
 
+- name: Check whether Open WebUI Compose stack file exists
+  ansible.builtin.stat:
+    path: "{{ ai_stack_compose_dir }}/open-webui-stack.yml"
+  register: ai_stack_open_webui_compose_stat
+
 - name: Deploy Open WebUI stack via Docker Compose V2
   community.docker.docker_compose_v2:
     project_name: open-webui-stack
@@ -17,3 +22,15 @@
       - open-webui-stack.yml
     state: present
     remove_orphans: true
+  when: not ansible_check_mode or ai_stack_open_webui_compose_stat.stat.exists
+
+- name: Wait for Open WebUI health endpoint readiness
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ai_stack_open_webui_host_port }}/health"
+    method: GET
+    status_code: 200
+  register: ai_stack_open_webui_health_ready
+  retries: 30
+  delay: 5
+  until: ai_stack_open_webui_health_ready.status == 200
+  when: not ansible_check_mode
