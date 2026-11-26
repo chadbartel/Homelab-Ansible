@@ -2,7 +2,8 @@
 
 ## Critical Network Protection (Non-Negotiable)
 - `monolith` (`192.168.1.17`) is the live LAN DNS (Pi-hole/Unbound) and reverse proxy (Nginx Proxy Manager) for the entire network.
-- NEVER restart, stop, recreate, or modify existing Pi-hole, Unbound, or Nginx Proxy Manager containers/routes. You MAY add new internal DNS records in Pi-hole and upload new self-signed TLS certs / proxy hosts in Nginx Proxy Manager exclusively via their REST APIs (or existing repo conventions) using Ansible Vault variables.
+- NEVER restart, stop, recreate, or modify existing Pi-hole, Unbound, or Nginx Proxy Manager containers/routes. You MAY add new internal DNS records in Pi-hole and register new HTTPS proxy hosts in Nginx Proxy Manager exclusively via their REST APIs (or existing repo conventions) using Ansible Vault variables.
+- **Trusted Let's Encrypt TLS Standard (Non-Negotiable):** For all `*.chadbartel.duckdns.org` proxy hosts in Nginx Proxy Manager, ALWAYS attach the existing Let's Encrypt wildcard certificate (`*.chadbartel.duckdns.org`, `provider: letsencrypt`, provisioned via DuckDNS DNS-01 in `roles/nginx_proxy_manager_config/tasks/certificates.yml`) with `ssl_forced: true`, `http2_support: true`, and `hsts_enabled: true`. NEVER generate or upload untrusted self-signed certificates when Let's Encrypt wildcard TLS is available, and ALWAYS verify HTTPS endpoints with strict TLS verification (`curl -fsSL`, never `-k`) so untrusted certs fail immediately.
 - Keep the Jarvis/AI stack (`ollama`, `open-webui`, `kokoro-fastapi`) in isolated Compose projects (`/opt/docker-stacks`) so restarts or `--remove-orphans` never touch `pihole-stack` or `npm-stack`.
 - Preserve existing Ollama (`/mnt/ollama_storage/ollama/data` on dedicated 2 TB SSD) and Open WebUI (`/opt/open-webui/data`) data mounts—never relocate model storage to the OS drive or create duplicate containers.
 - If a new Nginx Proxy Manager proxy host or SSL route is needed, document exact hostname, upstream container/port, and flags in `MANUAL_NPM_STEPS.md` and continue—never touch NPM containers.
@@ -24,6 +25,7 @@ If either check fails, **STOP immediately** and report the exact output.
 - Guard CLI tasks (`ollama pull`, `docker exec`) with state checks and accurate `changed_when` so repeated runs report `changed=0`.
 - Prove idempotency after every apply by running the tagged command a SECOND time (`changed=0`, `failed=0`).
 - Commit clean, atomic Git commits on the active feature branch (e.g., `feat/jarvis-voice-pipeline`) after each verified milestone.
+- Run Python unit tests (`pytest`) and `ansible-lint` locally in WSL2; validate Docker Compose configs syntactically or on `monolith` (`ssh monolith "docker compose -f ... config --quiet"`) instead of running local Docker in WSL2.
 
 ## Hardware & Progressive Disclosure Pointers
 - **Hardware Summary:** RTX 2070 SUPER (8 GB VRAM, reserved exclusively for Ollama in the AI stack) + Ryzen 9 5900XT (16-core CPU, pinned for Whisper STT `int8` and Kokoro-FastAPI TTS).
