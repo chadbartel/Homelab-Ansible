@@ -13,4 +13,4 @@ Add the following optional/recommended keys to `vault.yml` using `ansible-vault 
 ## Existing Vault Keys Reused (Already Present in `vault.yml` / `vars.yml`)
 
 - `vault_pihole_admin_password` (via `pihole_web_password`) — Used by `roles/trading_lab` to idempotently register the local DNS A record via Pi-hole v6 REST API (`/api/config/dns/hosts`).
-- `vault_npm_admin_password` (via `npm_admin_password`) — Used by `roles/trading_lab` to idempotently upload the self-signed SAN TLS certificate and register the HTTPS proxy host via Nginx Proxy Manager REST API.
+- `vault_npm_admin_password` (via `npm_admin_password`) — Used by `roles/trading_lab` to idempotently resolve the existing Let's Encrypt wildcard certificate (`*.chadbartel.duckdns.org`) and register the HTTPS proxy host via Nginx Proxy Manager REST API.

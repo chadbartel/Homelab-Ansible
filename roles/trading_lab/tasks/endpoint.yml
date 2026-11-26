@@ -1,5 +1,6 @@
 ---
-# Idempotently register internal DNS (Pi-hole v6 API), SAN TLS cert, and NPM HTTPS proxy host
+# Idempotently register internal DNS (Pi-hole v6 API) and NPM HTTPS proxy host
+# using the existing Let's Encrypt wildcard certificate (*.chadbartel.duckdns.org).
 # NEVER restarts Pi-hole or NPM containers and NEVER modifies other proxy hosts.
 
 - name: Manage Pi-hole v6 local DNS A record for Trading Lab
@@ -101,43 +102,24 @@
       check_mode: false
       when: trading_lab_pihole_sid | default('') | length > 0
 
-- name: Generate SAN self-signed TLS certificate for Trading Lab
-  ansible.builtin.command:
-    cmd: >-
-      openssl req -x509 -nodes -newkey rsa:2048 -days 825
-      -keyout {{ trading_lab_cert_key_path }}
-      -out {{ trading_lab_cert_crt_path }}
-      -subj /CN={{ trading_lab_domain }}
-      -addext subjectAltName=DNS:{{ trading_lab_domain }}
-    creates: "{{ trading_lab_cert_crt_path }}"
-
-- name: Enforce permissions on Trading Lab TLS private key
+- name: Remove legacy Trading Lab self-signed TLS certificate files if present
   ansible.builtin.file:
-    path: "{{ trading_lab_cert_key_path }}"
-    owner: root
-    group: root
-    mode: "0600"
-  when: not ansible_check_mode
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ trading_lab_certs_dir }}/{{ trading_lab_domain }}.crt"
+    - "{{ trading_lab_certs_dir }}/{{ trading_lab_domain }}.key"
 
-- name: Enforce permissions on Trading Lab TLS certificate
-  ansible.builtin.file:
-    path: "{{ trading_lab_cert_crt_path }}"
-    owner: root
-    group: root
-    mode: "0644"
-  when: not ansible_check_mode
-
-- name: Register Trading Lab custom TLS cert and HTTPS proxy host via NPM REST API
+- name: Register Trading Lab HTTPS proxy host with Let's Encrypt wildcard cert via NPM REST API
   ansible.builtin.script:
     cmd: >-
       register_npm_endpoint.py
       --api-url {{ trading_lab_npm_api_url }}
       --domain {{ trading_lab_domain }}
+      --local-domain {{ trading_lab_local_domain }}
       --forward-host {{ trading_lab_app_container_name }}
       --forward-port {{ trading_lab_app_port }}
-      --cert-name {{ trading_lab_npm_cert_name }}
-      --cert-path {{ trading_lab_cert_crt_path }}
-      --key-path {{ trading_lab_cert_key_path }}
+      --cleanup-legacy-cert-name {{ trading_lab_legacy_selfsigned_cert_name }}
       {{ '--check' if ansible_check_mode else '' }}
   args:
     executable: python3

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Idempotently upload a SAN self-signed TLS cert and register a single NPM HTTPS proxy host.
+"""Idempotently register a single NPM HTTPS proxy host using the Let's Encrypt wildcard cert.
 
 Safety invariants:
 - NEVER restarts or modifies the Nginx Proxy Manager container.
 - NEVER modifies or deletes any proxy host belonging to another domain.
+- Resolves the existing Let's Encrypt certificate (`provider == "letsencrypt"`)
+  covering `*.<local_domain>` (or `<domain>`) — never creates untrusted self-signed certs.
+- Optionally removes a specified legacy custom self-signed cert record once no longer attached.
 - Reads credentials exclusively from environment variables (never CLI args or stdout).
 """
 
@@ -15,8 +18,6 @@ import os
 import sys
 import urllib.error
 import urllib.request
-import uuid
-from pathlib import Path
 from typing import Any
 
 
@@ -45,44 +46,19 @@ def _http_json(
         raise RuntimeError(f"NPM API {method} {url} failed ({exc.code}): {body}") from exc
 
 
-def _http_multipart_upload(
-    url: str,
-    token: str,
-    files: dict[str, tuple[str, bytes]],
-    timeout: int = 30,
-) -> Any:
-    boundary = f"----TradingLabBoundary{uuid.uuid4().hex}"
-    chunks: list[bytes] = []
-    for field_name, (filename, content) in files.items():
-        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
-        chunks.append(
-            f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'.encode(
-                "utf-8"
-            )
-        )
-        chunks.append(b"Content-Type: application/x-pem-file\r\n\r\n")
-        chunks.append(content)
-        chunks.append(b"\r\n")
-    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
-    body = b"".join(chunks)
-
-    req = urllib.request.Request(
-        url,
-        data=body,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/json",
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read().decode("utf-8")
-            return json.loads(raw) if raw else {}
-    except urllib.error.HTTPError as exc:
-        err_body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"NPM API POST {url} failed ({exc.code}): {err_body}") from exc
+def _find_letsencrypt_cert(
+    certs: list[dict[str, Any]],
+    domain: str,
+    local_domain: str,
+) -> dict[str, Any] | None:
+    wildcard = f"*.{local_domain}"
+    for cert in certs:
+        if cert.get("provider") != "letsencrypt":
+            continue
+        names = list(cert.get("domain_names") or [])
+        if wildcard in names or domain in names:
+            return cert
+    return None
 
 
 def _proxy_matches(existing: dict[str, Any], desired: dict[str, Any]) -> bool:
@@ -101,6 +77,8 @@ def _proxy_matches(existing: dict[str, Any], desired: dict[str, Any]) -> bool:
     for flag in (
         "ssl_forced",
         "http2_support",
+        "hsts_enabled",
+        "hsts_subdomains",
         "block_exploits",
         "allow_websocket_upgrade",
         "caching_enabled",
@@ -114,14 +92,15 @@ def _proxy_matches(existing: dict[str, Any], desired: dict[str, Any]) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Register Trading Lab cert and proxy host in NPM")
+    parser = argparse.ArgumentParser(
+        description="Register Trading Lab HTTPS proxy host in NPM using Let's Encrypt wildcard cert"
+    )
     parser.add_argument("--api-url", required=True)
     parser.add_argument("--domain", required=True)
+    parser.add_argument("--local-domain", required=True)
     parser.add_argument("--forward-host", required=True)
     parser.add_argument("--forward-port", type=int, required=True)
-    parser.add_argument("--cert-name", required=True)
-    parser.add_argument("--cert-path", required=True)
-    parser.add_argument("--key-path", required=True)
+    parser.add_argument("--cleanup-legacy-cert-name", default="")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
 
@@ -143,57 +122,20 @@ def main() -> int:
         return 1
 
     changed = False
-    cert_action = "unchanged"
     proxy_action = "unchanged"
+    legacy_cert_action = "none"
 
     certs = _http_json(f"{base_url}/nginx/certificates", method="GET", token=token)
-    existing_cert = next(
-        (
-            c
-            for c in certs
-            if c.get("provider") == "other" and c.get("nice_name") == args.cert_name
-        ),
-        None,
-    )
+    le_cert = _find_letsencrypt_cert(certs, args.domain, args.local_domain)
+    if le_cert is None:
+        raise RuntimeError(
+            f"No Let's Encrypt certificate covering *.{args.local_domain} or {args.domain} "
+            "found in Nginx Proxy Manager. Provision the wildcard cert via "
+            "roles/nginx_proxy_manager_config/tasks/certificates.yml first."
+        )
 
-    cert_id: int | None
-    if existing_cert is not None:
-        cert_id = int(existing_cert["id"])
-    else:
-        changed = True
-        cert_action = "would_create" if args.check else "created"
-        if args.check:
-            cert_id = None
-        else:
-            cert_bytes = Path(args.cert_path).read_bytes()
-            key_bytes = Path(args.key_path).read_bytes()
-            created_cert = _http_json(
-                f"{base_url}/nginx/certificates",
-                method="POST",
-                token=token,
-                payload={"provider": "other", "nice_name": args.cert_name},
-            )
-            cert_id = int(created_cert["id"])
-            try:
-                _http_multipart_upload(
-                    f"{base_url}/nginx/certificates/{cert_id}/upload",
-                    token=token,
-                    files={
-                        "certificate": ("certificate.crt", cert_bytes),
-                        "certificate_key": ("certificate.key", key_bytes),
-                    },
-                )
-            except Exception:
-                # Roll back empty custom cert record if upload failed
-                try:
-                    _http_json(
-                        f"{base_url}/nginx/certificates/{cert_id}",
-                        method="DELETE",
-                        token=token,
-                    )
-                except Exception:
-                    pass
-                raise
+    cert_id = int(le_cert["id"])
+    cert_nice_name = str(le_cert.get("nice_name") or "")
 
     hosts = _http_json(f"{base_url}/nginx/proxy-hosts", method="GET", token=token)
     matching_hosts = [
@@ -217,13 +159,13 @@ def main() -> int:
         "forward_scheme": "http",
         "forward_host": args.forward_host,
         "forward_port": int(args.forward_port),
-        "certificate_id": int(cert_id) if cert_id is not None else 0,
+        "certificate_id": cert_id,
         "ssl_forced": True,
         "http2_support": True,
         "block_exploits": True,
         "allow_websocket_upgrade": True,
         "caching_enabled": False,
-        "hsts_enabled": False,
+        "hsts_enabled": True,
         "hsts_subdomains": False,
         "access_list_id": 0,
         "enabled": True,
@@ -248,7 +190,7 @@ def main() -> int:
             proxy_host_id = int(created_host["id"])
     else:
         proxy_host_id = int(existing_host["id"])
-        if cert_id is None or not _proxy_matches(existing_host, desired_host):
+        if not _proxy_matches(existing_host, desired_host):
             changed = True
             proxy_action = "would_update" if args.check else "updated"
             if not args.check:
@@ -259,13 +201,43 @@ def main() -> int:
                     payload=desired_host,
                 )
 
+    # Clean up legacy custom self-signed cert record only if no other host references it.
+    if args.cleanup_legacy_cert_name:
+        legacy_cert = next(
+            (
+                c
+                for c in certs
+                if c.get("provider") == "other"
+                and c.get("nice_name") == args.cleanup_legacy_cert_name
+            ),
+            None,
+        )
+        if legacy_cert is not None:
+            legacy_id = int(legacy_cert["id"])
+            in_use_by_other = any(
+                int(h.get("certificate_id") or 0) == legacy_id
+                and int(h.get("id") or 0) != (proxy_host_id or -1)
+                for h in hosts
+            )
+            if not in_use_by_other:
+                changed = True
+                legacy_cert_action = "would_delete" if args.check else "deleted"
+                if not args.check:
+                    _http_json(
+                        f"{base_url}/nginx/certificates/{legacy_id}",
+                        method="DELETE",
+                        token=token,
+                    )
+
     print(
         json.dumps(
             {
                 "changed": changed,
-                "cert_action": cert_action,
-                "proxy_action": proxy_action,
+                "cert_provider": "letsencrypt",
                 "cert_id": cert_id,
+                "cert_nice_name": cert_nice_name,
+                "proxy_action": proxy_action,
+                "legacy_cert_action": legacy_cert_action,
                 "proxy_host_id": proxy_host_id,
                 "domain": args.domain,
             }

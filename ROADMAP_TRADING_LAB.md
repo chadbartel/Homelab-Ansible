@@ -3,7 +3,7 @@
 - **Target Host:** `monolith` (`192.168.1.17`)
 - **Branch:** `feat/trading-lab`
 - **Scoped Ansible Command:** `.venv/bin/ansible-playbook main.yml --tags trading_lab`
-- **Internal Endpoint:** `https://trading.chadbartel.duckdns.org` (Pi-hole v6 local DNS -> `192.168.1.17` -> Nginx Proxy Manager custom SAN TLS -> `http://trading-lab-app:8085` over `homelab-bridge`)
+- **Internal Endpoint:** `https://trading.chadbartel.duckdns.org` (Pi-hole v6 local DNS -> `192.168.1.17` -> Nginx Proxy Manager Let's Encrypt wildcard TLS `*.chadbartel.duckdns.org` with HSTS -> `http://trading-lab-app:8085` over `homelab-bridge`)
 - **Persistent Storage Root (2 TB NVMe SSD):** `/mnt/ollama_storage/trading_lab/`
   - `/mnt/ollama_storage/trading_lab/app/` — staged application source & Dockerfile
   - `/mnt/ollama_storage/trading_lab/timescaledb/` — TimescaleDB/PostgreSQL 16 data volume
@@ -50,11 +50,10 @@
   - Verify `/mnt/ollama_storage` mountpoint, create `/mnt/ollama_storage/trading_lab/{app,timescaledb,logs,artifacts,certs}`, sync app source, build/deploy CPU-only Compose V2 stack (`trading-lab-db` TimescaleDB PG16 + `trading-lab-app` on port `8085`).
   - Pass `ansible-lint`, `--check --diff`, pre/post-flight DNS & Docker health checks, apply, and second-run `changed=0` verification.
 
-- [x] **Milestone 5: Internal Endpoint Registration (Pi-hole v6 + SAN TLS + NPM API)**
+- [x] **Milestone 5: Internal Endpoint Registration (Pi-hole v6 + Let's Encrypt Wildcard TLS + NPM API)**
   - Idempotently add local DNS A record `192.168.1.17 trading.chadbartel.duckdns.org` via Pi-hole v6 REST API (`/api/config/dns/hosts`, with automatic fallback to `/api/config/misc/dnsmasq_lines` when `FTLCONF_dns_hosts` is env-locked).
-  - Generate SAN-enabled self-signed TLS cert under `/mnt/ollama_storage/trading_lab/certs/`.
-  - Idempotently upload custom cert to NPM (`/api/nginx/certificates` + `/upload`) and register HTTPS proxy host forwarding to `http://trading-lab-app:8085` without touching existing proxy hosts.
-  - Verify `dig @192.168.1.17 trading.chadbartel.duckdns.org +short` == `192.168.1.17` and `curl -skL https://trading.chadbartel.duckdns.org` returns HTTP 200 with Trading Lab dashboard content (failing on NPM landing page or 502/404).
+  - Resolve and attach the existing trusted Let's Encrypt wildcard certificate (`*.chadbartel.duckdns.org`, `provider: letsencrypt`) via NPM REST API with `ssl_forced: true`, `http2_support: true`, `hsts_enabled: true` (cleaning up any legacy custom self-signed cert without touching other proxy hosts).
+  - Verify `dig @192.168.1.17 trading.chadbartel.duckdns.org +short` == `192.168.1.17` and strict TLS `curl -fsSL https://trading.chadbartel.duckdns.org` (no `-k`) returns HTTP 200 with Trading Lab dashboard content (failing on untrusted certs, NPM landing page, or 502/404).
   - Prove full role idempotency (`changed=0`, `failed=0`) on second tagged run.
 
 - [x] **Milestone 6: Live End-to-End Pipeline Verification on `monolith`**

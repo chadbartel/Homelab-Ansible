@@ -49,13 +49,10 @@ trading_lab_app_cpu_limit: "2.0"
 trading_lab_app_memory_limit: "1536M"
 trading_lab_app_memory_reservation: "512M"
 
-# Internal endpoint registration (Pi-hole v6 + SAN self-signed TLS + NPM REST API)
+# Internal endpoint registration (Pi-hole v6 + existing Let's Encrypt wildcard TLS via NPM REST API)
 trading_lab_pihole_api_url: "http://127.0.0.1:{{ pihole_host_port | default(8081) }}/api"
 trading_lab_npm_api_url: "http://127.0.0.1:{{ proxy_host_port | default(81) }}/api"
-trading_lab_npm_cert_name: "trading-lab-selfsigned"
+trading_lab_legacy_selfsigned_cert_name: "trading-lab-selfsigned"
 trading_lab_npm_admin_email: "{{ admin_email | default('me@chadbartel.com') }}"
 trading_lab_npm_admin_password: "{{ npm_admin_password | default('') }}"
 trading_lab_pihole_password: "{{ pihole_web_password | default('') }}"
-
-trading_lab_cert_key_path: "{{ trading_lab_certs_dir }}/{{ trading_lab_domain }}.key"
-trading_lab_cert_crt_path: "{{ trading_lab_certs_dir }}/{{ trading_lab_domain }}.crt"

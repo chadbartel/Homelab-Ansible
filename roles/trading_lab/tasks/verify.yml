@@ -1,5 +1,5 @@
 ---
-# Post-deploy internal DNS and HTTPS dashboard verification on monolith
+# Post-deploy internal DNS and strict Let's Encrypt HTTPS verification on monolith
 
 - name: Verify Trading Lab DNS A record resolves locally via Pi-hole
   ansible.builtin.command:
@@ -17,10 +17,10 @@
       got: {{ trading_lab_dns_verify.stdout | trim }}
   when: not ansible_check_mode
 
-- name: Verify Trading Lab HTTPS endpoint via Nginx Proxy Manager # noqa: command-instead-of-module
+- name: Verify Trading Lab HTTPS endpoint with strict Let's Encrypt TLS validation # noqa: command-instead-of-module
   ansible.builtin.command:
     cmd: >-
-      curl -skL -w "\n__HTTP_CODE__:%{http_code}"
+      curl -fsSL -w "\n__HTTP_CODE__:%{http_code}"
       --resolve {{ trading_lab_domain }}:443:127.0.0.1
       https://{{ trading_lab_domain }}
   register: trading_lab_https_verify
@@ -35,12 +35,12 @@
     - "'Congratulations!' not in trading_lab_https_verify.stdout"
   when: not ansible_check_mode
 
-- name: Assert Trading Lab HTTPS dashboard response is healthy and valid
+- name: Assert Trading Lab HTTPS dashboard response passes strict TLS and health checks
   ansible.builtin.assert:
     that:
       - "'__HTTP_CODE__:200' in trading_lab_https_verify.stdout"
       - "'Trading Lab' in trading_lab_https_verify.stdout"
       - "'data-trading-lab-health=\"ok\"' in trading_lab_https_verify.stdout"
       - "'Congratulations!' not in trading_lab_https_verify.stdout"
-    fail_msg: "HTTPS verification for https://{{ trading_lab_domain }} failed or returned NPM default page."
+    fail_msg: "Strict TLS HTTPS verification for https://{{ trading_lab_domain }} failed or returned NPM default page."
   when: not ansible_check_mode
