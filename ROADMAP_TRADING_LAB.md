@@ -5,7 +5,7 @@
 - **Scoped Ansible Command:** `.venv/bin/ansible-playbook main.yml --tags trading_lab`
 - **Internal Endpoint:** `https://trading.chadbartel.duckdns.org` (Pi-hole v6 local DNS -> `192.168.1.17` -> Nginx Proxy Manager Let's Encrypt wildcard TLS `*.chadbartel.duckdns.org` with HSTS -> `http://trading-lab-app:8085` over `homelab-bridge`)
 - **Persistent Storage Root (2 TB NVMe SSD):** `/mnt/ollama_storage/trading_lab/`
-  - `/mnt/ollama_storage/trading_lab/app/` — staged application source & Dockerfile
+  - `/mnt/ollama_storage/trading_lab/app/` — Git checkout of standalone `https://github.com/chadbartel/Trading-Lab.git` (single source of truth; removed duplicate `apps/trading_lab/` from `Homelab-Ansible`)
   - `/mnt/ollama_storage/trading_lab/timescaledb/` — TimescaleDB/PostgreSQL 16 data volume
   - `/mnt/ollama_storage/trading_lab/logs/` — application & scheduler logs
   - `/mnt/ollama_storage/trading_lab/artifacts/` — weekend reflection & heuristic artifacts

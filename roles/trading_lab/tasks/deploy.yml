@@ -1,31 +1,32 @@
 ---
-# Sync Trading Lab app source, build image when needed, and deploy isolated Compose V2 stack
+# Pull Trading Lab app source from GitHub, build image when needed, and deploy isolated Compose V2 stack
 
-- name: Check whether Trading Lab application source staging directory exists
+- name: Check whether Trading Lab application source directory exists
   ansible.builtin.stat:
     path: "{{ trading_lab_app_src_dir }}"
   register: trading_lab_app_src_stat
 
-- name: Sync Trading Lab application source to NVMe storage
-  ansible.posix.synchronize:
-    src: "{{ playbook_dir }}/apps/trading_lab/"
-    dest: "{{ trading_lab_app_src_dir }}/"
-    archive: false
-    recursive: true
-    checksum: true
-    delete: true
-    rsync_opts:
-      - "--exclude=.venv"
-      - "--exclude=__pycache__"
-      - "--exclude=.pytest_cache"
-      - "--exclude=.ruff_cache"
-      - "--exclude=*.pyc"
-      - "--exclude=.git"
-      - "--exclude=tests"
-      - "--exclude=docker-compose.yml"
-  become: false
+- name: Check whether Trading Lab application source directory is a Git checkout
+  ansible.builtin.stat:
+    path: "{{ trading_lab_app_src_dir }}/.git"
+  register: trading_lab_app_git_stat
+
+- name: Remove legacy non-Git Trading Lab staging directory before cloning repository
+  ansible.builtin.file:
+    path: "{{ trading_lab_app_src_dir }}"
+    state: absent
+  when:
+    - trading_lab_app_src_stat.stat.exists
+    - not trading_lab_app_git_stat.stat.exists
+
+- name: Clone or update Trading Lab application repository on NVMe storage
+  ansible.builtin.git:
+    repo: "{{ trading_lab_repo_url }}"
+    dest: "{{ trading_lab_app_src_dir }}"
+    version: "{{ trading_lab_repo_version }}"
+    force: true
   register: trading_lab_source_sync
-  when: not ansible_check_mode or trading_lab_app_src_stat.stat.exists
+  when: not ansible_check_mode or trading_lab_app_git_stat.stat.exists
 
 - name: Template Trading Lab Docker Compose stack file
   ansible.builtin.template:

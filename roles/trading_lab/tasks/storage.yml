@@ -18,14 +18,6 @@
     - "{{ trading_lab_compose_dir }}"
     - "{{ trading_lab_root_dir }}"
 
-- name: Ensure Trading Lab application source staging directory exists
-  ansible.builtin.file:
-    path: "{{ trading_lab_app_src_dir }}"
-    state: directory
-    owner: "{{ admin_user }}"
-    group: "{{ admin_user }}"
-    mode: "0755"
-
 - name: Check whether Trading Lab TimescaleDB data directory exists
   ansible.builtin.stat:
     path: "{{ trading_lab_db_dir }}"
